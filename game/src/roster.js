@@ -2,6 +2,7 @@
 // 原则（docs/META.md）：不做数值膨胀，只做「换人、换装备、承担后果」。
 
 import { CASES } from './cases.js';
+import { L } from './text.js';
 
 export const POSTS = ['veteran', 'rookie', 'lamp'];
 
@@ -43,6 +44,8 @@ export function createRoster() {
       member('rookie', 1, 'quick'),
       member('lamp', 2, 'deaf'),
     ],
+    // 谁值这一班：三个岗位各一个 id。空着的岗位由临时工顶。
+    active: {},
     candidates: [],
     hired: 0,
     ledger: [],
@@ -55,15 +58,24 @@ export function living(roster) {
   return roster.members.filter((m) => !m.dead);
 }
 
-// 三个岗位各出一个：先挑不重复的岗位，再补人。
+// 三个岗位各出一个：先看值班表，没有就抓这个岗位里第一个活人。
 export function squadOf(roster) {
   const list = living(roster);
   const out = [];
   for (const post of POSTS) {
-    const m = list.find((x) => x.post === post && !out.includes(x));
+    const chosen = list.find((x) => x.id === roster.active[post] && x.post === post);
+    const m = chosen || list.find((x) => x.post === post);
     out.push(m || null);
   }
   return out;
+}
+
+// 换班：把同岗位的人顶上去。已经在班上的人换下来。
+export function setDuty(roster, id) {
+  const m = roster.members.find((x) => x.id === id && !x.dead);
+  if (!m) return false;
+  roster.active[m.post] = m.id;
+  return true;
 }
 
 // 上岗：没有人的岗位就是一张空椅子，值班室随便抓一个临时工顶上（没有特质）。
@@ -89,8 +101,9 @@ function payLine(roster, text, amount) {
   if (roster.ledger.length > 6) roster.ledger.pop();
 }
 
-function nameOf(m) {
-  return m.nameIdx < 0 ? 'substitute' : `#${m.nameIdx + 1}`;
+function displayName(m) {
+  if (!m || m.nameIdx < 0) return L.roster.substitute;
+  return L.names[m.nameIdx % L.names.length];
 }
 
 // 结案：报酬、医药费、抚恤，然后刷新候选人。一局只调用一次。
@@ -101,8 +114,8 @@ export function settle(roster, game) {
   let pay = 0;
   if (game.won) pay = Math.round(fee * (broke ? 0.5 : 1));
   roster.cash += pay;
-  if (pay) payLine(roster, `case ${meta.no} · fee`, pay);
-  if (broke && game.won) payLine(roster, 'budget cut · half fee', 0);
+  if (pay) payLine(roster, L.ledger.fee(meta.no), pay);
+  if (broke && game.won) payLine(roster, L.ledger.half, 0);
 
   let dead = 0;
   let hurt = 0;
@@ -117,14 +130,14 @@ export function settle(roster, game) {
         own.dead = true;
         roster.memorial.push({ nameIdx: own.nameIdx, post: own.post, cases: own.cases, at: meta.no });
       }
-      payLine(roster, `pension · ${nameOf(m)}`, -PENSION);
+      payLine(roster, L.ledger.pension(displayName(m)), -PENSION);
       return;
     }
     if (!a.extracted) {
       hurt += 1;
       roster.cash -= MEDICAL;
       if (own) own.wounds += 1;
-      payLine(roster, `dressing · ${nameOf(m)}`, -MEDICAL);
+      payLine(roster, L.ledger.dressing(displayName(m)), -MEDICAL);
       return;
     }
     if (own) own.cases += 1;
@@ -171,7 +184,7 @@ export function hire(roster, candidateId) {
   const m = member(c.post, c.nameIdx, c.trait);
   roster.members.push(m);
   roster.hired += 1;
-  payLine(roster, `hired · ${c.trait}`, -c.price);
+  payLine(roster, L.ledger.hired(L.trait[c.trait] || c.trait), -c.price);
   roster.candidates = [];
   return true;
 }

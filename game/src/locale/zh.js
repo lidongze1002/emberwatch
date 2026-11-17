@@ -111,7 +111,8 @@ export const zh = {
     empty: '空位',
     hire: '招聘',
     cases: '选案',
-    hint: '点「招聘」看这一批 · 点「选案」签字 · 空位由临时工顶',
+    hint: '点「招聘」看这一批 · 点「选案」签字 · 点一个人换班 · 空位由临时工顶',
+    onDutyNow: '换班了',
     broke: '现金为负：不解雇，下一案只报半价',
     none: '没有候选人。结一案再来。',
     noPhoto: '无照片',
@@ -146,6 +147,13 @@ export const zh = {
     },
   },
   post: { veteran: '老兵', rookie: '新兵', lamp: '提灯人' },
+  ledger: {
+    fee: (n) => `第 ${n} 案 · 报酬`,
+    half: '预算削减 · 半薪',
+    pension: (name) => `抚恤 · ${name}`,
+    dressing: (name) => `医药 · ${name}`,
+    hired: (trait) => `录用 · ${trait}`,
+  },
   names: ['周德海', '陆小满', '何秀莲', '冯启', '陈九', '林阿棠', '赵守义', '吴桐', '郑万山', '孙月', '许砚', '马长庚'],
   agent: {
     veteran: { name: '老兵', line: '先上，最后退' },

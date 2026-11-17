@@ -7,9 +7,9 @@ import { buildLevel, setWorld, solid } from './level.js';
 import { createAgents, createThralls, updateUnits } from './units.js';
 import { drawFrame, drawBars, screenToWorld } from './render.js';
 import { drawHud } from './hud.js';
-import { drawBrief, drawHire, drawResult, drawRoster, drawSelect, drawTitle, tCaseAt, tHireAt, tHireNoneAt, tRosterCasesAt, tRosterHireAt, tSelectRosterAt, tTitleLinkAt } from './overlays.js';
+import { drawBrief, drawHire, drawResult, drawRoster, drawSelect, drawTitle, tCaseAt, tHireAt, tHireNoneAt, tRosterCardAt, tRosterCasesAt, tRosterHireAt, tSelectRosterAt, tTitleLinkAt } from './overlays.js';
 import { actionA, afterRules, directRules, initRules, updateRules, verdict } from './rules.js';
-import { createRoster, dismissCandidates, hire, squadForRun, settle } from './roster.js';
+import { createRoster, dismissCandidates, hire, setDuty, squadForRun, settle } from './roster.js';
 import { L } from './text.js';
 
 export class Game {
@@ -404,6 +404,11 @@ export class Game {
         if (tRosterCasesAt(click.x, click.y)) {
           this.state = 'select';
           continue;
+        }
+        const card = tRosterCardAt(click.x, click.y, this.roster.members.length);
+        if (card >= 0) {
+          const m = this.roster.members[card];
+          if (m && setDuty(this.roster, m.id)) this.say(L.roster.onDutyNow);
         }
         continue;
       }

@@ -13,6 +13,17 @@ export const SELECT_ROSTER_BTN = { x: 1006, y: 690, w: 140, h: 34 };
 export const HIRE_CARD = { x: 184, w: 288, gap: 24, top: 216, h: 372 };
 export const HIRE_NONE = { x: VIEW.width / 2 - 70, y: 640, w: 140, h: 36 };
 
+export const ROSTER_CARD = { x: 148, y: 202, w: 318, h: 168, gapX: 26, gapY: 18, cols: 3 };
+
+export function tRosterCardAt(x, y, count) {
+  for (let i = 0; i < count; i += 1) {
+    const cx = ROSTER_CARD.x + (i % ROSTER_CARD.cols) * (ROSTER_CARD.w + ROSTER_CARD.gapX);
+    const cy = ROSTER_CARD.y + Math.floor(i / ROSTER_CARD.cols) * (ROSTER_CARD.h + ROSTER_CARD.gapY);
+    if (x >= cx && x <= cx + ROSTER_CARD.w && y >= cy && y <= cy + ROSTER_CARD.h) return i;
+  }
+  return -1;
+}
+
 const inRect = (r, x, y) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
 
 export function tSelectRosterAt(x, y) {
@@ -381,13 +392,15 @@ export function drawRoster(ctx, game, time) {
   const cw = 318;
   const ch = 168;
   const squad = squadOf(r);
+  const hoverCard = game.input && game.input.inside ? game.input : { x: -1, y: -1 };
   for (let i = 0; i < 6; i += 1) {
     const m = r.members[i];
     const x = 148 + (i % cols) * (cw + 26);
     const y = 202 + Math.floor(i / cols) * (ch + 18);
-    ctx.fillStyle = 'rgba(9, 11, 15, 0.5)';
+    const hot = m && inRect({ x, y, w: cw, h: ch }, hoverCard.x, hoverCard.y);
+    ctx.fillStyle = hot ? 'rgba(201, 162, 90, 0.05)' : 'rgba(9, 11, 15, 0.5)';
     ctx.fillRect(x, y, cw, ch);
-    ctx.strokeStyle = 'rgba(206, 200, 186, 0.12)';
+    ctx.strokeStyle = hot ? 'rgba(201, 162, 90, 0.34)' : 'rgba(206, 200, 186, 0.12)';
     ctx.lineWidth = 1;
     ctx.strokeRect(x + 0.5, y + 0.5, cw - 1, ch - 1);
     if (!m) {
@@ -411,7 +424,7 @@ export function drawRoster(ctx, game, time) {
       ctx.stroke();
     }
     label(ctx, personName(m), x + 106, y + 38, 17, m.dead ? INK_FAINT : INK, L.cjk ? 1.4 : 1.1, 'left', fonts.display);
-    label(ctx, `${postName(m.post)} · ${m.trait === 'green' ? L.roster.substitute : traitName(m.trait)}`, x + 106, y + 56, 7.4, AMBER, 1.4);
+    label(ctx, `${postName(m.post)} · ${m.nameIdx < 0 ? L.roster.substitute : traitName(m.trait)}`, x + 106, y + 56, 7.4, AMBER, 1.4);
     label(ctx, traitLine(m.trait), x + 106, y + 72, 8, INK_SOFT, 0.6);
     label(ctx, `${L.roster.wounds} ${m.wounds} · ${L.roster.casesDone} ${m.cases}`, x + 106, y + 92, 7.5, INK_FAINT, 1.4);
     // service ticks: one mark per closed case, cuts for every time they were carried out
@@ -433,7 +446,7 @@ export function drawRoster(ctx, game, time) {
     const onDuty = squad.includes(m);
     label(ctx, m.dead ? L.roster.dead : onDuty ? L.roster.onDuty : L.roster.bench, x + cw - 16, y + 30, 7, m.dead ? RED : onDuty ? AMBER : INK_FAINT, 2.6, 'right');
     rule(ctx, x + 18, x + cw - 18, y + 128, 'rgba(186, 180, 168, 0.08)');
-    if (i < 3 && onDuty) {
+    if (onDuty) {
       ctx.fillStyle = AMBER;
       ctx.fillRect(x, y, 2, ch);
     }

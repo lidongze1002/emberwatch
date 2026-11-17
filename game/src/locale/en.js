@@ -112,7 +112,8 @@ export const en = {
     empty: 'VACANT',
     hire: 'RECRUIT',
     cases: 'CASE FILES',
-    hint: 'RECRUIT opens this batch · CASE FILES to sign · a vacant post is filled by a temp',
+    hint: 'RECRUIT opens this batch · CASE FILES to sign · click a person to put them on duty',
+    onDutyNow: 'on duty',
     broke: 'cash is negative: nobody is fired, the next fee is halved',
     none: 'No candidates. Close a case first.',
     noPhoto: 'NO PHOTO ON FILE',
@@ -147,6 +148,13 @@ export const en = {
     },
   },
   post: { veteran: 'VETERAN', rookie: 'ROOKIE', lamp: 'LAMP' },
+  ledger: {
+    fee: (n) => `case ${n} · fee`,
+    half: 'budget cut · half fee',
+    pension: (name) => `pension · ${name}`,
+    dressing: (name) => `dressing · ${name}`,
+    hired: (trait) => `hired · ${trait}`,
+  },
   names: ['ZHOU DEHAI', 'LU XIAOMAN', 'HE XIULIAN', 'FENG QI', 'CHEN JIU', 'LIN ATANG', 'ZHAO SHOUYI', 'WU TONG', 'ZHENG WANSHAN', 'SUN YUE', 'XU YAN', 'MA CHANGGENG'],
   agent: {
     veteran: { name: 'VETERAN', line: 'engages first, retreats last' },
