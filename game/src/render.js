@@ -778,6 +778,24 @@ function drawSpider(ctx, t, time) {
   ctx.fill();
   ctx.fillStyle = 'rgba(120, 30, 36, 0.9)';
   ctx.fillRect(-17, -4, 34, 6);
+  // the obi knot, and the folds of the skirt falling from it
+  ctx.fillStyle = 'rgba(132, 34, 40, 1)';
+  ctx.beginPath();
+  ctx.ellipse(0, 8, 5.5, 4.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(96, 90, 82, 0.55)';
+  ctx.lineWidth = 1;
+  for (let i = -2; i <= 2; i += 1) {
+    ctx.beginPath();
+    ctx.moveTo(i * 7, -18);
+    ctx.quadraticCurveTo(i * 9, 4, i * 6, 24);
+    ctx.stroke();
+  }
+  // long black hair down the back of the dress
+  ctx.fillStyle = 'rgba(22, 17, 20, 0.92)';
+  ctx.beginPath();
+  ctx.ellipse(0, 16, 8, 17, 0, 0, Math.PI * 2);
+  ctx.fill();
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
   ctx.lineWidth = 1;
   ctx.beginPath();
