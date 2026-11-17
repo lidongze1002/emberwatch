@@ -77,8 +77,27 @@ export function spawnBoss(game) {
   return null;
 }
 
-function kune(x, y, size, id) {
-  return baseBody(x, y, {
+// 她死的时候从裙下散出三只蜘蛛子：不清理干净就不算清场
+function spawnSpiderlings(game, x, y) {
+  for (let i = 0; i < 3; i += 1) {
+    const a = (i / 3) * Math.PI * 2 + 0.4;
+    game.thralls.push(baseBody(x + Math.cos(a) * 26, y + Math.sin(a) * 26, {
+      id: `sp${game.thralls.length}`,
+      kind: 'spiderling',
+      hp: SPIDERLING.hp,
+      maxHp: SPIDERLING.hp,
+      speed: SPIDERLING.speed,
+      reach: SPIDERLING.reach,
+      damage: SPIDERLING.damage,
+      cooldownMax: SPIDERLING.cooldown,
+      radius: SPIDERLING.radius,
+      aim: a,
+      wander: a,
+    }));
+  }
+}
+
+function kune(x, y, size, id) {  return baseBody(x, y, {
     id: `kune-${id}`,
     kind: 'kune',
     hp: 1,
@@ -552,6 +571,7 @@ function hurtAgent(game, target, damage, t) {
 }
 
 function updateHachi(game, t, dt) {
+  if (t.dormant) return;
   if (t.stun > 0) {
     t.stun = Math.max(0, t.stun - dt);
     return;
@@ -780,7 +800,7 @@ export function updateBullets(game, dt) {
             game.kills += 1;
             game.shake = Math.max(game.shake, t.kind === 'spider' ? 10 : 3);
             game.sound.kill();
-            if (t.kind === 'spider') game.onSpiderDeath?.(t);
+            if (t.kind === 'spider') spawnSpiderlings(game, t.x, t.y);
             if (t.kind === 'thrall') game.debris.push({ x: t.x, y: t.y, rot: Math.random() * 6.28 });
             for (let k = 0; k < 10; k += 1) {
               game.spatter.push({

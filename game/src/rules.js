@@ -1,13 +1,12 @@
 // 规则：每一案只有一条，但必须是机制。这里同时放三样东西——规则怎么跑、目标怎么读、
 // 队长（game.direct）怎么把这一案自动打完。渲染不认识这里，只读 game.rule 的状态。
 
-import { POSSESS_SECONDS, HACHI } from './config.js';
+import { HACHI } from './config.js';
 import { L } from './text.js';
 import { spawnBoss, spawnGazers, spawnMirrors } from './units.js';
 import { lineClear, setExtras, solid } from './level.js';
 
 const inZone = (zone, x, y) => !!zone && x > zone.x && x < zone.x + zone.w && y > zone.y && y < zone.y + zone.h;
-const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
 function doorStand(d) {
   if (d.face === 'n') return { x: d.x, y: d.y + 30 };
@@ -822,9 +821,3 @@ export function actionA(game) {
   if (game.rule.kind === 'gaze') return avert(game);
   return false;
 }
-
-export function actionLabel() {
-  return null;
-}
-
-export const POSSESS = POSSESS_SECONDS;
