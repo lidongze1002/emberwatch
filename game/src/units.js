@@ -103,7 +103,7 @@ export function spawnMirrors(game) {
   const boss = game.case.boss;
   if (!boss || boss.kind !== 'mirror') return;
   const spots = [
-    { x: 400, y: 660 }, { x: 320, y: 420 }, { x: 240, y: 220 },
+    { x: 420, y: 660 }, { x: 244, y: 430 }, { x: 1040, y: 300 },
   ];
   const roles = ['veteran', 'rookie', 'lamp'];
   for (let i = 0; i < (boss.count || 3); i += 1) {

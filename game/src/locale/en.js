@@ -32,6 +32,7 @@ export const en = {
   },
   cases: {
     opera: {
+      blurb: "The house sings while the power is on. Three seconds inside and they walk to the stage on their own.",
       no: 'CASE 01',
       name: 'THE OPERA HOUSE',
       place: 'THE OPERA HOUSE · 02:10',
@@ -43,6 +44,7 @@ export const en = {
       loseSub: 'The aria is still running.',
     },
     apartment: {
+      blurb: "Do not answer the door. A knock pulls the nearest of them toward it, and whoever answers is taken.",
       no: 'CASE 02',
       name: 'THE APARTMENT',
       place: 'BLOCK 4 · CORRIDOR 8 · 03:20',
@@ -54,6 +56,7 @@ export const en = {
       loseSub: 'Someone answered.',
     },
     station: {
+      blurb: "One gate is live every sixteen seconds, and only one of you gets through before it shuts.",
       no: 'CASE 03',
       name: 'THE STATION',
       place: 'KISARAGI · PLATFORM 0 · 02:44',
@@ -65,6 +68,7 @@ export const en = {
       loseSub: 'The last train left without them.',
     },
     ricefield: {
+      blurb: "Rest your muzzle on the thing in the water too long and you walk in after it.",
       no: 'CASE 04',
       name: 'THE PADDY',
       place: 'NORTH FIELDS · DIKE 2 · 01:55',
@@ -76,6 +80,7 @@ export const en = {
       loseSub: 'The lamp kept looking.',
     },
     backrooms: {
+      blurb: "Thirteen doors, renumbered every floor. The wrong one puts the whole squad back at the start.",
       no: 'CASE 05',
       name: 'THE THIRTEENTH FLOOR',
       place: 'LEVEL 13 · NO WINDOWS · ——:——',

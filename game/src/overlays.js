@@ -152,15 +152,25 @@ export function drawSelect(ctx, game, time) {
     ctx.fillRect(SELECT_ROW.x, top, 2, SELECT_ROW.h);
 
     label(ctx, row.no, SELECT_ROW.x + 22, top + 26, 8, AMBER, 3);
-    label(ctx, row.name, SELECT_ROW.x + 126, top + 34, 22, isHover ? '#f4e8cf' : INK, 2.4, 'left', fonts.display);
+    ctx.save();
+    let nameSize = L.cjk ? 24 : 21;
+    ctx.font = `${nameSize}px ${fonts.display}`;
+    const nameW = ctx.measureText(row.name).width;
+    if (nameW > 296) nameSize = Math.max(15, Math.floor(nameSize * (296 / nameW)));
+    ctx.font = `${nameSize}px ${fonts.display}`;
+    ctx.fillStyle = isHover ? '#f4e8cf' : INK;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(row.name, SELECT_ROW.x + 120, top + 36);
+    ctx.restore();
     label(ctx, row.place, SELECT_ROW.x + 22, top + 50, 8, INK_FAINT, 1.6);
     label(ctx, row.legend, SELECT_ROW.x + 22, top + 68, 7.5, INK_SOFT, 2.4);
 
-    ctx.font = `9.5px ${fonts.ui}`;
+    ctx.font = `10px ${fonts.ui}`;
     ctx.fillStyle = 'rgba(216, 212, 200, 0.6)';
-    const lines = wrap(ctx, row.rule, 560);
-    lines.slice(0, 3).forEach((line, k) => ctx.fillText(line, SELECT_ROW.x + 320, top + 27 + k * 15));
-    label(ctx, L.select.rules, SELECT_ROW.x + 320, top + 14, 6.5, AMBER, 3);
+    const lines = wrap(ctx, row.blurb || row.rule, SELECT_ROW.w - 486);
+    lines.slice(0, 3).forEach((line, k) => ctx.fillText(line, SELECT_ROW.x + 440, top + 27 + k * 16));
+    label(ctx, L.select.rules, SELECT_ROW.x + 440, top + 14, 6.5, AMBER, 3);
   }
 
   label(ctx, L.select.hint, cx, VIEW.height - 96, 9, INK_FAINT, 2.4, 'center');

@@ -443,6 +443,28 @@ function drawApartment(ctx, game, time) {
       ctx.fill();
     }
   }
+  // 中间那条横穿的近路：水磨石，和走廊的红毯分开
+  ctx.fillStyle = 'rgba(52, 48, 42, 0.5)';
+  ctx.fillRect(344, 366, 592, 68);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+  ctx.fillRect(344, 366, 592, 2);
+  ctx.fillRect(344, 432, 592, 2);
+  for (let x = 352; x < 936; x += 34) {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
+    ctx.fillRect(x, 368, 1, 64);
+  }
+  // 每扇门旁边一盏小壁灯，门口才是暖的
+  for (const d of c.doors) {
+    const g = ctx.createRadialGradient(d.x, d.y, 2, d.x, d.y, 62);
+    g.addColorStop(0, `rgba(255, 198, 132, ${0.1 + Math.sin(time * 2 + d.x) * 0.012})`);
+    g.addColorStop(1, 'rgba(255, 180, 110, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, 62, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255, 226, 180, 0.55)';
+    ctx.fillRect(d.x - 1.5, d.y - 1.5, 3, 3);
+  }
   // 楼梯间：一扇门，门后是唯一不在这栋楼里的地方
   const zone = c.zones.stair;
   const lit = game.clock >= game.rule.dawn;
@@ -689,6 +711,11 @@ function drawDoors(ctx, game, time) {
       ctx.setLineDash([4, 8]);
       ctx.strokeRect(zone.x + 6.5, zone.y + 6.5, zone.w - 13, zone.h - 13);
       ctx.setLineDash([]);
+      // 地上的门名：只有一个字，亮的那一个是活的
+      ctx.fillStyle = 'rgba(255, 236, 200, 0.12)';
+      ctx.font = `54px ${L.fonts.display}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(L.hud.gates[name], cx, cy + 18);
     }
     for (const [name, rect] of Object.entries(c.rule.shutters)) {
       const [x, y, w, h] = rect;
@@ -729,25 +756,30 @@ function drawDoors(ctx, game, time) {
   }
 
   if (c.decor === 'backrooms') {
-    // 门牌要走近才看得清：远看只是一块灰
-    let near = Infinity;
-    for (const a of game.agents) {
-      if (a.extracted || a.taken) continue;
-      near = Math.min(near, 1e9);
-    }
+    // 十三扇门：一块深色的门板，门口一块搪瓷门牌。远处看不清，走近才读得出。
     for (let i = 0; i < c.doors.length; i += 1) {
       const d = c.doors[i];
       const depth = 26;
       const w = d.nx === 0 ? 58 : depth;
       const h = d.nx === 0 ? depth : 58;
-      const x = d.nx === 0 ? d.x - 29 : d.nx > 0 ? d.x : d.x - depth;
-      const y = d.ny === 0 ? d.y - 29 : d.ny > 0 ? d.y : d.y - depth;
-      ctx.fillStyle = 'rgba(6, 6, 4, 0.92)';
+      const x = d.nx === 0 ? d.x - 29 : d.nx > 0 ? d.x - 22 : d.x + 22 - depth;
+      const y = d.ny === 0 ? d.y - 29 : d.ny > 0 ? d.y - 22 : d.y + 22 - depth;
+      ctx.fillStyle = 'rgba(7, 7, 5, 0.94)';
       ctx.fillRect(x, y, w, h);
-      ctx.strokeStyle = 'rgba(240, 226, 160, 0.18)';
+      ctx.strokeStyle = 'rgba(240, 226, 160, 0.22)';
       ctx.lineWidth = 1;
       ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-      // 只有有人走到近处，牌才读得出来
+      // 门把手
+      ctx.fillStyle = 'rgba(190, 176, 120, 0.4)';
+      const hx = d.nx === 0 ? d.x + 22 : d.x;
+      const hy = d.ny === 0 ? d.y : d.y + 22;
+      ctx.beginPath();
+      ctx.arc(hx, hy, 1.7, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 门牌：在走廊一侧，不在门里
+      const px = d.x + d.nx * 24;
+      const py = d.y + d.ny * 24;
       let read = false;
       for (const a of game.agents) {
         if (a.extracted || a.taken) continue;
@@ -757,13 +789,20 @@ function drawDoors(ctx, game, time) {
         }
       }
       const plate = c.rule.plates && c.rule.plates[i];
-      ctx.fillStyle = read ? 'rgba(238, 224, 164, 0.92)' : 'rgba(150, 140, 100, 0.2)';
-      ctx.fillRect(d.x - 9, d.y - 5, 18, 10);
+      ctx.fillStyle = read ? 'rgba(236, 226, 186, 0.95)' : 'rgba(120, 112, 82, 0.3)';
+      ctx.fillRect(px - 11, py - 7, 22, 14);
+      ctx.strokeStyle = read ? 'rgba(40, 36, 20, 0.7)' : 'rgba(60, 56, 36, 0.4)';
+      ctx.strokeRect(px - 10.5, py - 6.5, 21, 13);
       if (read) {
-        ctx.fillStyle = 'rgba(24, 22, 12, 0.95)';
-        ctx.font = `8px ${L.fonts.mono}`;
+        ctx.fillStyle = 'rgba(22, 20, 12, 0.95)';
+        ctx.font = `9px ${L.fonts.mono}`;
         ctx.textAlign = 'center';
-        ctx.fillText(`${plate}`, d.x, d.y + 3);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${plate}`, px, py + 0.5);
+        ctx.textBaseline = 'alphabetic';
+      } else {
+        ctx.fillStyle = 'rgba(30, 28, 18, 0.4)';
+        ctx.fillRect(px - 5, py - 2, 10, 3);
       }
     }
   }
@@ -815,6 +854,18 @@ function drawWorldMarks(ctx, game, time) {
   }
   if (r.kind === 'knock' && r.knock) {
     const d = game.case.doors[r.knock.door];
+    // 被门吸走的人：一条虚线，从人身上牵到门
+    for (const a of game.agents) {
+      if (a.answered !== r.knock.door || a.down || a.taken) continue;
+      ctx.strokeStyle = 'rgba(206, 96, 86, 0.4)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 6]);
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(d.x, d.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
     if (r.knock.warn > 0) {
       // 提示期：地上一条红线，指向那扇门
       const pulse = 0.4 + Math.sin(time * 12) * 0.25;

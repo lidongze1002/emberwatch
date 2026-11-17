@@ -31,6 +31,7 @@ export const zh = {
   },
   cases: {
     opera: {
+      blurb: "电闸没拉，礼堂就在唱。在里面待满三秒，队员自己走上台。",
       no: '第一案',
       name: '歌剧院',
       place: '歌剧院 · 02:10',
@@ -42,6 +43,7 @@ export const zh = {
       loseSub: '咏叹调还在唱。',
     },
     apartment: {
+      blurb: "别应门。敲门声会把最近的人牵过去，应门的人会被门后的人按倒。",
       no: '第二案',
       name: '公寓走廊',
       place: '四号楼 · 八号走廊 · 03:20',
@@ -53,6 +55,7 @@ export const zh = {
       loseSub: '有人应了门。',
     },
     station: {
+      blurb: "每十六秒换一扇活门，一班只放一个人过去。",
       no: '第三案',
       name: '不存在的车站',
       place: 'きさらぎ · 零号站台 · 02:44',
@@ -64,6 +67,7 @@ export const zh = {
       loseSub: '末班车没等他们。',
     },
     ricefield: {
+      blurb: "枪口在田里那个东西上停久了，人就自己走进水里。",
       no: '第四案',
       name: '稻田',
       place: '北田 · 二号田埂 · 01:55',
@@ -75,6 +79,7 @@ export const zh = {
       loseSub: '灯一直看着那边。',
     },
     backrooms: {
+      blurb: "十三扇门，门牌每层重排。走错一步，整队回到起点。",
       no: '第五案',
       name: '十三楼',
       place: '十三层 · 没有窗 · ——:——',
