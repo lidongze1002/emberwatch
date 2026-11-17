@@ -640,18 +640,24 @@ function drawAgents(ctx, game, time) {
     ctx.restore();
 
     // from above the legs are mostly under the coat: what you see is a boot, forward or back
-    ctx.fillStyle = '#0f1319';
-    ctx.beginPath();
-    ctx.ellipse(-6, -19 + swing * 1.1, 3.8, 5.2, 0.08, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(6, -19 - swing * 1.1, 3.8, 5.2, -0.08, 0, Math.PI * 2);
-    ctx.fill();
+    if (Math.hypot(a.vx, a.vy) > 10) {
+      ctx.fillStyle = '#0f1319';
+      ctx.beginPath();
+      ctx.ellipse(-6, -19 + swing * 1.1, 3.8, 5.2, 0.08, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(6, -19 - swing * 1.1, 3.8, 5.2, -0.08, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     // coat: shoulders, a collar, a warm rim from the stage side
     ctx.fillStyle = coat;
     ctx.beginPath();
-    ctx.ellipse(0, -2, 16, 18, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, -2, 19, 15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // the coat narrows to the waist under the shoulders
+    ctx.beginPath();
+    ctx.ellipse(0, 8, 13, 10, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = coatLight;
     ctx.beginPath();
@@ -695,21 +701,21 @@ function drawAgents(ctx, game, time) {
       ctx.translate(0, a.recoil * 3);
     }
     ctx.strokeStyle = coatLight;
-    ctx.lineWidth = 5.5;
+    ctx.lineWidth = 6.5;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(-10, -7);
-    ctx.lineTo(-3.5, -21);
+    ctx.moveTo(-12, -7);
+    ctx.lineTo(-4.5, -21);
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(10, -7);
-    ctx.lineTo(3.5, -21);
+    ctx.moveTo(12, -7);
+    ctx.lineTo(4.5, -21);
     ctx.stroke();
     // hands
     ctx.fillStyle = '#b98f74';
     ctx.beginPath();
-    ctx.arc(-3.5, -22, 2.4, 0, Math.PI * 2);
-    ctx.arc(3.5, -22, 2.4, 0, Math.PI * 2);
+    ctx.arc(-4.5, -22, 2.6, 0, Math.PI * 2);
+    ctx.arc(4.5, -22, 2.6, 0, Math.PI * 2);
     ctx.fill();
 
     // the rifle: stock, receiver, magazine, optic, barrel, and the glint along the top face
@@ -740,25 +746,25 @@ function drawAgents(ctx, game, time) {
     // head: the crown of the head, hair over it, a sliver of forehead at the front
     ctx.fillStyle = '#c69a7d';
     ctx.beginPath();
-    ctx.arc(0, -4, 8, 0, Math.PI * 2);
+    ctx.arc(0, -4, 6.2, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = a.role === 'lamp' ? '#191d24' : a.role === 'rookie' ? '#221b18' : '#33363a';
     ctx.beginPath();
-    ctx.arc(0, -4, 8, 0, Math.PI * 2);
+    ctx.arc(0, -4, 6.2, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = '#b98f74';
     ctx.beginPath();
-    ctx.ellipse(0, -11, 4.2, 2.4, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, -8.6, 3.2, 1.7, 0, 0, Math.PI * 2);
     ctx.fill();
     // the veteran wears a cap: a dark disc with a brim toward the light
     if (a.role === 'veteran') {
       ctx.fillStyle = '#12161c';
       ctx.beginPath();
-      ctx.arc(0, -4, 8.4, 0, Math.PI * 2);
+      ctx.arc(0, -4, 6.5, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = '#1b2028';
       ctx.beginPath();
-      ctx.roundRect(-6, -14, 12, 3.6, 1.6);
+      ctx.roundRect(-5, -11.5, 10, 3, 1.4);
       ctx.fill();
     }
     // a few strands, so the crown is not a flat disc

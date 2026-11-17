@@ -1,4 +1,5 @@
-// 值班界面：三个人的状态卡、目标、当前怪谈，以及「礼堂在唱」这件事本身。
+// 值班界面：一份摊在桌上的现场卷宗，不是发光面板。白/琥珀的细线、打字机字、红色分类章、
+// 每名队员一张证件照位置。只放能用的信息，不放装饰。
 
 import { PALETTE, VIEW } from './config.js';
 import { L, fonts } from './text.js';
@@ -14,162 +15,104 @@ export function label(ctx, text, x, y, size, colour, spacing = 0, align = 'left'
   ctx.restore();
 }
 
-function agentCard(ctx, agent, x, y, w, h) {
-  const meta = L.agent[agent.role];
-  const down = agent.down || agent.taken;
-  ctx.save();
-  // a dossier strip, not a card: a rank tab, a rule, a readout
-  ctx.fillStyle = 'rgba(6, 9, 14, 0.62)';
-  ctx.fillRect(x, y, w, h);
-  ctx.fillStyle = down ? 'rgba(120, 60, 60, 0.8)' : agent.colour;
-  ctx.fillRect(x, y, 3, h);
-  ctx.strokeStyle = 'rgba(180, 196, 216, 0.14)';
+function rule(ctx, x1, y1, x2, y2, colour) {
+  ctx.strokeStyle = colour;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(x + 8, y);
-  ctx.lineTo(x + w, y);
-  ctx.moveTo(x, y + h - 0.5);
-  ctx.lineTo(x + w, y + h - 0.5);
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
   ctx.stroke();
+}
 
-  label(ctx, meta.name, x + 14, y + 17, 11, down ? 'rgba(160, 140, 140, 0.7)' : PALETTE.pale, 3);
-  label(ctx, meta.line, x + 14, y + 33, 9, 'rgba(140, 156, 176, 0.7)', 0.2);
+// a portrait plate: a dark frame, a silhouette, and the unit number in the corner
+function portrait(ctx, agent, x, y, w, h) {
+  ctx.fillStyle = 'rgba(12, 15, 20, 0.85)';
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = 'rgba(200, 206, 216, 0.22)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  // head and shoulders, in the flat grey of a bad ID photo
+  const cx = x + w / 2;
+  ctx.fillStyle = 'rgba(120, 128, 140, 0.5)';
+  ctx.beginPath();
+  ctx.arc(cx, y + h * 0.42, w * 0.18, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(cx, y + h * 1.02, w * 0.42, h * 0.5, 0, Math.PI, Math.PI * 2);
+  ctx.fill();
+  // a faint scan of the print
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+  for (let i = 3; i < h; i += 4) ctx.fillRect(x + 2, y + i, w - 4, 1);
+  label(ctx, agent.id.replace('a', 'A-0'), x + 4, y + h - 4, 7, 'rgba(220, 224, 232, 0.5)', 0, 'left', fonts.mono);
+}
 
-  // hit points as ten ticks, the way an instrument reports them
-  const ticks = 10;
-  const filled = Math.ceil((Math.max(0, agent.hp) / agent.maxHp) * ticks);
-  for (let i = 0; i < ticks; i += 1) {
-    ctx.fillStyle = i < filled
-      ? (filled > 6 ? 'rgba(180, 214, 186, 0.85)' : filled > 3 ? 'rgba(230, 196, 120, 0.85)' : 'rgba(214, 96, 88, 0.9)')
-      : 'rgba(120, 140, 165, 0.18)';
-    ctx.fillRect(x + w - 88 + i * 8, y + 12, 5, 3);
-  }
+function fileRow(ctx, agent, x, y, w) {
+  const meta = L.agent[agent.role];
+  const down = agent.down || agent.taken;
+  portrait(ctx, agent, x, y, 34, 42);
+  label(ctx, meta.name, x + 44, y + 13, 13, down ? 'rgba(150, 130, 130, 0.8)' : 'rgba(232, 236, 242, 0.95)', 2, 'left', fonts.display);
+  label(ctx, meta.line, x + 44, y + 28, 9, 'rgba(168, 178, 192, 0.7)', 0);
+  // condition: a hairline track with one red-orange segment
+  const trackW = 86;
+  const ratio = Math.max(0, agent.hp) / agent.maxHp;
+  ctx.fillStyle = 'rgba(160, 170, 186, 0.18)';
+  ctx.fillRect(x + 44, y + 35, trackW, 2);
+  ctx.fillStyle = down ? 'rgba(120, 60, 60, 0.8)' : ratio > 0.5 ? 'rgba(214, 208, 190, 0.9)' : 'rgba(206, 108, 96, 0.95)';
+  ctx.fillRect(x + 44, y + 35, trackW * ratio, 2);
+  label(ctx, `${Math.max(0, Math.ceil(agent.hp))}`, x + 44 + trackW + 6, y + 38, 8, 'rgba(168, 178, 192, 0.7)', 0, 'left', fonts.mono);
   const stateText = agent.taken ? L.state.charmed : down ? L.state.down : L.state[agent.state] || '';
-  label(ctx, stateText, x + w - 14, y + h - 9, 9, 'rgba(240, 201, 141, 0.75)', 2, 'right', fonts.mono);
-  ctx.restore();
+  label(ctx, stateText, x + w, y + 38, 9, 'rgba(226, 214, 196, 0.75)', 2, 'right', fonts.mono);
+  rule(ctx, x, y + 46, x + w, y + 46, 'rgba(200, 206, 216, 0.1)');
 }
 
 export function drawHud(ctx, game, time) {
-  // objective, three chips
-  const cx = VIEW.width / 2;
+  // ---- the file header -------------------------------------------------
+  const left = 34;
+  label(ctx, 'CASE 01', left, 80, 9, 'rgba(226, 214, 196, 0.75)', 4);
+  label(ctx, 'THE OPERA HOUSE  ·  02:10', left, 96, 10, 'rgba(200, 206, 216, 0.55)', 2, 'left', fonts.mono);
+  rule(ctx, left, 104, 466, 104, 'rgba(200, 206, 216, 0.22)');
+
+  // the objective, as three typed lines with square bullets
   const steps = [
-    { text: L.hud.power(game.power) + '', done: !game.power },
-    { text: `${game.kills} / ${game.thralls.length}`, done: game.kills >= game.thralls.length },
+    { text: L.hud.power(game.power), done: !game.power },
+    { text: `HOUSE ${game.kills} / ${game.thralls.length}`, done: game.kills >= game.thralls.length },
     { text: L.result.survivors(game.extracted, game.agents.length), done: game.won },
   ];
-  let x = cx - 230;
-  ctx.save();
-  // a hairline rail, not a card: two rules, end brackets, tick marks between the readouts
-  ctx.strokeStyle = 'rgba(201, 162, 90, 0.35)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(cx - 250, 54.5);
-  ctx.lineTo(cx + 250, 54.5);
-  ctx.moveTo(cx - 250, 92.5);
-  ctx.lineTo(cx + 250, 92.5);
-  ctx.stroke();
-  ctx.strokeStyle = 'rgba(201, 162, 90, 0.6)';
-  for (const bx of [cx - 250, cx + 250]) {
-    ctx.beginPath();
-    ctx.moveTo(bx, 54.5);
-    ctx.lineTo(bx, 62);
-    ctx.moveTo(bx, 92.5);
-    ctx.lineTo(bx, 85);
-    ctx.stroke();
-  }
-  const ticks = 40;
-  for (let i = 0; i <= ticks; i += 1) {
-    const tx = cx - 250 + (i / ticks) * 500;
-    ctx.fillStyle = i % 5 === 0 ? 'rgba(201, 162, 90, 0.28)' : 'rgba(201, 162, 90, 0.12)';
-    ctx.fillRect(tx, i % 5 === 0 ? 56 : 57, 1, i % 5 === 0 ? 3 : 2);
-  }
   steps.forEach((step, i) => {
-    label(ctx, step.text, x + 24, 80, 12, step.done ? 'rgba(168, 220, 182, 0.95)' : 'rgba(206, 216, 230, 0.82)', 2, 'left', fonts.mono);
-    if (i < steps.length - 1) {
-      ctx.strokeStyle = 'rgba(120, 140, 165, 0.3)';
-      ctx.beginPath();
-      ctx.moveTo(x + 142, 62);
-      ctx.lineTo(x + 142, 86);
-      ctx.stroke();
-    }
-    x += 166;
+    const y = 126 + i * 18;
+    ctx.fillStyle = step.done ? 'rgba(168, 214, 182, 0.9)' : 'rgba(206, 108, 96, 0.85)';
+    ctx.fillRect(left, y - 7, 4, 4);
+    label(ctx, step.text, left + 12, y, 9, step.done ? 'rgba(190, 210, 196, 0.8)' : 'rgba(206, 206, 210, 0.7)', 2, 'left', fonts.mono);
   });
-  ctx.restore();
 
-  // the legend, and whether the house is singing
-  const lx = VIEW.width - 44;
-  label(ctx, L.hud.legend, lx, 76, 14, 'rgba(220, 120, 120, 0.9)', 4, 'right');
-  const on = game.power;
-  label(ctx, on ? L.hud.music : L.hud.quiet, lx, 98, 10, on ? 'rgba(240, 190, 130, 0.85)' : 'rgba(150, 180, 170, 0.8)', 3, 'right');
+  // the stamp, and the legend line, on the right of the header
+  const stamp = game.power ? 'IN PROGRESS' : 'POWER CUT';
   ctx.save();
-  ctx.fillStyle = on ? 'rgba(220, 90, 80, 0.9)' : 'rgba(120, 200, 170, 0.8)';
-  ctx.beginPath();
-  ctx.arc(lx - 152, 92, 3, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.translate(VIEW.width - 240, 88);
+  ctx.rotate(-0.04);
+  ctx.strokeStyle = game.power ? 'rgba(178, 74, 66, 0.8)' : 'rgba(120, 160, 140, 0.7)';
+  ctx.lineWidth = 1.4;
+  ctx.strokeRect(0, 0, 138, 22);
+  label(ctx, stamp, 69, 15, 9, game.power ? 'rgba(190, 92, 82, 0.9)' : 'rgba(140, 180, 160, 0.85)', 3, 'center', fonts.mono);
   ctx.restore();
+  label(ctx, L.hud.legend, VIEW.width - left, 126, 9, 'rgba(200, 206, 216, 0.55)', 3, 'right', fonts.mono);
+  label(ctx, game.power ? L.hud.music : L.hud.quiet, VIEW.width - left, 140, 9, game.power ? 'rgba(226, 200, 170, 0.8)' : 'rgba(150, 180, 170, 0.75)', 2, 'right', fonts.mono);
 
-  // agent cards, bottom left
-  const cardW = 232;
-  const cardH = 54;
+  // ---- the unit file, bottom left -------------------------------------
+  const fileX = left;
+  const fileW = 250;
   game.agents.forEach((a, i) => {
-    const y = VIEW.height - 78 - (i + 1) * (cardH + 6);
-    agentCard(ctx, a, 30, y, cardW, cardH);
-    if (game.possessed === a) {
-      ctx.save();
-      ctx.strokeStyle = 'rgba(255, 226, 180, 0.9)';
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      ctx.roundRect(30, y, cardW, cardH, 5);
-      ctx.stroke();
-      ctx.restore();
-    }
-    label(ctx, `${i + 1}`, 30 + cardW - 8, y + 12, 9, 'rgba(160, 176, 196, 0.55)', 0, 'right', fonts.mono);
+    fileRow(ctx, a, fileX, VIEW.height - 196 + i * 52, fileW);
   });
 
-  // possession: who you have, and how long is left
-  if (game.possessed) {
-    const p = game.possessed;
-    const w = 300;
-    const x = cx - w / 2;
-    const y = 66;
-    ctx.save();
-    ctx.fillStyle = 'rgba(10, 13, 19, 0.85)';
-    ctx.beginPath();
-    ctx.roundRect(x, y, w, 40, 5);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 214, 160, 0.5)';
-    ctx.stroke();
-    label(ctx, L.hud.controlling(L.agent[p.role].name), x + 14, y + 18, 12, 'rgba(255, 226, 180, 0.95)', 2);
-    label(ctx, L.hud.possessHint, x + 14, y + 32, 9, 'rgba(160, 176, 196, 0.8)', 1);
-    const ratio = Math.max(0, game.possessTimer / 8);
-    ctx.fillStyle = 'rgba(255, 214, 160, 0.85)';
-    ctx.fillRect(x + w - 96, y + 28, 82 * ratio, 3);
-    ctx.restore();
-  }
-
-  // the case line and the hint
-  label(ctx, `${L.title.foot}`, 34, VIEW.height - 54, 10, 'rgba(120, 136, 156, 0.75)', 3);
-  label(ctx, L.hud.hint, VIEW.width / 2, VIEW.height - 54, 9, 'rgba(120, 136, 156, 0.7)', 2, 'center');
-  label(ctx, `${Math.floor(game.clock)}s`, VIEW.width - 34, VIEW.height - 54, 10, 'rgba(120, 136, 156, 0.7)', 1, 'right', fonts.mono);
-
-  // corner brackets: the frame of the print, not a box around the world
-  ctx.save();
-  ctx.strokeStyle = 'rgba(201, 162, 90, 0.3)';
-  ctx.lineWidth = 1;
-  const m = 22;
-  const len = 26;
-  for (const [px, py, dx, dy] of [[m, m, 1, 1], [VIEW.width - m, m, -1, 1], [m, VIEW.height - m, 1, -1], [VIEW.width - m, VIEW.height - m, -1, -1]]) {
-    ctx.beginPath();
-    ctx.moveTo(px, py + dy * len);
-    ctx.lineTo(px, py);
-    ctx.lineTo(px + dx * len, py);
-    ctx.stroke();
-  }
-  ctx.restore();
+  // ---- footer ----------------------------------------------------------
+  label(ctx, L.hud.hint, left, VIEW.height - 58, 8, 'rgba(168, 178, 192, 0.55)', 2, 'left', fonts.mono);
+  label(ctx, `${String(Math.floor(game.clock)).padStart(3, '0')}s`, VIEW.width - left, VIEW.height - 58, 9, 'rgba(200, 206, 216, 0.55)', 1, 'right', fonts.mono);
+  if (game.auto) label(ctx, 'AUTO', VIEW.width - left, VIEW.height - 44, 8, 'rgba(206, 108, 96, 0.55)', 3, 'right', fonts.mono);
 
   if (game.paused) {
     ctx.fillStyle = 'rgba(4, 6, 10, 0.55)';
     ctx.fillRect(0, 0, VIEW.width, VIEW.height);
-    label(ctx, L.hud.paused, cx, VIEW.height / 2, 44, 'rgba(240, 201, 141, 0.9)', 10, 'center', fonts.display);
+    label(ctx, L.hud.paused, VIEW.width / 2, VIEW.height / 2, 44, 'rgba(226, 214, 196, 0.9)', 10, 'center', fonts.display);
   }
 }
