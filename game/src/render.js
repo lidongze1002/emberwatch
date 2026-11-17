@@ -587,7 +587,7 @@ function drawApartment(ctx, game, time) {
   ctx.fillStyle = lit ? 'rgba(255, 236, 200, 0.7)' : 'rgba(150, 146, 136, 0.35)';
   ctx.font = `8px ${L.fonts.mono}`;
   ctx.letterSpacing = '2px';
-  ctx.fillText('STAIRS', 0, 0);
+  ctx.fillText(L.hud.stairs, 0, 0);
   ctx.restore();
   // 墙上的门牌号
   for (let i = 0; i < c.doors.length; i += 1) {
@@ -843,7 +843,7 @@ function drawBackroomsDecor(ctx, game, time) {
   ctx.font = `8px ${L.fonts.mono}`;
   ctx.textAlign = 'center';
   ctx.letterSpacing = '2px';
-  ctx.fillText('STAIRS', zone.x + zone.w / 2, zone.y + 34);
+  ctx.fillText(L.hud.stairs, zone.x + zone.w / 2, zone.y + 34);
 }
 
 // ---- 门：公寓的门、车站的卷帘、十三楼的门牌 ------------------------------

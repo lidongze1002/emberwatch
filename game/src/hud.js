@@ -235,8 +235,8 @@ export function drawHud(ctx, game, time) {
   // ---- footer ----------------------------------------------------------
   label(ctx, game.possessed ? L.hud.possessHint : (meta.hint || L.hud.hint), left, VIEW.height - 52, 8, game.possessed ? 'rgba(214, 198, 172, 0.75)' : INK_FAINT, 1.2);
   label(ctx, timecode(game.clock), right, VIEW.height - 52, 8.5, INK_SOFT, 1.4, 'right');
-  if (game.auto) label(ctx, 'AUTO', right, VIEW.height - 66, 7.5, RED_SOFT, 3, 'right');
-  else label(ctx, 'MANUAL', right, VIEW.height - 66, 7.5, AMBER, 3, 'right');
+  if (game.auto) label(ctx, L.hud.auto, right, VIEW.height - 66, 7.5, RED_SOFT, 3, 'right');
+  else label(ctx, L.hud.manual, right, VIEW.height - 66, 7.5, AMBER, 3, 'right');
 
   if (game.paused) {
     ctx.fillStyle = 'rgba(4, 6, 10, 0.55)';

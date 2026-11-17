@@ -335,7 +335,7 @@ export function drawTitle(ctx, game, time) {
   ctx.strokeStyle = 'rgba(201, 162, 90, 0.14)';
   ctx.lineWidth = 1;
   ctx.strokeRect(96.5, 72.5, VIEW.width - 193, VIEW.height - 145);
-  label(ctx, 'FORM N-7 / WATCH LOG', VIEW.width - 118, 96, 7.5, INK_FAINT, 2.6, 'right');
+  label(ctx, L.title.form, VIEW.width - 118, 96, 7.5, INK_FAINT, 2.6, 'right');
   label(ctx, `${L.cases.opera.no} · ${L.cases.opera.place}`, 118, 96, 7.5, INK_FAINT, 2.6);
 
   stamp(ctx, VIEW.width - 306, 150, L.cjk ? '内部' : 'RESTRICTED', 13);
@@ -551,7 +551,7 @@ export function drawHire(ctx, game, time) {
 export function drawSelect(ctx, game, time) {
   page(ctx);
   const cx = VIEW.width / 2;
-  label(ctx, 'FORM N-7 / CASE INDEX', VIEW.width - 118, 96, 7.5, INK_FAINT, 2.6, 'right');
+  label(ctx, L.select.form, VIEW.width - 118, 96, 7.5, INK_FAINT, 2.6, 'right');
   label(ctx, L.select.title, SELECT_ROW.x, 140, 24, '#efe3ca', 4, 'left', fonts.display);
   label(ctx, L.select.sub, SELECT_ROW.x + 260, 138, 9, INK_SOFT, 1.2);
 
@@ -746,7 +746,7 @@ export function drawResult(ctx, game, time) {
   // the two numbers a case file ends with
   label(ctx, L.hud.team, cx - 150, 424, 7.5, INK_FAINT, 3, 'center');
   label(ctx, L.result.survivors(game.extracted, game.agents.length), cx - 150, 452, 13, 'rgba(240, 222, 190, 0.9)', 1.4, 'center');
-  label(ctx, 'ELAPSED', cx + 150, 424, 7.5, INK_FAINT, 3, 'center');
+  label(ctx, L.result.elapsed, cx + 150, 424, 7.5, INK_FAINT, 3, 'center');
   label(ctx, L.result.time(Math.floor(game.clock)), cx + 150, 452, 13, 'rgba(216, 212, 200, 0.8)', 1.4, 'center');
 
   const s = game.settlement;

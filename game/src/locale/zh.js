@@ -18,6 +18,7 @@ export const zh = {
     cta: '点击调阅卷宗',
     other: 'ENGLISH',
     foot: '五宗未结 · 同一班岗',
+    form: 'FORM N-7 / 值班记录',
     resume: (n, cash) => `上一班还在桌上：已结 ${n} 宗 · ${cash}`,
   },
   select: {
@@ -28,6 +29,7 @@ export const zh = {
     fee: '报酬',
     onDuty: '值班三人',
     roster: '值班室',
+    form: 'FORM N-7 / 卷宗目录',
     status: { open: '未解', won: '已结', lost: '重打' },
   },
   brief: {
@@ -198,6 +200,9 @@ export const zh = {
     hint: '点地面接管 · 点队员亲手带 · P 暂停 · 1/2 速度 · Q 提灯 · 空格/E 规则动作 · T 自动',
     autoOn: '交回队长',
     autoOff: '你自己带',
+    auto: '自动',
+    manual: '手动',
+    stairs: '楼梯',
     controlling: (name) => `接管 ${name}`,
     possessHint: 'WASD 移动 · 左键开火 · ESC 松开',
     recall: '撤回',
@@ -283,6 +288,7 @@ export const zh = {
     next: '下一案',
     pay: '本案报酬',
     cash: '现金',
+    elapsed: '用时',
     funerals: (n) => `抚恤 ${n} 人`,
     medical: (n) => `医药 ${n} 人`,
     cameOut: '出来了',
