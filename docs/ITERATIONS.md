@@ -394,6 +394,13 @@
 **结论**：保留。纸面上的同一个人在三个页面上是同一个名字。
 截图：`screenshots/gallery/37-brief-names.jpg`
 
+## 轮 57 — 用真鼠标把整条流程点一遍
+**看**：之前所有回归都是 `page.evaluate` 直接调 `game.finish()` / `selectCase()`，从没有人**用鼠标**走一遍：标题→目录→简报→对局→暂停→结案→值班室→招聘→录用→选案→第二案。点击热区（行、按钮、卡片）可能早就不准了。
+**改**：写 `tools/nw-flow.mjs`，只发真实的 click / keypress。结果：`select → brief → play → (P) paused → result → roster → hire(2 candidates) → 录用后 3 人 → Esc → roster → select → brief(apartment)`，无 console/pageerror。顺带确认 headless 下 rAF 会把点击延后一到两帧（250 ms 检查会读到上一状态，600 ms 就对了）——这是测试写法，不是游戏的延迟。
+**测**：`nw-cases` 5/5、3/3、meta 回归通过；`nw-perf` median 16.7 ms。
+**结论**：保留这个脚本，以后每轮 UI 改动都可以先跑它。
+截图：无（回归轮）
+
 ## 备注
 - `render.js` 里有一行 `window.__nwCam?.(CAM)` 的调试钩子，只给 tools 下的截图脚本用，未设置回调时无副作用。
 - 帧时：本轮期间机器整体从 16.7 ms 漂到 17.7–17.9 ms；用 `git stash` 回退到上一个提交复测仍是 17.8 ms，确认是机器负载，不是本轮改动。
