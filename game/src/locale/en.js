@@ -19,6 +19,7 @@ export const en = {
     cta: 'CLICK TO OPEN THE FILES',
     other: '中文',
     foot: 'FIVE OPEN CASES · ONE WATCH',
+    form: 'FORM N-7 / WATCH LOG',
     resume: (n, cash) => `Still on the desk: ${n} closed · ${cash}`,
   },
   select: {
