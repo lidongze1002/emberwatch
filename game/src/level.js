@@ -62,6 +62,16 @@ export function solid(x, y, margin = 0, sight = false) {
   return false;
 }
 
+// Walls and furniture, but not water: the things that live in the field wade through the paddies.
+export function hardSolid(x, y, margin = 0) {
+  const c = ACTIVE;
+  if (!c) return false;
+  if (hits(x, y, c.walls, margin)) return true;
+  if (hits(x, y, c.props, margin)) return true;
+  if (hits(x, y, EXTRA, margin)) return true;
+  return false;
+}
+
 // Sight: sample the segment; anything solid between stops it. Cheap and exact enough at 6 px.
 export function lineClear(x1, y1, x2, y2, margin = 2) {
   const dx = x2 - x1;

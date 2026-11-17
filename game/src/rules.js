@@ -44,7 +44,9 @@ export function initRules(game) {
     r.avertCd = 0;
     r.taken = 0;
     r.lit = false;
+    r.lights = 0;
     r.lightT = 0;
+    r.heat = 0;
     spawnGazers(game);
     spawnBoss(game);
   }
@@ -155,17 +157,26 @@ export function updateRules(game, dt) {
 
   if (c.rule.kind === 'gaze') {
     if (r.avertCd > 0) r.avertCd = Math.max(0, r.avertCd - dt);
-    // 借火：提灯要先在田中央的石灯上点着，才谈得上送进农舍
+    // 借火：两盏石灯各要站 1.2 秒。第一盏点着之后，第二条田埂南口那盏还是黑的。
     if (!r.lit) {
       const lamp = game.agents.find((a) => a.role === 'lamp' && !a.down && !a.taken && !a.extracted);
-      const at = game.case.rule.lamp;
-      if (lamp && Math.hypot(lamp.x - at.x, lamp.y - at.y) < 62) {
+      const lamps = c.rule.lamps;
+      const at = lamps[Math.min(r.lights, lamps.length - 1)];
+      if (lamp && Math.hypot(lamp.x - at.sx, lamp.y - at.sy) < 56) {
         r.lightT += dt;
         if (r.lightT >= 1.2) {
-          r.lit = true;
-          game.flashWhite = 0.4;
+          r.lights += 1;
+          r.lightT = 0;
+          game.flashWhite = 0.35;
           game.sound.flash();
-          game.say(L.hud.lampLit);
+          if (r.lights >= lamps.length) {
+            r.lit = true;
+            game.say(L.hud.lampLit);
+            game.log('the lantern is lit. the field goes quiet.');
+          } else {
+            game.say(L.hud.lampHalf);
+            game.log('one lantern. the other is still dark.');
+          }
         }
       } else {
         r.lightT = Math.max(0, r.lightT - dt);
@@ -175,6 +186,7 @@ export function updateRules(game, dt) {
     for (const k of game.thralls) {
       if (k.kind !== 'kune' || k.dead) continue;
       k.agitation = 0;
+      k.hunt && (k.hunt.heat = 0);
     }
     for (const a of game.agents) {
       if (a.down || a.taken || a.extracted) continue;
@@ -208,6 +220,16 @@ export function updateRules(game, dt) {
       } else {
         a.gaze = Math.max(0, a.gaze - dt * r.decay);
       }
+    }
+    // 她盯着谁，就走得越快：注视条越高，大くねくね越不肯待在原地。
+    let heat = 0;
+    for (const a of game.agents) {
+      if (a.down || a.taken || a.extracted) continue;
+      heat = Math.max(heat, (a.gaze || 0) / r.limit);
+    }
+    r.heat = heat;
+    for (const k of game.thralls) {
+      if (k.kind === 'kune' && k.hunt) k.hunt.heat = heat;
     }
     return;
   }
@@ -352,10 +374,10 @@ export function avert(game) {
   let any = false;
   for (const a of game.agents) {
     if (a.down || a.taken || a.extracted) continue;
-    const k = nearestGazer(game, a);
+    const k = threatFor(game, a);
     if (!k) continue;
     a.aversion = game.case.rule.avertTime;
-    a.avertAngle = Math.atan2(a.y - k.y, a.x - k.x);
+    a.avertAngle = safeAim(game, a, Math.atan2(a.y - k.y, a.x - k.x));
     a.gaze = Math.max(0, a.gaze - 0.35);
     any = true;
   }
@@ -364,6 +386,51 @@ export function avert(game) {
     game.say(L.hud.averted);
   }
   return any;
+}
+
+// 现在正在「看」的那一只：枪口方向落在它身上、距离内、看得见。移开目光要离开它，
+// 不是离开最近的那只——否则转开脸，眼睛还留在大的那只身上。
+function threatFor(game, a) {
+  const r = game.rule;
+  let best = null;
+  let bestScore = -1;
+  for (const k of game.thralls) {
+    if (k.kind !== 'kune' || k.dead) continue;
+    const d = Math.hypot(k.x - a.x, k.y - a.y);
+    if (d > r.range) continue;
+    let da = Math.atan2(k.y - a.y, k.x - a.x) - a.aim;
+    while (da > Math.PI) da -= Math.PI * 2;
+    while (da < -Math.PI) da += Math.PI * 2;
+    if (Math.abs(da) > r.cone) continue;
+    if (!lineClear(a.x, a.y, k.x, k.y, 4)) continue;
+    const score = (k.rate || 1) * (1 - Math.min(1, d / r.range) * 0.5);
+    if (score > bestScore) {
+      bestScore = score;
+      best = k;
+    }
+  }
+  return best || nearestGazer(game, a);
+}
+
+// 把目光挪到「没有一只在枪口上」的方向：先想正对面，若那个方向还是撞上另一只，
+// 就一档一档往两边偏，直到这一眼落在空处。转开脸却对上另一只，等于没移开。
+function safeAim(game, a, away) {
+  const r = game.rule;
+  const clear = (ang) => {
+    for (const k of game.thralls) {
+      if (k.kind !== 'kune' || k.dead) continue;
+      if (Math.hypot(k.x - a.x, k.y - a.y) > r.range + 40) continue;
+      let da = Math.atan2(k.y - a.y, k.x - a.x) - ang;
+      while (da > Math.PI) da -= Math.PI * 2;
+      while (da < -Math.PI) da += Math.PI * 2;
+      if (Math.abs(da) < r.cone + 0.14) return false;
+    }
+    return true;
+  };
+  for (const off of [0, 0.7, -0.7, 1.4, -1.4, 2.1, -2.1, 2.8]) {
+    if (clear(away + off)) return away + off;
+  }
+  return away;
 }
 
 function nearestGazer(game, a) {
@@ -552,7 +619,13 @@ export function verdict(game) {
   if (c.rule.kind === 'gaze') {
     const lamp = game.agents.find((a) => a.role === 'lamp');
     if (!lamp || lamp.taken) return 'lose';
-    if (lamp.extracted) return 'win';
+    if (lamp.extracted) {
+      // 灯先进去了，身后的两个人也跟着进门；只有真的有人被落在院子里，才先结案。
+      if (r.inAt === undefined) r.inAt = game.clock;
+      const left = game.agents.some((a) => !a.extracted && !a.taken && !a.down && Math.hypot(a.x - 640, a.y - 150) < 110);
+      if (!left || game.clock - r.inAt > 4) return 'win';
+      return null;
+    }
     if (!alive.length) return 'lose';
     if (game.clock > 180) return 'lose';
     return null;
@@ -597,7 +670,7 @@ export function objectives(game) {
   if (c.rule.kind === 'gaze') {
     const lamp = game.agents.find((a) => a.role === 'lamp');
     return [
-      { text: T[0], value: r.lit ? L.hud.done : L.hud.lampOut, done: r.lit },
+      { text: T[0], value: r.lit ? L.hud.done : L.hud.lampStage(r.lights, c.rule.lamps.length), done: r.lit },
       { text: T[1], value: lamp && lamp.extracted ? L.hud.done : '—', done: !!(lamp && lamp.extracted) },
       { text: T[2], value: `${game.extracted} / ${game.agents.length}`, done: game.won },
     ];
@@ -634,7 +707,7 @@ export function readout(game) {
       stamp: r.avertCd > 0 ? L.hud.stampAvert : L.hud.stampGaze,
       line: r.avertCd > 0
         ? L.hud.avertReady(Math.ceil(r.avertCd))
-        : r.lit ? L.hud.gazePct(Math.round(worst * 100)) : L.hud.lampOut,
+        : r.lit ? L.hud.gazePct(Math.round(worst * 100)) : L.hud.lampStage(r.lights, c.rule.lamps.length),
       live: worst > 0.5,
     };
   }
@@ -773,25 +846,117 @@ export function directRules(game) {
 
   if (c.rule.kind === 'gaze') {
     const lamp = game.agents.find((a) => a.role === 'lamp' && !a.taken && !a.down) || game.agents[0];
-    let near = Infinity;
+    let big = null;
+    let nearAny = Infinity;
+    let nearBig = Infinity;
     let worst = 0;
+    let eyesAway = 0;
     for (const a of game.agents) {
       if (a.down || a.taken || a.extracted) continue;
-      worst = Math.max(worst, a.gaze || 0);
-      for (const k of game.thralls) {
-        if (k.kind !== 'kune') continue;
-        near = Math.min(near, Math.hypot(k.x - a.x, k.y - a.y));
+      worst = Math.max(worst, (a.gaze || 0) / c.rule.limit);
+      eyesAway = Math.max(eyesAway, a.aversion || 0);
+    }
+    for (const k of game.thralls) {
+      if (k.kind !== 'kune' || k.dead) continue;
+      const d = Math.hypot(k.x - lamp.x, k.y - lamp.y);
+      nearAny = Math.min(nearAny, d);
+      if (k.size > 1.4) {
+        big = k;
+        nearBig = d;
       }
     }
-    if (r.avertCd <= 0 && (near < 300 || worst > c.rule.limit * 0.5)) avert(game);
-    if (!r.lit) {
-      sendAll(game, c.rule.lamp.x, c.rule.lamp.y);
+    const near = nearBig < Infinity ? nearBig : nearAny;
+    const ready = r.avertCd <= 0.05;
+    const calm = () => {
+      for (const a of game.agents) if ((a.aversion || 0) > 0.4) return true;
+      return false;
+    };
+    // 离她远一点的那个点：退，也要退到能转身的地方
+    const backOff = (from) => {
+      const ang = big ? Math.atan2(lamp.y - big.y, lamp.x - big.x) : Math.PI * 0.5;
+      const bx = Math.max(96, Math.min(1180, from.x + Math.cos(ang) * 150));
+      const by = Math.max(96, Math.min(700, from.y + Math.sin(ang) * 150));
+      sendAll(game, bx, by);
+    };
+    // 最后一段：进农舍。要等「移开目光」转好，再一口气过去；冷却里就退到门口外。
+    if (r.lit) {
+      if (r.wp === undefined) r.wp = 0;
+      const dike = c.rule.dike;
+      const last = r.wp >= dike.length - 1;
+      if (last && near < 340) {
+        if (!calm() && ready) {
+          avert(game);
+        }
+        const yard = dike[dike.length - 1];
+        let together = true;
+        for (const a of game.agents) {
+          if (a.down || a.taken || a.extracted) continue;
+          if (Math.hypot(a.x - yard.x, a.y - yard.y) > 80) together = false;
+        }
+        if (calm() && together) {
+          sendAll(game, yard.x, yard.y);
+        } else if (calm()) {
+          // 等人齐：门里那盏灯不接一个把同伴丢在田里的人
+          sendAll(game, dike[dike.length - 2].x, dike[dike.length - 2].y);
+        } else {
+          backOff(dike[dike.length - 2]);
+        }
+        return;
+      }
+    }
+    // 「看」和「走」不能同时做：她拦在路中间，先移开目光；冷却没好的那两秒，不拿脸往她那边走。
+    if ((nearAny < 300 || worst > 0.4) && ready && !calm()) avert(game);
+    // 注视条已经烫手的人自己会先退：退离他此刻正看着的那一只，而不是最远/最近的那只。
+    let hot = null;
+    for (const a of game.agents) {
+      if (a.down || a.taken || a.extracted) continue;
+      if ((a.gaze || 0) / c.rule.limit > 0.6) {
+        const k = threatFor(game, a);
+        if (k) {
+          const ang = Math.atan2(a.y - k.y, a.x - k.x);
+          a.order = {
+            kind: 'goto',
+            x: Math.max(96, Math.min(1180, a.x + Math.cos(ang) * 160)),
+            y: Math.max(96, Math.min(700, a.y + Math.sin(ang) * 160)),
+          };
+          a.path = null;
+          a.goal = null;
+          hot = a;
+        }
+      }
+    }
+    if (hot) return;
+    if (big && !calm() && eyesAway <= 0.4 && (worst > 0.4 || (near < 240 && worst > 0.24))) {
+      backOff(lamp);
       return;
     }
-    if (r.wp === undefined) r.wp = 1;
+    // 掉队的人在田里是最先被看没的。眼睛不烫的时候，整队按最慢的那个走。
+    if (worst < 0.34) {
+      let far = null;
+      let farD = 0;
+      for (const a of game.agents) {
+        if (a.down || a.taken || a.extracted || a === lamp) continue;
+        const d = Math.hypot(a.x - lamp.x, a.y - lamp.y);
+        if (d > farD) {
+          farD = d;
+          far = a;
+        }
+      }
+      if (far && farD > 190 && nearAny < 340) {
+        sendAll(game, far.x, far.y);
+        return;
+      }
+    }
+    if (!r.lit) {
+      const lamps = c.rule.lamps;
+      const at = lamps[Math.min(r.lights, lamps.length - 1)];
+      sendAll(game, at.sx, at.sy);
+      return;
+    }
+    if (r.wp === undefined) r.wp = 0;
     const dike = c.rule.dike;
     const wp = dike[Math.min(r.wp, dike.length - 1)];
-    const d = Math.hypot((lamp.x || 0) - wp.x, (lamp.y || 0) - wp.y);
+    const d = Math.hypot(lamp.x - wp.x, lamp.y - wp.y);
     if (d < 70 && r.wp < dike.length - 1) {
       r.wp += 1;
       sendAll(game, dike[r.wp].x, dike[r.wp].y, true);

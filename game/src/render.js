@@ -812,25 +812,29 @@ function drawDoors(ctx, game, time) {
 function drawWorldMarks(ctx, game, time) {
   const r = game.rule;
   if (r.kind === 'gaze') {
-    const at = game.case.rule.lamp;
-    if (!r.lit) {
+    const lamps = game.case.rule.lamps || [];
+    const at = lamps[Math.min(r.lights, lamps.length - 1)];
+    if (!r.lit && at) {
       const pulse = 0.45 + Math.sin(time * 2.4) * 0.2;
       ctx.strokeStyle = `rgba(214, 198, 160, ${pulse})`;
       ctx.lineWidth = 1.2;
       ctx.setLineDash([5, 7]);
       ctx.beginPath();
-      ctx.arc(at.x, at.y, 34, 0, Math.PI * 2);
+      ctx.arc(at.sx, at.sy, 34, 0, Math.PI * 2);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.fillStyle = 'rgba(255, 226, 180, 0.7)';
-      ctx.fillRect(at.x - 2, at.y - 2, 4, 4);
-    } else {
-      const g = ctx.createRadialGradient(at.x, at.y, 4, at.x, at.y, 90);
+      ctx.fillRect(at.sx - 2, at.sy - 2, 4, 4);
+    }
+    for (let i = 0; i < lamps.length; i += 1) {
+      if (!(r.lit || r.lights > i)) continue;
+      const l = lamps[i];
+      const g = ctx.createRadialGradient(l.x, l.y, 4, l.x, l.y, 90);
       g.addColorStop(0, 'rgba(255, 214, 150, 0.18)');
       g.addColorStop(1, 'rgba(255, 190, 110, 0)');
       ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.arc(at.x, at.y, 90, 0, Math.PI * 2);
+      ctx.arc(l.x, l.y, 90, 0, Math.PI * 2);
       ctx.fill();
     }
     for (const a of game.agents) {
@@ -1043,17 +1047,27 @@ function drawProps(ctx, game, time) {
     // 歌剧院的座椅与售票亭由 drawSeats / drawOperaProps 自己画，不能再压一层深色方块
     if (c.decor === 'opera') continue;
     if (c.decor === 'rice') {
-      // 石灯：一个方座，一盏小灯
+      // 石灯：一个方座，一盏小灯。田里四块石头里只有两盏是真的，点着的那盏才亮。
+      const lamps = c.rule.lamps || [];
+      const cx = x + w / 2;
+      const cy = y + h / 2;
+      const idx = lamps.findIndex((l) => Math.abs(l.x - cx) < 6 && Math.abs(l.y - cy) < 6);
+      const on = idx >= 0 && (game.rule.lights > idx || game.rule.lit);
       propBlock(ctx, x, y, w, h, '#3a3c32', '#191b16');
-      const g = ctx.createRadialGradient(x + w / 2, y + h / 2, 1, x + w / 2, y + h / 2, 34);
-      g.addColorStop(0, `rgba(255, 208, 150, ${0.3 + Math.sin(time * 2 + x) * 0.04})`);
-      g.addColorStop(1, 'rgba(255, 180, 110, 0)');
+      const g = ctx.createRadialGradient(cx, cy, 1, cx, cy, 34);
+      if (on) {
+        g.addColorStop(0, `rgba(255, 208, 150, ${0.34 + Math.sin(time * 2 + x) * 0.05})`);
+        g.addColorStop(1, 'rgba(255, 180, 110, 0)');
+      } else {
+        g.addColorStop(0, 'rgba(120, 126, 110, 0.12)');
+        g.addColorStop(1, 'rgba(120, 126, 110, 0)');
+      }
       ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.arc(x + w / 2, y + h / 2, 34, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 34, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = 'rgba(255, 226, 180, 0.9)';
-      ctx.fillRect(x + w / 2 - 2, y + h / 2 - 2, 4, 4);
+      ctx.fillStyle = on ? 'rgba(255, 226, 180, 0.9)' : 'rgba(96, 100, 88, 0.7)';
+      ctx.fillRect(cx - 2, cy - 2, 4, 4);
     } else if (c.decor === 'station' && w > 600) {
       // 停着的列车：车顶、车窗的一条冷光
       propBlock(ctx, x, y, w, h, '#2a3134', '#0b0f11');

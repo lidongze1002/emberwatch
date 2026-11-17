@@ -2,7 +2,7 @@
 // 每次后退，都是队员自己判断的。案子不同，这里的「东西」不同，但骨架是同一套。
 
 import { AGENTS, HACHI, KUNE, MIRROR, SPIDER, SPIDERLING, THRALL, TUNING } from './config.js';
-import { findPath, lineClear, solid, walkClear } from './level.js';
+import { findPath, hardSolid, lineClear, solid, walkClear } from './level.js';
 
 const inZone = (zone, x, y) => !!zone && x > zone.x && x < zone.x + zone.w && y > zone.y && y < zone.y + zone.h;
 
@@ -71,6 +71,7 @@ export function spawnBoss(game) {
   }
   if (boss.kind === 'kunekune') {
     const t = kune(boss.x, boss.y, boss.size || 1.9, 'big');
+    if (boss.hunt) t.hunt = { ...boss.hunt, heat: 0 };
     game.thralls.push(t);
     return t;
   }
@@ -299,6 +300,13 @@ function turnToward(from, to, maxStep) {
 function walkTo(game, a, x, y, dt) {
   const now = game.clock;
   const r = TUNING.agentRadius;
+  // 目标点落在实体里（石灯中心、门框中心、点在家具上）：先把它挪到旁边能站的地方，
+  // 否则每一次拉出来的路径都以一个走不到的终点收尾，人就在原地打转。
+  if (solid(x, y, r + 2)) {
+    const near = freeSpot(x, y, r, 14, 90);
+    x = near.x;
+    y = near.y;
+  }
   const goalMoved = !a.goal || Math.hypot(a.goal.x - x, a.goal.y - y) > 22;
   if (!a.path || goalMoved || now - a.pathAt > 1.4) {
     a.path = findPath(game.level, a.x, a.y, x, y);
@@ -367,7 +375,9 @@ function walkTo(game, a, x, y, dt) {
   const want = Math.atan2(dy, dx);
   // the last leg is the only one that brakes: a body that arrives at full speed skates
   const braking = a.path.length <= 1 ? Math.max(0.2, Math.min(1, dist / 30)) : 1;
-  const speed = a.speed * braking;
+  // 灯一亮，全队的步子就压下来：火不能灭。这不是负重，是规矩。
+  const carrying = game.case.rule.kind === 'gaze' && (game.rule.lit || (game.rule.lights > 0));
+  const speed = a.speed * braking * (carrying ? 0.4 : 1);
   const k = Math.min(1, dt * 8);
   a.vx += (Math.cos(want) * speed - a.vx) * k;
   a.vy += (Math.sin(want) * speed - a.vy) * k;
@@ -720,6 +730,57 @@ function updateThrall(game, t, dt) {
     t.step += dt * 0.6;
     t.sway = (t.sway || 0) + dt * (0.6 + (t.agitation || 0) * 3);
     t.agitation = Math.max(0, (t.agitation || 0) - dt);
+    // 大的那只会一直往人身上挪：走得慢，但不停；被看得越久，越快。
+    if (t.hunt) {
+      const heat = Math.max(0, Math.min(1, t.hunt.heat || 0));
+      const speed = t.hunt.speed + (t.hunt.gazeSpeed - t.hunt.speed) * heat;
+      let cx = 0;
+      let cy = 0;
+      let n = 0;
+      let gx = 0;
+      let gy = 0;
+      let gn = 0;
+      for (const a of game.agents) {
+        if (a.down || a.taken || a.extracted) continue;
+        cx += a.x;
+        cy += a.y;
+        n += 1;
+        // 她不是跟着人走，是往「人要去的那个地方」走：拦在下一步前面。
+        if (a.order && a.order.kind === 'goto') {
+          gx += a.order.x;
+          gy += a.order.y;
+          gn += 1;
+        }
+      }
+      if (n) {
+        cx /= n;
+        cy /= n;
+        const tx = gn ? gx / gn : cx;
+        const ty = gn ? gy / gn : cy;
+        const dx = tx - t.x;
+        const dy = ty - t.y;
+        const d = Math.hypot(dx, dy) || 1;
+        let nearest = Infinity;
+        for (const a of game.agents) {
+          if (a.down || a.taken || a.extracted) continue;
+          nearest = Math.min(nearest, Math.hypot(a.x - t.x, a.y - t.y));
+        }
+        t.aim = Math.atan2(dy, dx);
+        if (nearest > t.hunt.standoff && d > 12) {
+          const nx = t.x + (dx / d) * speed * dt;
+          const ny = t.y + (dy / d) * speed * dt;
+          if (!hardSolid(nx, ny, 26)) {
+            t.x = nx;
+            t.y = ny;
+          } else if (!hardSolid(nx, t.y, 26)) {
+            t.x = nx;
+          } else if (!hardSolid(t.x, ny, 26)) {
+            t.y = ny;
+          }
+          t.step += speed * dt * 0.08;
+        }
+      }
+    }
     return;
   }
   if (t.kind === 'mirror') {
