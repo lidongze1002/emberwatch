@@ -167,6 +167,8 @@ export const en = {
     floorLine: (n, total, door) => `FLOOR ${n}/${total} · DOOR ${door}`,
     floorUp: (n, total) => `FLOOR ${n}/${total}`,
     wrongDoor: 'WRONG DOOR · START AGAIN',
+    copyThrough: 'IT WENT THROUGH FIRST · THE FLOOR REPEATS',
+    race: 'IT IS WALKING TO THE DOOR TOO',
     thirteenth: 'THE THIRTEENTH FLOOR',
     stairOpen: 'THE STAIRS ARE REAL',
     answering: 'SENDING THEM TO ANSWER',

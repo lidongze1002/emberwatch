@@ -186,9 +186,51 @@ export function spawnMirrors(game, given) {
       recoil: 0,
       pose: 'ready',
       flash: 0,
-      cooldown: 0.6 + Math.random(),
+      cooldown: 3.2 + Math.random() * 0.8,
+      post: { x: at.x, y: at.y },
+      leash: MIRROR.leash,
+      lag: 1.8 + i * 0.7,
+      gate: i === 0,
     }));
   }
+}
+
+// 走错门之后，上一层的那一个跟下来：没有岗位，只跟着队长的脚印走。
+export function spawnEcho(game) {
+  const boss = game.case.boss;
+  if (!boss || boss.kind !== 'mirror') return null;
+  // 从楼梯口下来，但别贴在人身上：它要跟着走，不是贴脸开枪。
+  const at = freeSpot(250, 580, 10);
+  const t = baseBody(at.x, at.y, {
+    id: `echo-${game.thralls.length}`,
+    kind: 'mirror',
+    role: 'veteran',
+    hp: MIRROR.hp,
+    maxHp: MIRROR.hp,
+    speed: MIRROR.speed,
+    damage: MIRROR.damage,
+    range: MIRROR.range,
+    fireRate: MIRROR.fireRate,
+    spread: MIRROR.spread,
+    radius: MIRROR.radius,
+    colour: '#e0b276',
+    path: null,
+    pathAt: 0,
+    mirror: true,
+    echo: true,
+    facing: Math.PI / 2,
+    vx: 0,
+    vy: 0,
+    recoil: 0,
+    pose: 'ready',
+    flash: 0,
+    cooldown: 2.6,
+    post: null,
+    leash: Infinity,
+    lag: 2.4,
+  });
+  game.thralls.push(t);
+  return t;
 }
 
 export function createAgents(game) {
@@ -708,6 +750,7 @@ function updateHachi(game, t, dt) {
 function updateMirror(game, t, dt) {
   t.cooldown = Math.max(0, t.cooldown - dt);
   t.hitFlash = Math.max(0, t.hitFlash - dt * 3);
+  t.recoil = Math.max(0, t.recoil - dt * 6);
   let target = null;
   let best = Infinity;
   for (const a of game.agents) {
@@ -718,35 +761,98 @@ function updateMirror(game, t, dt) {
       target = a;
     }
   }
-  if (!target) return;
-  t.aim = Math.atan2(target.y - t.y, target.x - t.x);
-  if (best > 150) {
-    stepPath(game, t, target.x, target.y, dt, t.speed);
-  } else if (best < 90) {
-    const away = Math.atan2(t.y - target.y, t.x - target.x);
-    const bx = t.x + Math.cos(away) * 70;
-    const by = t.y + Math.sin(away) * 70;
-    if (!solid(bx, by, 10)) {
-      t.x += (bx - t.x) * dt * 2;
-      t.y += (by - t.y) * dt * 2;
+  const post = t.post;
+  const fromPost = post ? Math.hypot(t.x - post.x, t.y - post.y) : 0;
+  // 守门的不打远处的人：只在自家门口这一段开枪，走廊另一头走过去是可以的。楼梯间也不打。
+  const canShoot = (!post || (best < (t.leash || MIRROR.leash) + 60 && fromPost < (t.leash || MIRROR.leash) + 40))
+    && !(target && inZone(game.case.zones.stair, target.x, target.y));
+  if (t.racing) {
+    // 抢门：它也知道这扇门是对的。你不先把它按下去，它就先进去了。
+    const door = game.case.doors[t.raceDoor];
+    const stand = { x: door.x + door.nx * 26, y: door.y + door.ny * 26 };
+    stepPath(game, t, stand.x, stand.y, dt, t.speed * 1.15);
+    moveMirrorBody(game, t, dt);
+    if (Math.hypot(t.x - stand.x, t.y - stand.y) < 24) {
+      game.copyThrough?.();
+    }
+    if (best < t.range && lineClear(t.x, t.y, target.x, target.y, 4)) {
+      shootMirror(game, t, target);
+    }
+    return;
+  }
+  if (target) {    t.aim = Math.atan2(target.y - t.y, target.x - t.x);
+    // 守门：出了自己那一段就不追了；回岗位比追人重要。
+    const chase = !post || fromPost < (t.leash || MIRROR.leash);
+    if (chase && best > 150) stepPath(game, t, target.x, target.y, dt, t.speed);
+    else if (chase && best < 90) {
+      const away = Math.atan2(t.y - target.y, t.x - target.x);
+      const bx = t.x + Math.cos(away) * 70;
+      const by = t.y + Math.sin(away) * 70;
+      if (!solid(bx, by, 10)) {
+        t.x += (bx - t.x) * dt * 2;
+        t.y += (by - t.y) * dt * 2;
+      }
+    } else if (!chase && post) {
+      stepPath(game, t, post.x, post.y, dt, t.speed);
+    }
+    moveMirrorBody(game, t, dt);
+    if (canShoot && t.cooldown <= 0 && best < t.range && lineClear(t.x, t.y, target.x, target.y, 4)) {
+      shootMirror(game, t, target);
+    }
+    return;
+  }
+  // 没人可打的时候，它照着你刚才的走法走：队长的脚印是它的路线。
+  if (post && t.leash !== Infinity && fromPost > t.leash) {
+    stepPath(game, t, post.x, post.y, dt, t.speed * 0.8);
+    moveMirrorBody(game, t, dt);
+    return;
+  }
+  const trail = game.trail || [];
+  const lag = t.lag || 2;
+  for (let i = trail.length - 1; i >= 0; i -= 1) {
+    const p = trail[i];
+    if (game.clock - p.t >= lag) {
+      const d = Math.hypot(p.x - t.x, p.y - t.y);
+      if (post && Math.hypot(p.x - post.x, p.y - post.y) > (t.leash || MIRROR.leash)) {
+        stepPath(game, t, post.x, post.y, dt, t.speed * 0.8);
+      } else if (d > 14) {
+        stepPath(game, t, p.x, p.y, dt, Math.min(t.speed, d * 2.2));
+      }
+      moveMirrorBody(game, t, dt);
+      return;
     }
   }
-  if (t.cooldown <= 0 && best < t.range && lineClear(t.x, t.y, target.x, target.y, 4)) {
-    t.cooldown = t.fireRate;
-    const spread = (Math.random() - 0.5) * t.spread * 2;
-    const angle = t.aim + spread;
-    game.bullets.push({
-      x: t.x + Math.cos(angle) * 26,
-      y: t.y + Math.sin(angle) * 26,
-      vx: Math.cos(angle) * TUNING.bulletSpeed * 0.7,
-      vy: Math.sin(angle) * TUNING.bulletSpeed * 0.7,
-      life: 0.9,
-      damage: t.damage,
-      team: 'enemy',
-    });
-    game.muzzle.push({ x: t.x + Math.cos(angle) * 28, y: t.y + Math.sin(angle) * 28, life: 0.06, cold: true });
-    game.sound.shot('rookie', t.x, t.y);
-  }
+  if (post) stepPath(game, t, post.x, post.y, dt, t.speed * 0.8);
+  moveMirrorBody(game, t, dt);
+}
+
+// 复制品也要有朝向和步态，否则永远是同一个姿势滑过去。
+function moveMirrorBody(game, t, dt) {
+  const px = t._mx ?? t.x;
+  const py = t._my ?? t.y;
+  t.vx = (t.x - px) / Math.max(dt, 1e-4);
+  t.vy = (t.y - py) / Math.max(dt, 1e-4);
+  t._mx = t.x;
+  t._my = t.y;
+  if (Math.hypot(t.vx, t.vy) > 14) t.facing = turnToward(t.facing, Math.atan2(t.vy, t.vx), dt * 4.8);
+}
+
+function shootMirror(game, t, target) {
+  t.cooldown = t.fireRate;
+  t.recoil = 1;
+  const spread = (Math.random() - 0.5) * t.spread * 2;
+  const angle = t.aim + spread;
+  game.bullets.push({
+    x: t.x + Math.cos(angle) * 26,
+    y: t.y + Math.sin(angle) * 26,
+    vx: Math.cos(angle) * TUNING.bulletSpeed * 0.7,
+    vy: Math.sin(angle) * TUNING.bulletSpeed * 0.7,
+    life: 0.9,
+    damage: t.damage,
+    team: 'enemy',
+  });
+  game.muzzle.push({ x: t.x + Math.cos(angle) * 28, y: t.y + Math.sin(angle) * 28, life: 0.06, cold: true });
+  game.sound.shot('rookie', t.x, t.y);
 }
 
 function updateThrall(game, t, dt) {
@@ -983,6 +1089,18 @@ export function updateUnits(game, dt) {
   for (const a of game.agents) updateAgent(game, a, dt);
   for (const t of game.thralls) updateThrall(game, t, dt);
   updateBullets(game, dt);
+
+  // 队长走过的路留一串脚印：复制品照这个走，晚两三秒。
+  game.trailClock = (game.trailClock || 0) + dt;
+  if (game.trailClock > 0.18) {
+    game.trailClock = 0;
+    if (!game.trail) game.trail = [];
+    const v = game.agents[0];
+    if (v && !v.down && !v.taken && !v.extracted) {
+      game.trail.push({ x: v.x, y: v.y, t: game.clock });
+      if (game.trail.length > 90) game.trail.shift();
+    }
+  }
 
   // 被推挤/刷新进墙里的东西不会再自己走回来，也没人打得到它。半秒还没脱身就放回空地。
   for (const t of game.thralls) {

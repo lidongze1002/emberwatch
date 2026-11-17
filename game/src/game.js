@@ -60,6 +60,8 @@ export class Game {
     this.auto = true;
     this.directorClock = 0;
     this.startedAt = 0;
+    this.trail = [];
+    this.trailClock = 0;
     initRules(this);
   }
 

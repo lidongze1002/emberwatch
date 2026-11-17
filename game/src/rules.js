@@ -3,7 +3,7 @@
 
 import { HACHI } from './config.js';
 import { L } from './text.js';
-import { spawnBoss, spawnGazers, spawnMirrors } from './units.js';
+import { spawnBoss, spawnEcho, spawnGazers, spawnMirrors } from './units.js';
 import { lineClear, setExtras, solid } from './level.js';
 
 const inZone = (zone, x, y) => !!zone && x > zone.x && x < zone.x + zone.w && y > zone.y && y < zone.y + zone.h;
@@ -59,6 +59,9 @@ export function initRules(game) {
     r.transition = 0;
     r.lastDoor = -1;
     r.plates = c.rule.plates[0].slice();
+    r.contested = 0;
+    r.race = null;
+    game.copyThrough = () => copyThrough(game);
   }
 }
 
@@ -240,6 +243,39 @@ export function updateRules(game, dt) {
 
   if (c.rule.kind === 'floors') {
     if (r.transition > 0) r.transition = Math.max(0, r.transition - dt);
+    // 第三层起，守着你那扇门的复制品也会往门里走：它看你走了两层，学会了那个号。
+    if (!r.contested && r.race === null && r.floor >= 3) {
+      const guard = game.thralls.find((t) => t.kind === 'mirror' && t.gate && !t.dead && !t.racing);
+      if (guard) {
+        const want = c.rule.wanted[Math.min(r.floor, c.rule.floors) - 1];
+        const idx = r.plates.indexOf(want);
+        if (idx >= 0) {
+          const d = c.doors[idx];
+          const stand = { x: d.x + d.nx * 26, y: d.y + d.ny * 26 };
+          let near = Infinity;
+          for (const a of game.agents) {
+            if (a.down || a.taken || a.extracted) continue;
+            near = Math.min(near, Math.hypot(a.x - stand.x, a.y - stand.y));
+          }
+          if (near < 470) {
+            guard.racing = true;
+            guard.raceDoor = idx;
+            r.race = idx + 1;
+            game.sound.knock();
+            game.say(L.hud.race);
+            game.log('it knows the number too.');
+          }
+        }
+      }
+    }
+    if (r.race !== null) {
+      const g2 = game.thralls.find((t) => t.kind === 'mirror' && t.racing);
+      if (!g2 || g2.dead) {
+        // 它没走到门口就被按下了：这一层是自己的。
+        r.race = null;
+        r.contested = 1;
+      }
+    }
     // 走进一扇门：门牌等于本层的号，才对
     for (const a of game.agents) {
       if (a.down || a.taken || a.extracted) continue;
@@ -538,13 +574,15 @@ function mirrorSpots(game) {
   const spots = [
     { x: 420, y: 660 }, { x: 244, y: 430 }, { x: 1040, y: 300 },
   ];
-  // 一个复制品就站在这一层那扇门前面：换层不是脱战，是换一间有你的房间
+  // 三个复制品各守一扇门：第一个就守在这一层那扇「对的门」前。
   if (r && r.plates && c.doors && c.rule.wanted) {
     const want = c.rule.wanted[Math.min(r.floor, c.rule.floors) - 1];
     const idx = r.plates.indexOf(want);
     if (idx >= 0) {
-      const d = c.doors[idx];
-      spots[0] = { x: d.x + d.nx * 74, y: d.y + d.ny * 74 };
+      for (let k = 0; k < 3; k += 1) {
+        const d = c.doors[(idx + k * 4) % c.doors.length];
+        spots[k] = { x: d.x + d.nx * 74, y: d.y + d.ny * 74 };
+      }
     }
   }
   return spots;
@@ -562,6 +600,11 @@ function teleportSquad(game) {
     a.vy = 0;
     a.order = { kind: 'hold' };
     a.aversion = 0;
+    // 楼梯把你们吐回去的时候，伤也一起重来：楼层是重复的，身上的洞不是新的。
+    if (!a.down && !a.taken) {
+      a.hp = a.maxHp;
+      a.flash = 0;
+    }
   });
 }
 
@@ -597,14 +640,49 @@ function resolveDoor(game, index) {
     game.sound.lose();
     game.say(L.hud.wrongDoor);
     game.log('the same corridor. the same carpet.');
+    reviveSquad(game);
     teleportSquad(game);
     spawnMirrorWave(game);
+    // 走错的那一扇，把上一层的一个也带了下来
+    spawnEcho(game);
   }
 }
 
 function spawnMirrorWave(game) {
   game.thralls = game.thralls.filter((t) => t.kind !== 'mirror');
   spawnMirrors(game, mirrorSpots(game));
+}
+
+function reviveSquad(game) {
+  for (const a of game.agents) {
+    if (a.taken || a.extracted) continue;
+    a.down = false;
+    a.revive = 0;
+    a.hp = a.maxHp;
+    a.flash = 0;
+  }
+}
+
+// 复制品先进了那扇对的门：这一层作废，整队回到楼梯口，而它从上一层跟下来。
+function copyThrough(game) {
+  const r = game.rule;
+  const c = game.case;
+  r.loops += 1;
+  r.contested = 1;
+  r.race = null;
+  r.floor = 1;
+  r.plates = c.rule.plates[0].slice();
+  r.gateOpen = false;
+  r.lastDoor = -1;
+  game.shake = 9;
+  game.flashWhite = 0.35;
+  game.sound.lose();
+  game.say(L.hud.copyThrough);
+  game.log('it went through the door first. the floor repeats.');
+  reviveSquad(game);
+  teleportSquad(game);
+  spawnMirrorWave(game);
+  spawnEcho(game);
 }
 
 // ---- 结算与目标 -----------------------------------------------------------
@@ -801,7 +879,9 @@ export function readout(game) {
   if (c.rule.kind === 'floors') {
     return {
       stamp: L.hud.stampFloor,
-      line: r.gateOpen ? L.hud.stairOpen : L.hud.floorLine(Math.min(r.floor, c.rule.floors), c.rule.floors, c.rule.wanted[Math.min(r.floor, c.rule.floors) - 1]),
+      line: r.race !== null && r.race !== undefined
+        ? L.hud.race
+        : r.gateOpen ? L.hud.stairOpen : L.hud.floorLine(Math.min(r.floor, c.rule.floors), c.rule.floors, c.rule.wanted[Math.min(r.floor, c.rule.floors) - 1]),
       live: true,
       loops: r.loops,
     };

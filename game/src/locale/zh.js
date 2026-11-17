@@ -161,6 +161,8 @@ export const zh = {
     floorLine: (n, total, door) => `第 ${n}/${total} 层 · ${door} 号门`,
     floorUp: (n, total) => `第 ${n}/${total} 层`,
     wrongDoor: '走错了 · 从头来',
+    copyThrough: '它先进去了 · 这一层作废',
+    race: '它也在往门口走',
     thirteenth: '十三楼',
     stairOpen: '楼梯是真的了',
     answering: '派人去应门',

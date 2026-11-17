@@ -66,5 +66,5 @@ export const HACHI = {
 // 第四案：不可杀的くねくね。数值只有「看多久会疯」。
 export const KUNE = { radius: 20, rate: 1, bossRate: 1.6 };
 
-// 第五案：复制品。用的是同一套骨架，血更薄。
-export const MIRROR = { hp: 16, speed: 96, damage: 5, range: 260, fireRate: 1.15, radius: 12, spread: 0.1 };
+// 第五案：复制品。用的是同一套骨架，皮更厚：一个守一扇门。
+export const MIRROR = { hp: 32, speed: 96, damage: 4, range: 260, fireRate: 1.25, radius: 12, spread: 0.1, leash: 190, race: 3.2 };
