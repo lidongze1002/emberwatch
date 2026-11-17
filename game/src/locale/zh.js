@@ -136,6 +136,7 @@ export const zh = {
     taken: '签下了',
     noCash: '钱不够',
     full: '名册满了',
+    benchWarn: '再多一个人就进待命位 · 每案 ¥ 200',
     hint: '钱不够就空手回去 · ESC 不招',
     noPhoto: '无照片',
   },

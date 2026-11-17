@@ -137,6 +137,7 @@ export const en = {
     taken: 'signed',
     noCash: 'not enough cash',
     full: 'the roster is full',
+    benchWarn: 'one more hand goes on the bench · ¥ 200 a case',
     hint: 'not enough cash and you go back empty · ESC takes nobody',
     noPhoto: 'NO PHOTO ON FILE',
   },

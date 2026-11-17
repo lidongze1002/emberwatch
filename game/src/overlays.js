@@ -498,6 +498,9 @@ export function drawHire(ctx, game, time) {
   label(ctx, L.hire.sub, HIRE_CARD.x + 150, 148, 9, INK_SOFT, 0.8);
   label(ctx, L.roster.cash, right, 150, 7.5, INK_FAINT, 3, 'right');
   label(ctx, money(r.cash), right, 176, 16, r.cash < 0 ? 'rgba(206, 96, 86, 0.95)' : 'rgba(238, 226, 200, 0.9)', 1.6, 'right', fonts.display);
+  if (r.members.filter((m) => !m.dead).length >= 3) {
+    label(ctx, L.hire.benchWarn, right, 192, 7.5, 'rgba(206, 190, 160, 0.55)', 1, 'right');
+  }
   rule(ctx, HIRE_CARD.x, right, 196, 'rgba(201, 162, 90, 0.2)');
 
   const hover = game.input && game.input.inside ? game.input : { x: -1, y: -1 };
