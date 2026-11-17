@@ -376,6 +376,14 @@ export function drawTitle(ctx, game, time) {
 
   label(ctx, L.title.foot, cx, 640, 9, INK_FAINT, 3.4, 'center');
 
+  // 上一次没有值完的班：桌上还留着账
+  if (game.roster) {
+    const closed = Object.keys(game.roster.closed).length;
+    if (closed > 0) {
+      label(ctx, L.title.resume(closed, money(game.roster.cash)), cx, 606, 8, 'rgba(206, 190, 160, 0.55)', 1.6, 'center');
+    }
+  }
+
   label(ctx, `${L.otherLabel} →`, TITLE_LINK.x, TITLE_LINK.y + 20, 9, INK_SOFT, 2.4);
   rule(ctx, TITLE_LINK.x, TITLE_LINK.x + 78, TITLE_LINK.y + 27, 'rgba(186, 180, 168, 0.22)');
 }
@@ -653,6 +661,7 @@ export function drawBrief(ctx, game, time) {
   label(ctx, meta.no, left, y + 40, 9, AMBER, 4.4);
   label(ctx, meta.place, left, y + 58, 8.5, INK_SOFT, 2.4);
   label(ctx, `T+00:00 · ${L.hud.team} 3`, left, y + 76, 8, INK_FAINT, 1.8);
+  label(ctx, `${L.brief.fee} ${money(CASES[game.caseIndex] ? CASES[game.caseIndex].fee : 0)}`, colRight, y + 76, 8, 'rgba(206, 190, 160, 0.6)', 1.2, 'right');
   rule(ctx, left, x + w - 44, y + 88, 'rgba(201, 162, 90, 0.2)');
 
   stamp(ctx, x + w - 214, y + 30, L.cjk ? '内部' : 'RESTRICTED', 15);

@@ -19,6 +19,7 @@ export const en = {
     cta: 'CLICK TO OPEN THE FILES',
     other: '中文',
     foot: 'FIVE OPEN CASES · ONE WATCH',
+    resume: (n, cash) => `Still on the desk: ${n} closed · ${cash}`,
   },
   select: {
     title: 'CASE FILES',
@@ -35,6 +36,7 @@ export const en = {
     go: 'CLICK TO SEND THEM IN',
     photo: 'SCENE PLATE · TWENTY MINUTES AFTER',
     noPhoto: 'NO PHOTO ON FILE',
+    fee: 'FEE',
   },
   cases: {
     opera: {

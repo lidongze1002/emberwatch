@@ -18,6 +18,7 @@ export const zh = {
     cta: '点击调阅卷宗',
     other: 'ENGLISH',
     foot: '五宗未结 · 同一班岗',
+    resume: (n, cash) => `上一班还在桌上：已结 ${n} 宗 · ${cash}`,
   },
   select: {
     title: '卷宗目录',
@@ -34,6 +35,7 @@ export const zh = {
     go: '点击让他们进去',
     photo: '现场照片 · 案发后二十分钟',
     noPhoto: '无照片',
+    fee: '报酬',
   },
   cases: {
     opera: {
