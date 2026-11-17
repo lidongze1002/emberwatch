@@ -127,6 +127,8 @@ export const en = {
     take: 'CLICK TO SIGN',
     none: 'TAKE NOBODY',
     taken: 'signed',
+    noCash: 'not enough cash',
+    full: 'the roster is full',
     hint: 'not enough cash and you go back empty · ESC takes nobody',
     noPhoto: 'NO PHOTO ON FILE',
   },

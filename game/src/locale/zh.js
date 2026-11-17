@@ -126,6 +126,8 @@ export const zh = {
     take: '点击录用',
     none: '不招',
     taken: '签下了',
+    noCash: '钱不够',
+    full: '名册满了',
     hint: '钱不够就空手回去 · ESC 不招',
     noPhoto: '无照片',
   },

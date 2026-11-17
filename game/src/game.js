@@ -229,8 +229,18 @@ export class Game {
     this.state = 'select';
   }
 
-  // 值班室里点一个候选人＝录用；点「不招」＝这一批散了。
+  // 值班室里点一个候选人＝录用；钱不够或名册满了，纸面上要说一句。
   pickCandidate(id) {
+    const c = this.roster.candidates.find((x) => x.id === id);
+    if (!c) return false;
+    if (this.roster.members.filter((m) => !m.dead).length >= 6) {
+      this.say(L.hire.full);
+      return false;
+    }
+    if (this.roster.cash < c.price) {
+      this.say(L.hire.noCash);
+      return false;
+    }
     if (hire(this.roster, id)) {
       this.say(L.hire.taken);
       return true;

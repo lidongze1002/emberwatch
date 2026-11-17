@@ -28,8 +28,11 @@ export function tRosterCasesAt(x, y) {
 }
 
 export function tHireAt(x, y, count) {
+  const n = Math.max(1, count);
+  const span = n * HIRE_CARD.w + (n - 1) * HIRE_CARD.gap;
+  const startX = (VIEW.width - span) / 2;
   for (let i = 0; i < count; i += 1) {
-    const left = HIRE_CARD.x + i * (HIRE_CARD.w + HIRE_CARD.gap);
+    const left = startX + i * (HIRE_CARD.w + HIRE_CARD.gap);
     if (x >= left && x <= left + HIRE_CARD.w && y >= HIRE_CARD.top && y <= HIRE_CARD.top + HIRE_CARD.h) return i;
   }
   return -1;
@@ -483,9 +486,15 @@ export function drawHire(ctx, game, time) {
   const hover = game.input && game.input.inside ? game.input : { x: -1, y: -1 };
   if (!r.candidates.length) {
     label(ctx, L.roster.none, VIEW.width / 2, 360, 10, INK_SOFT, 2, 'center');
+  } else if (r.members.filter((m) => !m.dead).length >= 6) {
+    label(ctx, L.hire.full, VIEW.width / 2, 604, 8.5, RED, 1.6, 'center');
+  } else if (!r.candidates.some((c) => c.price <= r.cash)) {
+    label(ctx, L.hire.noCash, VIEW.width / 2, 604, 8.5, RED, 1.6, 'center');
   }
   r.candidates.forEach((c, i) => {
-    const x = HIRE_CARD.x + i * (HIRE_CARD.w + HIRE_CARD.gap);
+    const n = Math.max(1, r.candidates.length);
+    const span = n * HIRE_CARD.w + (n - 1) * HIRE_CARD.gap;
+    const x = (VIEW.width - span) / 2 + i * (HIRE_CARD.w + HIRE_CARD.gap);
     const y = HIRE_CARD.top;
     const hot = inRect({ x, y, w: HIRE_CARD.w, h: HIRE_CARD.h }, hover.x, hover.y);
     const afford = r.cash >= c.price;
