@@ -109,6 +109,20 @@ function stamp(ctx, x, y, text, live) {
   ctx.restore();
 }
 
+function clampText(ctx, text, max, font) {
+  ctx.save();
+  ctx.font = font;
+  ctx.letterSpacing = '0.2px';
+  if (ctx.measureText(text).width <= max) {
+    ctx.restore();
+    return text;
+  }
+  let out = text;
+  while (out.length > 4 && ctx.measureText(`${out}…`).width > max) out = out.slice(0, -1);
+  ctx.restore();
+  return `${out}…`;
+}
+
 export function drawHud(ctx, game, time) {
   const left = 34;
   const right = VIEW.width - left;
@@ -139,6 +153,19 @@ export function drawHud(ctx, game, time) {
   label(ctx, meta.legend, right, 108, 8, INK_FAINT, 2.4, 'right');
   label(ctx, ro.line, right, 124, 8.5, ro.live ? 'rgba(214, 198, 172, 0.8)' : 'rgba(168, 196, 182, 0.6)', 1.4, 'right');
   if (ro.loops) label(ctx, `LOOP ${ro.loops}`, right, 140, 7.5, RED_SOFT, 2.4, 'right');
+
+  // ---- the watch log: what just happened, in the duty officer's hand ----
+  const logX = left;
+  const logY = 246;
+  label(ctx, L.hud.log, logX, logY, 7.5, AMBER, 3.4);
+  rule(ctx, logX, logY + 7, logX + 320, logY + 7, 'rgba(186, 180, 168, 0.08)');
+  const entries = game.logs.slice(-6);
+  if (!entries.length) label(ctx, '—', logX, logY + 26, 8, INK_FAINT, 1);
+  entries.forEach((entry, i) => {
+    const y = logY + 26 + i * 16;
+    label(ctx, timecode(entry.t), logX, y, 7, INK_FAINT, 0.4);
+    label(ctx, clampText(ctx, game.logText(entry), 250, `7.5px ${fonts.ui}`), logX + 48, y, 7.5, 'rgba(200, 194, 180, 0.6)', 0.2, 'left', fonts.ui);
+  });
 
   // ---- the unit file, bottom left -------------------------------------
   const fileX = left;

@@ -90,9 +90,16 @@ export class Game {
     this.toast = 2.6;
   }
 
-  log(text) {
-    this.logs.push({ t: this.clock, text });
+  log(key, ...args) {
+    this.logs.push({ t: this.clock, key, args });
     if (this.logs.length > 40) this.logs.shift();
+  }
+
+  // 记录用 key 存，显示时按当前语言拼——卷宗是中文的，值班记录也必须是中文的。
+  logText(entry) {
+    const line = L.log && L.log[entry.key];
+    if (typeof line === 'function') return line(...(entry.args || []));
+    return line || entry.key;
   }
 
   standing() {
@@ -186,7 +193,7 @@ export class Game {
         if (ready && Math.hypot(a.x - exit.x, a.y - exit.y) < 44) {
           a.extracted = true;
           this.extracted += 1;
-          this.log(`${a.role} is out.`);
+          this.log('out', a.role);
         }
       }
       if (this.extracted >= this.agents.length) this.finish(true);

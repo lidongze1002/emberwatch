@@ -190,10 +190,10 @@ export function updateRules(game, dt) {
           if (r.lights >= lamps.length) {
             r.lit = true;
             game.say(L.hud.lampLit);
-            game.log('the lantern is lit. the field goes quiet.');
+            game.log('lanternLit');
           } else {
             game.say(L.hud.lampHalf);
-            game.log('one lantern. the other is still dark.');
+            game.log('lanternOne');
           }
         }
       } else {
@@ -232,7 +232,7 @@ export function updateRules(game, dt) {
           r.taken += 1;
           game.shake = 8;
           game.sound.lose();
-          game.log(`${a.role} kept looking.`);
+          game.log('keptLooking', a.role);
           game.say(L.hud.lostOne);
         }
       } else {
@@ -281,7 +281,7 @@ export function updateRules(game, dt) {
             r.race = idx + 1;
             game.sound.knock();
             game.say(L.hud.race);
-            game.log('it knows the number too.');
+            game.log('knowsNumber');
           }
         }
       }
@@ -389,7 +389,7 @@ function maybeManifest(game) {
   r.manifestCd = c.rule.manifest;
   game.sound.knock();
   game.say(L.hud.cutOff);
-  game.log('she is already at the next door.');
+  game.log('nextDoor');
 }
 
 function startKnock(game) {
@@ -429,7 +429,7 @@ function startKnock(game) {
   }
   game.sound.knock();
   game.say(L.hud.knock);
-  game.log('a door is being knocked on.');
+  game.log('knock');
 }
 function updateKnock(game, dt) {
   const r = game.rule;
@@ -465,7 +465,7 @@ function updateKnock(game, dt) {
       a.answered = null;
       game.shake = 10;
       game.sound.hurt();
-      game.log(`${a.role} answered the door.`);
+      game.log('answered', a.role);
       game.say(L.hud.grabbed);
       const hachi = game.thralls.find((t) => t.kind === 'hachi' && !t.dead);
       if (hachi) {
@@ -659,12 +659,12 @@ function resolveDoor(game, index) {
       r.floor = c.rule.floors + 1;
       r.gateOpen = true;
       game.say(L.hud.thirteenth);
-      game.log('the stairs are where they always were.');
+      game.log('stairsReal');
       teleportSquad(game);
       return;
     }
     game.say(L.hud.floorUp(r.floor, c.rule.floors));
-    game.log(`floor ${r.floor}.`);
+    game.log('floorUp', r.floor);
     r.plates = c.rule.plates[(r.floor - 1) % c.rule.plates.length].slice();
     teleportSquad(game);
     if (r.floor >= 2) spawnMirrorWave(game);
@@ -676,7 +676,7 @@ function resolveDoor(game, index) {
     game.flashWhite = 0.3;
     game.sound.lose();
     game.say(L.hud.wrongDoor);
-    game.log('the same corridor. the same carpet.');
+    game.log('sameCorridor');
     reviveSquad(game);
     teleportSquad(game);
     spawnMirrorWave(game);
@@ -715,7 +715,7 @@ function copyThrough(game) {
   game.flashWhite = 0.35;
   game.sound.lose();
   game.say(L.hud.copyThrough);
-  game.log('it went through the door first. the floor repeats.');
+  game.log('copyThrough');
   reviveSquad(game);
   teleportSquad(game);
   spawnMirrorWave(game);
@@ -736,7 +736,7 @@ export function afterRules(game, dt) {
         if (inZone(c.zones.stair, a.x, a.y)) {
           a.extracted = true;
           game.extracted += 1;
-          game.log(`${a.role} is down the stairs.`);
+          game.log('downStairs', a.role);
         }
       }
     }
@@ -755,7 +755,7 @@ export function afterRules(game, dt) {
           if (a.ticketT > 0.7) {
             a.ticket = true;
             r.tickets = (r.tickets || 0) + 1;
-            game.log(`${a.role} is holding a ticket.`);
+            game.log('ticket', a.role);
             game.say(L.hud.ticketGot);
           }
         } else {
@@ -769,7 +769,7 @@ export function afterRules(game, dt) {
         game.extracted += 1;
         r.admitted += 1;
         game.sound.win();
-        game.log(`${a.role} is through the ${r.open} gate.`);
+        game.log('gate', a.role, r.open);
         game.say(L.hud.gateAdmit(L.hud.gates[r.open]));
       }
     }
@@ -782,7 +782,7 @@ export function afterRules(game, dt) {
       if (r.lit && inZone(c.zones.gate, a.x, a.y) && a.gaze < c.rule.limit * 0.55) {
         a.extracted = true;
         game.extracted += 1;
-        game.log(`${a.role} is inside the farmhouse.`);
+        game.log('farmhouse', a.role);
         if (a.role === 'lamp') game.say(L.hud.lampIn);
       }
     }
@@ -796,7 +796,7 @@ export function afterRules(game, dt) {
       if (inZone(c.zones.stair, a.x, a.y)) {
         a.extracted = true;
         game.extracted += 1;
-        game.log(`${a.role} is out of the thirteenth floor.`);
+        game.log('floorOut', a.role);
       }
     }
   }

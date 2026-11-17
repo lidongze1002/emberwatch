@@ -569,7 +569,7 @@ function updateAgentInner(game, a, dt) {
     const reached = walkTo(game, a, mark.x, mark.y, dt);
     if (reached || Math.hypot(a.x - mark.x, a.y - mark.y) < 30) {
       a.taken = true;
-      game.log(`${a.role} walked onto the stage.`);
+      game.log('stageWalk', a.role);
     }
     return;
   }
@@ -600,7 +600,7 @@ function updateAgentInner(game, a, dt) {
           mate.down = false;
           mate.revive = 0;
           mate.hp = Math.max(2, Math.round(mate.maxHp * 0.35));
-          game.log(`${mate.role} is back on their feet.`);
+          game.log('revived', mate.role);
           a.order = { kind: 'hold' };
         }
       }
@@ -711,7 +711,7 @@ function hurtAgent(game, target, damage, t) {
     target.down = true;
     target.revive = 0;
     target.charmed = false;
-    game.log(`${target.role} is down.`);
+    game.log('down', target.role);
     if (t) {
       t.feed = HACHI.feed;
       if (t.kind === 'hachi') t.withdraw = 10;
