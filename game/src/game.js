@@ -115,9 +115,10 @@ export class Game {
   }
 
   update(dt) {
+    // 纸带上的那句话在所有页面上都会淡掉，不只是对局里
+    this.toast = Math.max(0, this.toast - dt);
     if (this.paused || this.state !== 'play') return;
     this.clock += dt;
-    this.toast = Math.max(0, this.toast - dt);
     this.shake = Math.max(0, this.shake - dt * 14);
     this.flashWhite = Math.max(0, this.flashWhite - dt * 2.4);
     this.lampCooldown = Math.max(0, this.lampCooldown - dt);
