@@ -7,8 +7,9 @@ import { buildLevel, setWorld, solid } from './level.js';
 import { createAgents, createThralls, updateUnits } from './units.js';
 import { drawFrame, drawBars, screenToWorld } from './render.js';
 import { drawHud } from './hud.js';
-import { drawBrief, drawResult, drawSelect, drawTitle, tCaseAt, tTitleLinkAt } from './overlays.js';
+import { drawBrief, drawHire, drawResult, drawRoster, drawSelect, drawTitle, tCaseAt, tHireAt, tHireNoneAt, tRosterCasesAt, tRosterHireAt, tSelectRosterAt, tTitleLinkAt } from './overlays.js';
 import { actionA, afterRules, directRules, initRules, updateRules, verdict } from './rules.js';
+import { createRoster, dismissCandidates, hire, squadForRun, settle } from './roster.js';
 import { L } from './text.js';
 
 export class Game {
@@ -18,6 +19,8 @@ export class Game {
     this.onNavigate = null;
     this.caseIndex = 0;
     this.case = CASES[0];
+    this.roster = createRoster();
+    this.squad = squadForRun(this.roster);
     setWorld(this.case);
     this.level = buildLevel();
     this.state = 'title';
@@ -28,6 +31,7 @@ export class Game {
   selectCase(index) {
     this.caseIndex = Math.max(0, Math.min(CASES.length - 1, index));
     this.case = CASES[this.caseIndex];
+    this.squad = squadForRun(this.roster);
     setWorld(this.case);
     this.level = buildLevel();
     this.reset();
@@ -63,6 +67,8 @@ export class Game {
     this.shot = null;
     this.trail = [];
     this.trailClock = 0;
+    this.settled = false;
+    this.settlement = null;
     initRules(this);
   }
 
@@ -195,9 +201,34 @@ export class Game {
     this.state = 'result';
     this.won = won;
     this.extracted = this.agents.filter((a) => a.extracted).length;
+    if (!this.settled) {
+      this.settled = true;
+      this.settlement = settle(this.roster, this);
+    }
     if (won) this.sound.win();
     else this.sound.lose();
     this.paused = false;
+  }
+
+  goRoster() {
+    this.state = 'roster';
+  }
+
+  goHire() {
+    this.state = 'hire';
+  }
+
+  goSelect() {
+    this.state = 'select';
+  }
+
+  // 值班室里点一个候选人＝录用；点「不招」＝这一批散了。
+  pickCandidate(id) {
+    if (hire(this.roster, id)) {
+      this.say(L.hire.taken);
+      return true;
+    }
+    return false;
   }
 
   useLamp() {
@@ -288,7 +319,19 @@ export class Game {
           this.selectCase(this.caseIndex);
           this.state = 'brief';
         }
-        if (code === 'Escape') this.state = 'title';
+        if (code === 'Escape') this.state = 'roster';
+        continue;
+      }
+      if (this.state === 'roster') {
+        if (code === 'Enter' || code === 'Space') this.state = 'select';
+        if (code === 'Escape') this.state = 'select';
+        continue;
+      }
+      if (this.state === 'hire') {
+        if (code === 'Enter' || code === 'Space' || code === 'Escape') {
+          dismissCandidates(this.roster);
+          this.state = 'roster';
+        }
         continue;
       }
       if (this.state === 'brief' && (code === 'Enter' || code === 'Space')) {
@@ -296,7 +339,7 @@ export class Game {
         continue;
       }
       if (this.state === 'result' && (code === 'Enter' || code === 'Space')) {
-        this.nextCase();
+        this.state = 'roster';
         continue;
       }
       if (this.state !== 'play') continue;
@@ -325,6 +368,10 @@ export class Game {
         continue;
       }
       if (this.state === 'select') {
+        if (tSelectRosterAt(click.x, click.y)) {
+          this.state = 'roster';
+          continue;
+        }
         const hit = tCaseAt(click.x, click.y, CASES.length);
         if (hit >= 0) {
           this.selectCase(hit);
@@ -332,12 +379,33 @@ export class Game {
         }
         continue;
       }
+      if (this.state === 'roster') {
+        if (tRosterHireAt(click.x, click.y)) {
+          this.state = 'hire';
+          continue;
+        }
+        if (tRosterCasesAt(click.x, click.y)) {
+          this.state = 'select';
+          continue;
+        }
+        continue;
+      }
+      if (this.state === 'hire') {
+        if (tHireNoneAt(click.x, click.y)) {
+          dismissCandidates(this.roster);
+          this.state = 'roster';
+          continue;
+        }
+        const c = this.roster.candidates[tHireAt(click.x, click.y, this.roster.candidates.length)];
+        if (c) this.pickCandidate(c.id);
+        continue;
+      }
       if (this.state === 'brief') {
         this.startRun();
         continue;
       }
       if (this.state === 'result') {
-        this.nextCase();
+        this.state = 'roster';
         continue;
       }
       if (this.state !== 'play' || this.paused) continue;
@@ -411,6 +479,8 @@ export class Game {
   draw(ctx, time) {
     drawFrame(ctx, this, time);
     if (this.state === 'title') drawTitle(ctx, this, time);
+    else if (this.state === 'roster') drawRoster(ctx, this, time);
+    else if (this.state === 'hire') drawHire(ctx, this, time);
     else if (this.state === 'select') drawSelect(ctx, this, time);
     else if (this.state === 'brief') drawBrief(ctx, this, time);
     else if (this.state === 'play') drawHud(ctx, this, time);

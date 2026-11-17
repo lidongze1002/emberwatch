@@ -437,6 +437,7 @@ function updateKnock(game, dt) {
     k.pulled = true;
     const stand = doorStand(door);
     for (const a of game.free()) {
+      if (a.deaf) continue;
       const d = Math.hypot(a.x - door.x, a.y - door.y);
       if (d < r.radius) {
         a.order = { kind: 'goto', x: stand.x, y: stand.y };

@@ -31,6 +31,7 @@ const SEATS = (() => {
 const OPERA = {
   id: 'opera',
   no: 1,
+  fee: 1200,
   decor: 'opera',
   bounds: B,
   cam: { scale: 1.4, x: 640, y: 420 },
@@ -102,6 +103,7 @@ const CORRIDOR_DOORS = [
 const APARTMENT = {
   id: 'apartment',
   no: 2,
+  fee: 1800,
   decor: 'corridor',
   bounds: B,
   cam: { scale: 1.4, x: 640, y: 420 },
@@ -171,6 +173,7 @@ const SOUTH_ZONE = { x: 518, y: 604, w: 226, h: 104 };
 const STATION = {
   id: 'station',
   no: 3,
+  fee: 2400,
   decor: 'station',
   bounds: B,
   cam: { scale: 1.35, x: 640, y: 430 },
@@ -249,6 +252,7 @@ const PADDIES = [
 const RICEFIELD = {
   id: 'ricefield',
   no: 4,
+  fee: 3000,
   decor: 'rice',
   bounds: B,
   cam: { scale: 1.4, x: 640, y: 420 },
@@ -341,6 +345,7 @@ const DOOR_LAYOUT = [
 const BACKROOMS = {
   id: 'backrooms',
   no: 5,
+  fee: 3600,
   decor: 'backrooms',
   bounds: B,
   cam: { scale: 1.4, x: 640, y: 420 },

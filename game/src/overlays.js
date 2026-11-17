@@ -3,9 +3,41 @@
 import { VIEW } from './config.js';
 import { L, fonts } from './text.js';
 import { label } from './hud.js';
+import { squadOf } from './roster.js';
+import { CASES } from './cases.js';
 
 export const TITLE_LINK = { x: 104, y: 676, w: 160, h: 40 };
 export const SELECT_ROW = { x: 176, top: 176, w: VIEW.width - 352, h: 82, gap: 12 };
+export const ROSTER_BTN = { hire: { x: 852, y: 700, w: 140, h: 34 }, cases: { x: 1006, y: 700, w: 140, h: 34 } };
+export const SELECT_ROSTER_BTN = { x: 1006, y: 690, w: 140, h: 34 };
+export const HIRE_CARD = { x: 184, w: 288, gap: 24, top: 216, h: 372 };
+export const HIRE_NONE = { x: VIEW.width / 2 - 70, y: 640, w: 140, h: 36 };
+
+const inRect = (r, x, y) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+
+export function tSelectRosterAt(x, y) {
+  return inRect(SELECT_ROSTER_BTN, x, y);
+}
+
+export function tRosterHireAt(x, y) {
+  return inRect(ROSTER_BTN.hire, x, y);
+}
+
+export function tRosterCasesAt(x, y) {
+  return inRect(ROSTER_BTN.cases, x, y);
+}
+
+export function tHireAt(x, y, count) {
+  for (let i = 0; i < count; i += 1) {
+    const left = HIRE_CARD.x + i * (HIRE_CARD.w + HIRE_CARD.gap);
+    if (x >= left && x <= left + HIRE_CARD.w && y >= HIRE_CARD.top && y <= HIRE_CARD.top + HIRE_CARD.h) return i;
+  }
+  return -1;
+}
+
+export function tHireNoneAt(x, y) {
+  return inRect(HIRE_NONE, x, y);
+}
 
 const INK = 'rgba(233, 227, 214, 0.92)';
 const INK_SOFT = 'rgba(206, 200, 186, 0.62)';
@@ -85,6 +117,70 @@ function page(ctx) {
   ctx.strokeRect(96.5, 72.5, VIEW.width - 193, VIEW.height - 145);
 }
 
+// A photograph on a file: bone paper, a dark window, and — until the art exists — a pencil line
+// instead of a face. Never a fake portrait.
+function photoFrame(ctx, x, y, w, h, caption, number) {
+  ctx.fillStyle = 'rgba(206, 198, 182, 0.9)';
+  ctx.fillRect(x, y, w, h);
+  const ix = x + 3;
+  const iy = y + 3;
+  const iw = w - 6;
+  const ih = h - 11;
+  ctx.fillStyle = 'rgba(14, 16, 21, 0.95)';
+  ctx.fillRect(ix, iy, iw, ih);
+  const g = ctx.createLinearGradient(0, iy, 0, iy + ih);
+  g.addColorStop(0, 'rgba(150, 136, 116, 0.14)');
+  g.addColorStop(0.55, 'rgba(60, 56, 50, 0.05)');
+  g.addColorStop(1, 'rgba(6, 7, 10, 0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(ix, iy, iw, ih);
+  if (caption) {
+    const size = Math.min(6.4, Math.max(4.4, iw / Math.max(6, caption.length) * 1.55));
+    label(ctx, caption, x + w / 2, iy + ih / 2 + size * 0.35, size, 'rgba(206, 198, 184, 0.5)', 0.5, 'center');
+  }
+  if (number) {
+    ctx.fillStyle = 'rgba(206, 198, 184, 0.6)';
+    ctx.font = `6px ${fonts.mono}`;
+    ctx.textAlign = 'left';
+    ctx.fillText(number, x + 4, y + h - 3);
+  }
+  ctx.strokeStyle = 'rgba(120, 112, 98, 0.32)';
+  ctx.lineWidth = 0.7;
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+}
+
+function button(ctx, rect, text, hot) {
+  ctx.fillStyle = hot ? 'rgba(201, 162, 90, 0.09)' : 'rgba(9, 11, 15, 0.5)';
+  ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+  ctx.strokeStyle = hot ? 'rgba(201, 162, 90, 0.4)' : 'rgba(206, 200, 186, 0.18)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
+  label(ctx, text, rect.x + rect.w / 2, rect.y + rect.h / 2 + 3.4, 8, hot ? '#efe3ca' : INK_SOFT, 3, 'center');
+}
+
+function money(n) {
+  const s = Math.abs(Math.round(n)).toLocaleString('en-US');
+  return n < 0 ? `-¥ ${s}` : `¥ ${s}`;
+}
+
+function postName(post) {
+  return (L.post && L.post[post]) || post;
+}
+
+function personName(m) {
+  if (!m) return '—';
+  if (m.nameIdx < 0) return L.roster.substitute;
+  return L.names[m.nameIdx % L.names.length];
+}
+
+function traitName(t) {
+  return (L.trait && L.trait[t]) || t;
+}
+
+function traitLine(t) {
+  return (L.trait.line && L.trait.line[t]) || '';
+}
+
 export function drawTitle(ctx, game, time) {
   const cx = VIEW.width / 2;
   const veil = ctx.createRadialGradient(cx, 360, 140, cx, 400, 780);
@@ -129,6 +225,135 @@ export function drawTitle(ctx, game, time) {
   rule(ctx, TITLE_LINK.x, TITLE_LINK.x + 78, TITLE_LINK.y + 27, 'rgba(186, 180, 168, 0.22)');
 }
 
+export function drawRoster(ctx, game, time) {
+  page(ctx);
+  const r = game.roster;
+  const right = VIEW.width - 148;
+  label(ctx, L.roster.form, right, 96, 7.5, INK_FAINT, 2.6, 'right');
+  label(ctx, L.roster.title, 148, 140, 26, '#efe3ca', 4, 'left', fonts.display);
+  label(ctx, L.roster.cash, right, 122, 7.5, INK_FAINT, 3, 'right');
+  label(ctx, money(r.cash), right, 152, 21, r.cash < 0 ? 'rgba(206, 96, 86, 0.95)' : 'rgba(238, 226, 200, 0.9)', 2, 'right', fonts.display);
+  if (r.cash < 0) label(ctx, L.roster.broke, right, 170, 7, RED, 0.8, 'right');
+  rule(ctx, 148, right, 186, 'rgba(201, 162, 90, 0.2)');
+
+  // six places on the desk: two ranks of three, like a duty board
+  const cols = 3;
+  const cw = 318;
+  const ch = 168;
+  const squad = squadOf(r);
+  for (let i = 0; i < 6; i += 1) {
+    const m = r.members[i];
+    const x = 148 + (i % cols) * (cw + 26);
+    const y = 202 + Math.floor(i / cols) * (ch + 18);
+    ctx.fillStyle = 'rgba(9, 11, 15, 0.5)';
+    ctx.fillRect(x, y, cw, ch);
+    ctx.strokeStyle = 'rgba(206, 200, 186, 0.12)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, cw - 1, ch - 1);
+    if (!m) {
+      const vacant = { x: x + 22, y: y + 24, w: 274, h: 120 };
+      ctx.setLineDash([3, 5]);
+      ctx.strokeStyle = 'rgba(186, 180, 168, 0.16)';
+      ctx.strokeRect(vacant.x + 0.5, vacant.y + 0.5, vacant.w, vacant.h);
+      ctx.setLineDash([]);
+      label(ctx, L.roster.empty, x + cw / 2, y + 90, 7, INK_FAINT, 2, 'center');
+      continue;
+    }
+    photoFrame(ctx, x + 18, y + 22, 74, 92, m.dead ? null : L.roster.noPhoto, `#${String(i + 1).padStart(3, '0')}`);
+    if (m.dead) {
+      ctx.strokeStyle = 'rgba(158, 62, 54, 0.7)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(x + 20, y + 24);
+      ctx.lineTo(x + 90, y + 112);
+      ctx.moveTo(x + 90, y + 24);
+      ctx.lineTo(x + 20, y + 112);
+      ctx.stroke();
+    }
+    label(ctx, personName(m), x + 106, y + 38, 17, m.dead ? INK_FAINT : INK, L.cjk ? 1.4 : 1.1, 'left', fonts.display);
+    label(ctx, `${postName(m.post)} · ${m.trait === 'green' ? L.roster.substitute : traitName(m.trait)}`, x + 106, y + 56, 7.4, AMBER, 1.4);
+    label(ctx, traitLine(m.trait), x + 106, y + 72, 8, INK_SOFT, 0.6);
+    label(ctx, `${L.roster.wounds} ${m.wounds} · ${L.roster.casesDone} ${m.cases}`, x + 106, y + 92, 7.5, INK_FAINT, 1.4);
+    // service ticks: one mark per closed case, cuts for every time they were carried out
+    for (let k = 0; k < 6; k += 1) {
+      ctx.fillStyle = k < m.cases ? AMBER : 'rgba(186, 180, 168, 0.16)';
+      ctx.fillRect(x + 106 + k * 10, y + 108, 6, 2);
+    }
+    for (let k = 0; k < m.wounds; k += 1) {
+      ctx.strokeStyle = 'rgba(158, 62, 54, 0.7)';
+      ctx.lineWidth = 1;
+      const wx = x + 188 + k * 8;
+      ctx.beginPath();
+      ctx.moveTo(wx, y + 105);
+      ctx.lineTo(wx + 4, y + 111);
+      ctx.moveTo(wx + 4, y + 105);
+      ctx.lineTo(wx, y + 111);
+      ctx.stroke();
+    }
+    const onDuty = squad.includes(m);
+    label(ctx, m.dead ? L.roster.dead : onDuty ? L.roster.onDuty : L.roster.bench, x + cw - 16, y + 30, 7, m.dead ? RED : onDuty ? AMBER : INK_FAINT, 2.6, 'right');
+    rule(ctx, x + 18, x + cw - 18, y + 128, 'rgba(186, 180, 168, 0.08)');
+    if (i < 3 && onDuty) {
+      ctx.fillStyle = AMBER;
+      ctx.fillRect(x, y, 2, ch);
+    }
+  }
+
+  // the pay book: the last few lines, amounts on the right
+  const ly = 596;
+  label(ctx, L.roster.ledger, 148, ly, 7.5, AMBER, 3.2);
+  if (!r.ledger.length) label(ctx, '—', 148, ly + 20, 8, INK_FAINT, 1);
+  r.ledger.slice(0, 4).forEach((line, i) => {
+    const y = ly + 20 + i * 15;
+    label(ctx, line.text, 148, y, 8, INK_SOFT, 0.7);
+    label(ctx, line.amount === 0 ? '—' : money(line.amount), 620, y, 8, line.amount < 0 ? 'rgba(206, 110, 96, 0.8)' : 'rgba(226, 216, 194, 0.7)', 1, 'right');
+  });
+
+  const hover = game.input && game.input.inside ? game.input : { x: -1, y: -1 };
+  button(ctx, ROSTER_BTN.hire, L.roster.hire, inRect(ROSTER_BTN.hire, hover.x, hover.y));
+  button(ctx, ROSTER_BTN.cases, L.roster.cases, inRect(ROSTER_BTN.cases, hover.x, hover.y));
+  label(ctx, L.roster.hint, 148, 744, 8, INK_FAINT, 1.8);
+}
+
+export function drawHire(ctx, game, time) {
+  page(ctx);
+  const r = game.roster;
+  const right = VIEW.width - 148;
+  label(ctx, L.roster.form, right, 96, 7.5, INK_FAINT, 2.6, 'right');
+  label(ctx, L.hire.title, HIRE_CARD.x, 150, 26, '#efe3ca', 4, 'left', fonts.display);
+  label(ctx, L.hire.sub, HIRE_CARD.x + 150, 148, 9, INK_SOFT, 0.8);
+  label(ctx, L.roster.cash, right, 150, 7.5, INK_FAINT, 3, 'right');
+  label(ctx, money(r.cash), right, 176, 16, r.cash < 0 ? 'rgba(206, 96, 86, 0.95)' : 'rgba(238, 226, 200, 0.9)', 1.6, 'right', fonts.display);
+  rule(ctx, HIRE_CARD.x, right, 196, 'rgba(201, 162, 90, 0.2)');
+
+  const hover = game.input && game.input.inside ? game.input : { x: -1, y: -1 };
+  if (!r.candidates.length) {
+    label(ctx, L.roster.none, VIEW.width / 2, 360, 10, INK_SOFT, 2, 'center');
+  }
+  r.candidates.forEach((c, i) => {
+    const x = HIRE_CARD.x + i * (HIRE_CARD.w + HIRE_CARD.gap);
+    const y = HIRE_CARD.top;
+    const hot = inRect({ x, y, w: HIRE_CARD.w, h: HIRE_CARD.h }, hover.x, hover.y);
+    const afford = r.cash >= c.price;
+    ctx.fillStyle = hot ? 'rgba(201, 162, 90, 0.05)' : 'rgba(9, 11, 15, 0.5)';
+    ctx.fillRect(x, y, HIRE_CARD.w, HIRE_CARD.h);
+    ctx.strokeStyle = hot ? 'rgba(201, 162, 90, 0.4)' : 'rgba(206, 200, 186, 0.14)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, HIRE_CARD.w - 1, HIRE_CARD.h - 1);
+    photoFrame(ctx, x + 32, y + 26, 92, 116, L.hire.noPhoto, `#${String(i + 1).padStart(2, '0')}`);
+    label(ctx, personName(c), x + HIRE_CARD.w - 22, y + 44, 15, INK, L.cjk ? 1.2 : 0.9, 'right', fonts.display);
+    label(ctx, postName(c.post), x + HIRE_CARD.w - 22, y + 62, 7.5, AMBER, 2.4, 'right');
+    rule(ctx, x + 22, x + HIRE_CARD.w - 22, y + 168, 'rgba(186, 180, 168, 0.1)');
+    label(ctx, traitName(c.trait), x + 22, y + 194, 11, INK, 1.2);
+    label(ctx, traitLine(c.trait), x + 22, y + 212, 8, INK_SOFT, 0.5);
+    label(ctx, L.hire.ask, x + 22, y + 252, 7, INK_FAINT, 2.6);
+    label(ctx, money(c.price), x + 22, y + 276, 18, afford ? 'rgba(238, 226, 200, 0.92)' : 'rgba(206, 96, 86, 0.9)', 1.2, 'left', fonts.display);
+    label(ctx, L.hire.take, x + HIRE_CARD.w - 22, y + 276, 7.5, afford ? AMBER : INK_FAINT, 2, 'right');
+  });
+  button(ctx, HIRE_NONE, L.hire.none, inRect(HIRE_NONE, hover.x, hover.y));
+  label(ctx, L.hire.hint, VIEW.width / 2, 712, 8, INK_FAINT, 1.6, 'center');
+}
+
 export function drawSelect(ctx, game, time) {
   page(ctx);
   const cx = VIEW.width / 2;
@@ -138,9 +363,9 @@ export function drawSelect(ctx, game, time) {
 
   const hover = game.input && game.input.inside ? game.input.y : -1;
   for (let i = 0; i < 5; i += 1) {
-    const meta = i < 5 ? Object.values(L.cases)[i] : null;
-    const row = meta;
-    if (!row) continue;
+    const entry = Object.entries(L.cases)[i];
+    if (!entry) continue;
+    const [rowId, row] = entry;
     const top = SELECT_ROW.top + i * (SELECT_ROW.h + SELECT_ROW.gap);
     const isHover = hover >= top && hover <= top + SELECT_ROW.h;
     ctx.fillStyle = isHover ? 'rgba(201, 162, 90, 0.05)' : 'rgba(9, 11, 15, 0.5)';
@@ -166,6 +391,12 @@ export function drawSelect(ctx, game, time) {
     label(ctx, row.place, SELECT_ROW.x + 22, top + 50, 8, INK_FAINT, 1.6);
     label(ctx, row.legend, SELECT_ROW.x + 22, top + 68, 7.5, INK_SOFT, 2.4);
 
+    // what the desk already knows about this file, and what it pays
+    const state = game.roster && game.roster.closed[rowId];
+    const statusText = state === 'won' ? L.select.status.won : state === 'lost' ? L.select.status.lost : L.select.status.open;
+    label(ctx, statusText, SELECT_ROW.x + 348, top + 26, 7.5, state === 'won' ? AMBER : state === 'lost' ? RED : INK_FAINT, 2.6);
+    label(ctx, `${L.select.fee} ${money(CASES[i] ? CASES[i].fee : 0)}`, SELECT_ROW.x + 348, top + 44, 7.5, INK_FAINT, 1.4);
+
     ctx.font = `10px ${fonts.ui}`;
     ctx.fillStyle = 'rgba(216, 212, 200, 0.6)';
     const lines = wrap(ctx, row.blurb || row.rule, SELECT_ROW.w - 486);
@@ -173,7 +404,31 @@ export function drawSelect(ctx, game, time) {
     label(ctx, L.select.rules, SELECT_ROW.x + 440, top + 14, 6.5, AMBER, 3);
   }
 
-  label(ctx, L.select.hint, cx, VIEW.height - 96, 9, INK_FAINT, 2.4, 'center');
+  // the three on duty, as photographs with a pencil name under them
+  const squad = game.roster ? squadOf(game.roster) : [];
+  const bx = SELECT_ROW.x;
+  const by = 660;
+  label(ctx, L.select.onDuty, bx, by, 7.5, AMBER, 3.2);
+  squad.forEach((m, i) => {
+    const x = bx + i * 190;
+    const y = by + 14;
+    photoFrame(ctx, x, y, 40, 50, L.roster.noPhoto, null);
+    if (m) {
+      label(ctx, personName(m), x + 48, y + 12, 10, INK, 0.8);
+      label(ctx, `${postName(m.post)} · ${traitName(m.trait)}`, x + 48, y + 28, 7, INK_SOFT, 1.2);
+      label(ctx, `${L.roster.wounds} ${m.wounds}`, x + 48, y + 42, 7, INK_FAINT, 1);
+    } else {
+      label(ctx, L.roster.empty, x + 48, y + 18, 8, INK_FAINT, 1.4);
+      label(ctx, L.roster.temp, x + 48, y + 34, 7, RED, 1.6);
+    }
+  });
+  const cursor = game.input && game.input.inside ? game.input : { x: -1, y: -1 };
+  if (game.roster) {
+    label(ctx, `${money(game.roster.cash)}`, SELECT_ROSTER_BTN.x - 18, by + 34, 12, game.roster.cash < 0 ? 'rgba(206, 96, 86, 0.9)' : INK, 0.8, 'right', fonts.display);
+    button(ctx, SELECT_ROSTER_BTN, L.select.roster, inRect(SELECT_ROSTER_BTN, cursor.x, cursor.y));
+  }
+
+  label(ctx, L.select.hint, cx, VIEW.height - 44, 9, INK_FAINT, 2.4, 'center');
 }
 
 export function drawBrief(ctx, game, time) {
@@ -196,6 +451,7 @@ export function drawBrief(ctx, game, time) {
 
   const meta = L.cases[game.case.id];
   const left = x + 44;
+  const colRight = x + w - 262;   // the text column stops here; the photographs sit to its right
   label(ctx, meta.no, left, y + 40, 9, AMBER, 4.4);
   label(ctx, meta.place, left, y + 58, 8.5, INK_SOFT, 2.4);
   label(ctx, `T+00:00 · ${L.hud.team} 3`, left, y + 76, 8, INK_FAINT, 1.8);
@@ -207,20 +463,42 @@ export function drawBrief(ctx, game, time) {
   ctx.save();
   ctx.font = `13px ${fonts.ui}`;
   ctx.fillStyle = 'rgba(216, 212, 200, 0.72)';
-  const lines = wrap(ctx, meta.rule, w - 88);
-  lines.slice(0, 5).forEach((line, i) => ctx.fillText(line, left, y + 176 + i * 22));
+  const lines = wrap(ctx, meta.rule, colRight - left);
+  lines.slice(0, 6).forEach((line, i) => ctx.fillText(line, left, y + 176 + i * 22));
   ctx.restore();
+
+  // the case photograph: a black-and-white still from the scene, no faces. Until the art exists
+  // it is an empty plate with a pencilled caption, which is honest and fits the file.
+  const px = x + w - 236;
+  const py = y + 112;
+  photoFrame(ctx, px, py, 192, 128, L.brief.noPhoto, null);
+  label(ctx, meta.place, px + 96, py + 148, 7, INK_FAINT, 0.8, 'center');
+  label(ctx, L.brief.photo, px, py + 168, 6.5, AMBER, 2.6);
 
   rule(ctx, left, x + w - 44, y + 296, 'rgba(186, 180, 168, 0.14)');
   label(ctx, L.brief.squad, left, y + 322, 7.5, AMBER, 3.4);
 
   game.agents.forEach((a, i) => {
-    const row = y + 352 + i * 48;
+    const row = y + 356 + i * 56;
     const who = L.agent[a.role];
     label(ctx, `0${i + 1}`, left, row, 8, INK_FAINT, 1);
     label(ctx, who.name, left + 28, row + 2, 14, INK, 1.6, 'left', fonts.display);
-    label(ctx, who.line, left + 150, row, 9, INK_SOFT, 0.6);
-    rule(ctx, left, x + w - 44, row + 12, 'rgba(186, 180, 168, 0.08)');
+    ctx.save();
+    ctx.font = `9px ${fonts.ui}`;
+    ctx.fillStyle = 'rgba(206, 200, 186, 0.66)';
+    wrap(ctx, who.line, colRight - (left + 150)).slice(0, 2).forEach((line, k) => ctx.fillText(line, left + 150, row + k * 13));
+    ctx.restore();
+    rule(ctx, left, x + w - 44, row + 34, 'rgba(186, 180, 168, 0.08)');
+  });
+
+  // the three portraits, side by side under the scene photograph
+  const squad = game.squad || [];
+  squad.forEach((m, i) => {
+    const fx = px + i * 64;
+    const fy = y + 396;
+    photoFrame(ctx, fx, fy, 56, 70, L.brief.noPhoto, null);
+    label(ctx, m && m.nameIdx >= 0 ? L.names[m.nameIdx % L.names.length] : L.roster.substitute, fx + 28, fy + 84, 7, INK_SOFT, 0.4, 'center');
+    label(ctx, postName(m ? m.post : ['veteran', 'rookie', 'lamp'][i]), fx + 28, fy + 96, 6.5, INK_FAINT, 1.6, 'center');
   });
 
   ctx.font = `10px ${fonts.mono}`;
@@ -263,9 +541,16 @@ export function drawResult(ctx, game, time) {
   label(ctx, 'ELAPSED', cx + 150, 424, 7.5, INK_FAINT, 3, 'center');
   label(ctx, L.result.time(Math.floor(game.clock)), cx + 150, 452, 13, 'rgba(216, 212, 200, 0.8)', 1.4, 'center');
 
-  if (won && game.caseIndex + 1 < 5) {
-    const next = Object.values(L.cases)[game.caseIndex + 1];
-    label(ctx, `${L.result.next} · ${next.no} · ${next.name}`, cx, 512, 10, AMBER, 2.4, 'center');
+  const s = game.settlement;
+  if (s) {
+    label(ctx, L.result.pay, cx - 150, 502, 7.5, INK_FAINT, 3, 'center');
+    label(ctx, money(s.pay), cx - 150, 530, 13, s.pay ? 'rgba(240, 222, 190, 0.9)' : INK_FAINT, 1.4, 'center', fonts.display);
+    label(ctx, L.result.cash, cx + 150, 502, 7.5, INK_FAINT, 3, 'center');
+    label(ctx, money(game.roster.cash), cx + 150, 530, 13, game.roster.cash < 0 ? 'rgba(206, 96, 86, 0.9)' : 'rgba(216, 212, 200, 0.85)', 1.4, 'center', fonts.display);
+    const notes = [];
+    if (s.dead) notes.push(L.result.funerals(s.dead));
+    if (s.hurt) notes.push(L.result.medical(s.hurt));
+    if (notes.length) label(ctx, notes.join(' · '), cx, 556, 8, INK_FAINT, 1.6, 'center');
   }
 
   ctx.font = `10px ${fonts.mono}`;

@@ -241,9 +241,12 @@ export function spawnEcho(game) {
 export function createAgents(game) {
   return game.case.spawns.agents.map((spot, i) => {
     const spec = AGENTS[spot.role];
+    const sq = game.squad && game.squad[i];
     return {
       id: `a${i}`,
       role: spot.role,
+      trait: sq ? sq.trait : 'green',
+      deaf: !!(sq && sq.trait === 'deaf'),
       x: spot.x,
       y: spot.y,
       hp: spec.hp,
@@ -372,13 +375,32 @@ function walkTo(game, a, x, y, dt) {
   const travelled = Math.hypot(a.x - a.stallAt.x, a.y - a.stallAt.y);
   if (travelled > 8) {
     a.stallAt = { x: a.x, y: a.y, t: 0 };
-  } else if (a.stallAt.t > 0.8) {
+  } else if (a.stallAt.t > 0.6) {
     a.stallAt = { x: a.x, y: a.y, t: 0 };
     if (Math.hypot(x - a.x, y - a.y) > 40) {
       const seat = roomySpot(a.x, a.y, r);
       if (Math.hypot(seat.x - a.x, seat.y - a.y) > 1) {
         a.x = seat.x;
         a.y = seat.y;
+        a.path = null;
+        a.pathAt = 0;
+        a.vx = 0;
+        a.vy = 0;
+      } else {
+        // The body is rubbing the outside of a corner: the seat is where it already stands, and
+        // the same path keeps coming back. Step off the corner sideways, then re-plan from there.
+        const side = -(a.sideSign || 1);
+        a.sideSign = side;
+        const away = Math.atan2(y - a.y, x - a.x) + side * Math.PI / 2;
+        for (const d of [9, 14, 20, 28]) {
+          const px = a.x + Math.cos(away) * d;
+          const py = a.y + Math.sin(away) * d;
+          if (!solid(px, py, r)) {
+            a.x = px;
+            a.y = py;
+            break;
+          }
+        }
         a.path = null;
         a.pathAt = 0;
         a.vx = 0;
@@ -464,7 +486,8 @@ function fire(game, a, target) {
   a.cooldown = a.fireRate;
   a.recoil = 1;
   a.aim = Math.atan2(target.y - a.y, target.x - a.x);
-  const spread = (Math.random() - 0.5) * a.spread * 2;
+  const stay = a.trait === 'steady' ? 0.72 : 1;
+  const spread = (Math.random() - 0.5) * a.spread * 2 * stay;
   const angle = a.aim + spread;
   game.bullets.push({
     x: a.x + Math.cos(angle) * 26,
@@ -572,7 +595,7 @@ function updateAgentInner(game, a, dt) {
         walkTo(game, a, mate.x, mate.y, dt);
       } else {
         a.state = 'reviving';
-        mate.revive += dt * (a.role === 'rookie' ? 1.6 : 1);
+        mate.revive += dt * (a.role === 'rookie' ? 1.6 : 1) * (a.trait === 'quick' ? 1.5 : 1);
         if (mate.revive >= TUNING.reviveSeconds) {
           mate.down = false;
           mate.revive = 0;
