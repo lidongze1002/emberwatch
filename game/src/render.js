@@ -687,6 +687,33 @@ function drawBackroomsDecor(ctx, game, time) {
 
 // ---- 门：公寓的门、车站的卷帘、十三楼的门牌 ------------------------------
 
+// 俯视下的门是一块装进门框的板，不是一个洞：门缝、门板、合页边的暗部、门槛，再加一块门牌。
+// 两处案子共用，只换材质。
+function doorPanel(ctx, x, y, w, h, tone) {
+  // the gap the leaf sits in
+  ctx.fillStyle = 'rgba(3, 3, 4, 0.7)';
+  ctx.fillRect(x - 1.5, y - 1.5, w + 3, h + 3);
+  const g = ctx.createLinearGradient(x, y, x + w, y + h);
+  g.addColorStop(0, tone.light);
+  g.addColorStop(0.55, tone.mid);
+  g.addColorStop(1, tone.dark);
+  ctx.fillStyle = g;
+  ctx.fillRect(x + 1, y + 1, w - 2, h - 2);
+  // the leaf's own thickness: a lit edge on the top/left, a shadow on the other side
+  ctx.fillStyle = 'rgba(255, 246, 226, 0.16)';
+  ctx.fillRect(x + 1, y + 1, w - 2, 1);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+  ctx.fillRect(x + 1, y + h - 2, w - 2, 1);
+  // the two panels pressed into the leaf
+  ctx.strokeStyle = tone.groove;
+  ctx.lineWidth = 0.8;
+  if (w > h) {
+    ctx.strokeRect(x + 5.5, y + 5.5, w - 11, h - 11);
+  } else {
+    ctx.strokeRect(x + 5.5, y + 5.5, w - 11, h - 11);
+  }
+}
+
 function drawDoors(ctx, game, time) {
   const c = game.case;
   const r = game.rule;
@@ -698,18 +725,38 @@ function drawDoors(ctx, game, time) {
       const h = d.face === 'n' || d.face === 's' ? 24 : 54;
       const x = d.x - w / 2;
       const y = d.y - h / 2;
-      ctx.fillStyle = 'rgba(12, 10, 8, 0.85)';
-      ctx.fillRect(x, y, w, h);
-      ctx.strokeStyle = knock ? 'rgba(214, 96, 80, 0.9)' : 'rgba(201, 162, 90, 0.34)';
-      ctx.lineWidth = knock ? 2 : 1.2;
-      ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-      ctx.fillStyle = 'rgba(201, 162, 90, 0.5)';
-      const hx = d.face === 'n' || d.face === 's' ? d.x + 18 : d.x;
-      const hy = d.face === 'n' || d.face === 's' ? d.y : d.y + 18;
+      doorPanel(ctx, x, y, w, h, {
+        light: '#463a2c',
+        mid: '#32291f',
+        dark: '#1c1712',
+        groove: 'rgba(12, 9, 7, 0.6)',
+      });
+      // the plate: brass, two digits, mounted on the corridor side
+      const along = d.face === 'n' || d.face === 's';
+      const plateX = along ? d.x + 13 : d.x;
+      const plateY = along ? d.y : d.y + 13;
+      ctx.fillStyle = 'rgba(186, 152, 88, 0.7)';
+      ctx.fillRect(plateX - 6, plateY - 4, 12, 8);
+      ctx.fillStyle = 'rgba(24, 18, 10, 0.85)';
+      ctx.save();
+      ctx.font = `6px ${L.fonts.mono}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(i + 1), plateX, plateY + 0.5);
+      ctx.restore();
+      // the handle, on the hinge-opposite edge
+      ctx.fillStyle = 'rgba(210, 174, 108, 0.55)';
+      const hx = along ? d.x + 18 : d.x;
+      const hy = along ? d.y : d.y + 18;
       ctx.beginPath();
       ctx.arc(hx, hy, 1.8, 0, Math.PI * 2);
       ctx.fill();
       if (knock) {
+        // light under the door: someone is standing on the other side
+        const spill = 0.2 + 0.18 * Math.sin(time * 6);
+        ctx.fillStyle = `rgba(255, 206, 148, ${spill})`;
+        if (along) ctx.fillRect(x + 4, d.face === 'n' ? y + h : y - 2, w - 8, 2);
+        else ctx.fillRect(d.face === 'w' ? x + w - 1 : x - 1, y + 4, 2, h - 8);
         const pulse = (time * 1.6) % 1;
         for (let k = 0; k < 3; k += 1) {
           const t = Math.max(0, pulse - k * 0.28);
@@ -795,11 +842,16 @@ function drawDoors(ctx, game, time) {
       const h = d.nx === 0 ? depth : 58;
       const x = d.nx === 0 ? d.x - 29 : d.nx > 0 ? d.x - 22 : d.x + 22 - depth;
       const y = d.ny === 0 ? d.y - 29 : d.ny > 0 ? d.y - 22 : d.y + 22 - depth;
-      ctx.fillStyle = 'rgba(7, 7, 5, 0.94)';
-      ctx.fillRect(x, y, w, h);
-      ctx.strokeStyle = 'rgba(240, 226, 160, 0.22)';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      doorPanel(ctx, x, y, w, h, {
+        light: '#6f6846',
+        mid: '#57513a',
+        dark: '#38341f',
+        groove: 'rgba(18, 16, 8, 0.55)',
+      });
+      // 门缝下面一条更暗的线：门是关着的
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      if (w > h) ctx.fillRect(x + 2, y + h - 3, w - 4, 1);
+      else ctx.fillRect(x + w - 3, y + 2, 1, h - 4);
       // 门把手
       ctx.fillStyle = 'rgba(190, 176, 120, 0.4)';
       const hx = d.nx === 0 ? d.x + 22 : d.x;
