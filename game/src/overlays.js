@@ -674,14 +674,12 @@ export function drawBrief(ctx, game, time) {
 
   game.agents.forEach((a, i) => {
     const row = y + 356 + i * 56;
+    const m = game.squad && game.squad[i];
     const who = L.agent[a.role];
     label(ctx, `0${i + 1}`, left, row, 8, INK_FAINT, 1);
-    label(ctx, who.name, left + 28, row + 2, 14, INK, 1.6, 'left', fonts.display);
-    ctx.save();
-    ctx.font = `9px ${fonts.ui}`;
-    ctx.fillStyle = 'rgba(206, 200, 186, 0.66)';
-    wrap(ctx, who.line, colRight - (left + 150)).slice(0, 2).forEach((line, k) => ctx.fillText(line, left + 150, row + k * 13));
-    ctx.restore();
+    label(ctx, m ? personName(m) : who.name, left + 28, row + 2, 14, INK, 1.6, 'left', fonts.display);
+    label(ctx, `${postName(a.role)} · ${traitName(a.trait)}`, left + 150, row, 8.5, INK_SOFT, 1.2);
+    label(ctx, who.line, left + 150, row + 15, 8, INK_FAINT, 0.6);
     rule(ctx, left, x + w - 44, row + 34, 'rgba(186, 180, 168, 0.08)');
   });
 

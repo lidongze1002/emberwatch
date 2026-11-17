@@ -387,6 +387,13 @@
 **结论**：保留。
 截图：`screenshots/gallery/36-roster-in-hud.jpg`
 
+## 轮 56 — 简报里的人也没有名字
+**看**：上一轮把局内卡片改成了名册上的名字，可简报页「你带的三个人」仍是「老兵 / 先上，最后退」——玩家在值班室招的人、换的班，在签字那一刻又变回了三个岗位。
+**改**：简报的三行改成「名字（衬线）+ 岗位·特质 + 原来的性格一句话」。名字与值班室、局内卡片同源（`personName` / `postName` / `traitName`，都从 `text.js` 出）。
+**测**：`nw-cases` 5/5 WON、3/3、meta 回归通过、无 console error；`nw-perf` median 16.7 ms。截图确认三行与值班室一致。
+**结论**：保留。纸面上的同一个人在三个页面上是同一个名字。
+截图：`screenshots/gallery/37-brief-names.jpg`
+
 ## 备注
 - `render.js` 里有一行 `window.__nwCam?.(CAM)` 的调试钩子，只给 tools 下的截图脚本用，未设置回调时无副作用。
 - 帧时：本轮期间机器整体从 16.7 ms 漂到 17.7–17.9 ms；用 `git stash` 回退到上一个提交复测仍是 17.8 ms，确认是机器负载，不是本轮改动。
