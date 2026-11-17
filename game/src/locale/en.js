@@ -63,7 +63,7 @@ export const en = {
       legend: 'NO NAME',
       rule: 'There is no station here, and the map changes. Every sixteen seconds one gate is live: south, west, east. Only one person gets through per departure — the shutter closes behind them. The last train leaves at 96 seconds.',
       hint: 'READ THE TIMETABLE · ONE THROUGH PER GATE · WATCH THE COUNTDOWN · T AUTO',
-      obj: ['BOARD AT THE LIVE GATE', 'ALL THREE THROUGH'],
+      obj: ['BOARD AT THE LIVE GATE', 'ALL THREE THROUGH', 'LAST TRAIN'],
       winSub: 'Three of you on a train that does not exist.',
       loseSub: 'The last train left without them.',
     },
@@ -146,6 +146,7 @@ export const en = {
     gateChange: (g, s) => `THE ${g} GATE IS LIVE`,
     gateAdmit: (g) => `ONE THROUGH THE ${g} GATE`,
     oneThrough: 'THE SHUTTER IS DOWN',
+    secondsLeft: (s) => `${s}s`,
     // 第四案
     stampGaze: 'GAZE',
     stampAvert: 'EYES AWAY',

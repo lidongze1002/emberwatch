@@ -1,7 +1,7 @@
 // 规则：每一案只有一条，但必须是机制。这里同时放三样东西——规则怎么跑、目标怎么读、
 // 队长（game.direct）怎么把这一案自动打完。渲染不认识这里，只读 game.rule 的状态。
 
-import { POSSESS_SECONDS } from './config.js';
+import { POSSESS_SECONDS, HACHI } from './config.js';
 import { L } from './text.js';
 import { spawnBoss, spawnGazers, spawnMirrors } from './units.js';
 import { lineClear, setExtras, solid } from './level.js';
@@ -299,6 +299,9 @@ function updateKnock(game, dt) {
         hachi.y = stand.y;
         hachi.path = null;
         hachi.feed = 0.4;
+        // 每一次应门，她都被叫得更近一点：这不是数值，是规则的代价
+        hachi.grabs = (hachi.grabs || 0) + 1;
+        hachi.speed = Math.min(72, HACHI.speed + hachi.grabs * 6);
       }
       r.knock = null;
       r.nextKnock = game.clock + r.knockEvery + 3;
@@ -380,6 +383,24 @@ function nearestGazer(game, a) {
 
 // ---- 第五案：门与层 -------------------------------------------------------
 
+function mirrorSpots(game) {
+  const c = game.case;
+  const r = game.rule;
+  const spots = [
+    { x: 420, y: 660 }, { x: 244, y: 430 }, { x: 1040, y: 300 },
+  ];
+  // 一个复制品就站在这一层那扇门前面：换层不是脱战，是换一间有你的房间
+  if (r && r.plates && c.doors && c.rule.wanted) {
+    const want = c.rule.wanted[Math.min(r.floor, c.rule.floors) - 1];
+    const idx = r.plates.indexOf(want);
+    if (idx >= 0) {
+      const d = c.doors[idx];
+      spots[0] = { x: d.x + d.nx * 74, y: d.y + d.ny * 74 };
+    }
+  }
+  return spots;
+}
+
 function teleportSquad(game) {
   const c = game.case;
   const spots = c.spawns.agents;
@@ -434,7 +455,7 @@ function resolveDoor(game, index) {
 
 function spawnMirrorWave(game) {
   game.thralls = game.thralls.filter((t) => t.kind !== 'mirror');
-  spawnMirrors(game);
+  spawnMirrors(game, mirrorSpots(game));
 }
 
 // ---- 结算与目标 -----------------------------------------------------------
@@ -444,8 +465,8 @@ export function afterRules(game, dt) {
   const c = game.case;
   if (c.rule.kind === 'power') return;
   if (c.rule.kind === 'knock') {
-    // 楼梯间：天亮之后才开
-    if (game.clock >= r.dawn) {
+    // 楼梯间：天亮之后才开，而且不把倒下的人留在楼上
+    if (game.clock >= r.dawn && !game.agents.some((a) => a.down)) {
       for (const a of game.agents) {
         if (a.extracted || a.down || a.taken) continue;
         if (inZone(c.zones.stair, a.x, a.y)) {
@@ -487,6 +508,7 @@ export function afterRules(game, dt) {
   }
   if (c.rule.kind === 'floors') {
     if (!r.gateOpen) return;
+    if (game.agents.some((a) => a.down)) return;
     for (const a of game.agents) {
       if (a.extracted || a.down || a.taken) continue;
       if (inZone(c.zones.stair, a.x, a.y)) {
@@ -570,6 +592,7 @@ export function objectives(game) {
     return [
       { text: T[0], value: L.hud.gates[r.open], done: false },
       { text: T[1], value: `${game.extracted} / ${game.agents.length}`, done: game.won },
+      { text: T[2], value: L.hud.secondsLeft(Math.max(0, Math.ceil(c.rule.lastTrain - game.clock))), done: game.clock > c.rule.lastTrain },
     ];
   }
   if (c.rule.kind === 'gaze') {

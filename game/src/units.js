@@ -99,10 +99,10 @@ export function spawnGazers(game) {
   }
 }
 
-export function spawnMirrors(game) {
+export function spawnMirrors(game, given) {
   const boss = game.case.boss;
   if (!boss || boss.kind !== 'mirror') return;
-  const spots = [
+  const spots = given && given.length ? given : [
     { x: 420, y: 660 }, { x: 244, y: 430 }, { x: 1040, y: 300 },
   ];
   const roles = ['veteran', 'rookie', 'lamp'];
