@@ -2035,69 +2035,90 @@ function drawHachi(ctx, t, time) {
 
   ctx.rotate(t.aim + Math.PI / 2);
   const sway = Math.sin(time * 1.2 + t.step) * 1.4;
-  // 裙摆：比肩宽，前短后长
-  const dress = ctx.createLinearGradient(0, -22, 0, 30);
+  // 裙：肩线是钝的，下摆比肩宽一圈。只在一端收尖，才读成「人」而不是一个锥子。
+  const dress = ctx.createLinearGradient(0, -24, 0, 30);
   dress.addColorStop(0, '#efe9dc');
   dress.addColorStop(0.55, '#d8d2c4');
   dress.addColorStop(1, '#a9a396');
   ctx.fillStyle = dress;
   ctx.beginPath();
-  ctx.moveTo(0, -20);
-  ctx.bezierCurveTo(16, -14, 21 + sway, 10, 23, 26);
-  ctx.bezierCurveTo(10, 32, -10, 32, -23, 26);
-  ctx.bezierCurveTo(-21 + sway, 10, -16, -14, 0, -20);
+  ctx.moveTo(0, -23);
+  ctx.bezierCurveTo(-6, -25, -13, -24, -15, -19.5);
+  ctx.bezierCurveTo(-19 - sway * 0.3, -6, -22, 12, -23, 24);
+  ctx.bezierCurveTo(-10, 30, 10, 30, 23, 24);
+  ctx.bezierCurveTo(22, 12, 19 + sway * 0.3, -6, 15, -19.5);
+  ctx.bezierCurveTo(13, -24, 6, -25, 0, -23);
   ctx.closePath();
   ctx.fill();
   // 一条被主光压出来的暗边，让她从地上立起来
   ctx.strokeStyle = 'rgba(16, 14, 16, 0.5)';
   ctx.lineWidth = 1.1;
   ctx.stroke();
+  // 高领：白裙的领子从上面看是两条压在一起的边
+  ctx.strokeStyle = 'rgba(120, 112, 104, 0.5)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(-10, -21);
+  ctx.lineTo(0, -15.5);
+  ctx.lineTo(10, -21);
+  ctx.stroke();
   // 裙褶
   ctx.strokeStyle = 'rgba(120, 114, 104, 0.4)';
   ctx.lineWidth = 0.9;
   for (let i = -2; i <= 2; i += 1) {
     ctx.beginPath();
-    ctx.moveTo(i * 6, -12);
-    ctx.quadraticCurveTo(i * 8 + sway, 6, i * 7, 26);
+    ctx.moveTo(i * 6, -8);
+    ctx.quadraticCurveTo(i * 8 + sway, 10, i * 7, 25);
     ctx.stroke();
   }
-  // 长发：从头顶盖到腰，但收窄，别把整条白裙吃掉
-  const hair = ctx.createLinearGradient(0, -30, 0, 24);
+  // 长发：从头顶盖到腰，收窄，别把整条白裙吃掉
+  const hair = ctx.createLinearGradient(0, -30, 0, 18);
   hair.addColorStop(0, '#141013');
   hair.addColorStop(1, '#2a2026');
   ctx.fillStyle = hair;
   ctx.beginPath();
-  ctx.moveTo(0, -30);
-  ctx.bezierCurveTo(8, -22, 8.5, 4, 6.5, 22);
-  ctx.bezierCurveTo(0, 25, -6, 24, -6.5, 22);
-  ctx.bezierCurveTo(-8.5, 4, -8, -22, 0, -30);
+  ctx.moveTo(-8.2, -22);
+  ctx.bezierCurveTo(-9.4, -6, -7.4, 8, -5.2, 15.5);
+  ctx.quadraticCurveTo(0, 18, 5.2, 15.5);
+  ctx.bezierCurveTo(7.4, 8, 9.4, -6, 8.2, -22);
   ctx.closePath();
   ctx.fill();
-  // 头顶：只有颅顶和一条被头发压住的高光
-  ctx.fillStyle = '#191317';
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+  ctx.lineWidth = 0.8;
+  ctx.stroke();
+  // 一根被灯照亮的发丝，让这块黑有方向
+  ctx.strokeStyle = 'rgba(206, 190, 176, 0.2)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-5.6, -18);
+  ctx.bezierCurveTo(-6.4, -4, -4.8, 8, -3.2, 13);
+  ctx.stroke();
+  // 头顶：只有颅顶、一圈缘光和一条被头发压住的高光
+  ctx.fillStyle = '#1b1519';
   ctx.beginPath();
   ctx.ellipse(0, -24, 9.4, 9.8, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255, 236, 210, 0.16)';
-  ctx.lineWidth = 0.9;
+  const headA = Math.atan2(KEY.y - t.y, KEY.x - t.x) - (t.aim + Math.PI / 2);
+  ctx.strokeStyle = 'rgba(240, 218, 190, 0.4)';
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.ellipse(0, -24, 8.4, 8.8, 0, -2.2, 0.5);
+  ctx.arc(0, -24, 8.6, headA - 1.05, headA + 1.05);
   ctx.stroke();
-  // 前伸的两只手，苍白
-  ctx.strokeStyle = '#d7cfc0';
-  ctx.lineWidth = 3.2;
+  // 两条垂在身侧的手臂，比裙子暗一档，手很低
+  ctx.strokeStyle = '#b7ac9b';
+  ctx.lineWidth = 3;
   ctx.lineCap = 'round';
+  const swing = Math.sin(time * 1.6 + t.step) * 1.2;
   ctx.beginPath();
-  ctx.moveTo(-9, -12);
-  ctx.lineTo(-13, -24 + Math.sin(time * 1.6) * 1.6);
-  ctx.moveTo(9, -12);
-  ctx.lineTo(13, -24 - Math.sin(time * 1.6) * 1.6);
+  ctx.moveTo(-12.5, -13);
+  ctx.lineTo(-16.5, 5 + swing);
+  ctx.moveTo(12.5, -13);
+  ctx.lineTo(16.5, 5 - swing);
   ctx.stroke();
-  // 赤脚：裙摆下露出的两个脚趾
-  ctx.fillStyle = '#cbbfae';
+  ctx.fillStyle = '#cfc3b1';
   ctx.beginPath();
-  ctx.ellipse(-6, 29, 3.1, 4.2, 0.1, 0, Math.PI * 2);
-  ctx.ellipse(6, 29, 3.1, 4.2, -0.1, 0, Math.PI * 2);
+  ctx.ellipse(-16.8, 6.6 + swing, 2, 2.6, 0.2, 0, Math.PI * 2);
+  ctx.ellipse(16.8, 6.6 - swing, 2, 2.6, -0.2, 0, Math.PI * 2);
   ctx.fill();
 
   if (t.feed > 0) {
