@@ -1,13 +1,12 @@
-// The ten gifts the lamp offers between waves. Each card is data: a name, a sentence, and one
-// apply() that changes the run's stats. Nothing here draws a card or knows what a wave is.
+// The ten gifts the lamp offers between waves. Each card is data: an id, a sigil, and one
+// apply() that changes the run's stats. Names and wording live in the page's word-book, so the
+// same card reads in either edition; nothing here draws a card or knows what a wave is.
 
 import { TUNING } from './config.js';
 
 export const UPGRADES = [
   {
     id: 'lens',
-    name: 'Wide Lens',
-    blurb: 'A broader cone of light. The beam catches more water.',
     sigil: 'lens',
     apply(game) {
       game.stats.halfAngle += (4 * Math.PI) / 180;
@@ -15,8 +14,6 @@ export const UPGRADES = [
   },
   {
     id: 'throw',
-    name: 'Long Throw',
-    blurb: 'The light reaches ninety paces further out to sea.',
     sigil: 'throw',
     apply(game) {
       game.stats.reach += 90;
@@ -24,8 +21,6 @@ export const UPGRADES = [
   },
   {
     id: 'wick',
-    name: 'Bright Wick',
-    blurb: 'A quarter more burn. Shadows die sooner in the beam.',
     sigil: 'wick',
     apply(game) {
       game.stats.dps *= 1.25;
@@ -33,8 +28,6 @@ export const UPGRADES = [
   },
   {
     id: 'coil',
-    name: 'Fast Coil',
-    blurb: 'Overdrive charges two fifths faster, from kills and from held light.',
     sigil: 'coil',
     apply(game) {
       game.stats.odGain *= 1.4;
@@ -42,8 +35,6 @@ export const UPGRADES = [
   },
   {
     id: 'heart',
-    name: 'Stone Heart',
-    blurb: 'One more heart in the tower. The cliff can take another blow.',
     sigil: 'heart',
     apply(game) {
       game.stats.maxHearts = Math.min(TUNING.maxHearts, game.stats.maxHearts + 1);
@@ -52,8 +43,6 @@ export const UPGRADES = [
   },
   {
     id: 'slow',
-    name: 'Slow Water',
-    blurb: 'Water near the tower turns heavy. Shadows close to it move slower.',
     sigil: 'slow',
     apply(game) {
       game.stats.slowAura = true;
@@ -61,8 +50,6 @@ export const UPGRADES = [
   },
   {
     id: 'wildfire',
-    name: 'Wildfire',
-    blurb: 'One kill in seven catches. The fire jumps to whatever stands near.',
     sigil: 'wildfire',
     apply(game) {
       game.stats.wildfire = 0.15;
@@ -70,8 +57,6 @@ export const UPGRADES = [
   },
   {
     id: 'focus',
-    name: 'Focus',
-    blurb: 'Half again the burn on anything far out. Kill them before they near.',
     sigil: 'focus',
     apply(game) {
       game.stats.focus = true;
@@ -79,8 +64,6 @@ export const UPGRADES = [
   },
   {
     id: 'bounty',
-    name: 'Bounty',
-    blurb: 'Every shadow is worth a fifth more. The lamp remembers what it saves.',
     sigil: 'bounty',
     apply(game) {
       game.stats.bounty *= 1.2;
@@ -88,8 +71,6 @@ export const UPGRADES = [
   },
   {
     id: 'kindling',
-    name: 'Kindling',
-    blurb: 'Overdrive burns six tenths of a second longer. A little more dawn.',
     sigil: 'kindling',
     apply(game) {
       game.stats.odSeconds += 0.6;

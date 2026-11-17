@@ -1,13 +1,14 @@
 // The interface drawn into the scene: hearts, the wave, the score, the combo, the overdrive
 // bar, the leviathan's shell, and the banner that carries a wave in or out. It reads game
-// state and writes nothing.
+// state and writes nothing; every word comes from the page's word-book.
 
 import { PALETTE, TUNING, VIEW } from './config.js';
-import { FONTS } from './config.js';
+import { L, fonts, number } from './text.js';
 
 const M = 44;
+const TRACK = L.cjk ? 3 : 6;
 
-export function label(ctx, text, x, y, size, colour, spacing = 0, align = 'left', font = FONTS.ui) {
+export function label(ctx, text, x, y, size, colour, spacing = 0, align = 'left', font = fonts.ui) {
   ctx.save();
   ctx.font = `${size}px ${font}`;
   ctx.fillStyle = colour;
@@ -54,16 +55,16 @@ function drawHearts(ctx, game, time) {
     }
     ctx.restore();
   }
-  label(ctx, 'THE LAMP', M, 84, 10, PALETTE.textDim, 3);
+  label(ctx, L.hud.lamp, M, 84, 10, PALETTE.textDim, TRACK - 3);
 }
 
 function drawWave(ctx, game) {
   const centre = VIEW.width / 2;
   const total = game.waveTotal || 1;
   const done = Math.min(total, game.waveGone ?? 0);
-  label(ctx, `WAVE ${Math.max(1, game.wave)} OF ${game.waveCount}`, centre, 42, 13, PALETTE.textWarm, 7, 'center');
+  label(ctx, L.hud.wave(Math.max(1, game.wave), game.waveCount), centre, 42, 13, PALETTE.textWarm, TRACK + 1, 'center');
   const title = game.waveTitle || '';
-  if (title) label(ctx, title, centre, 66, 19, 'rgba(223, 230, 240, 0.62)', 2, 'center', FONTS.display);
+  if (title) label(ctx, title, centre, 66, 19, 'rgba(223, 230, 240, 0.62)', 2, 'center', fonts.display);
   const pips = Math.min(24, total);
   if (pips > 0) {
     const shown = Math.round((done / total) * pips);
@@ -76,15 +77,15 @@ function drawWave(ctx, game) {
 
 function drawScore(ctx, game) {
   const x = VIEW.width - M;
-  label(ctx, 'SCORE', x, 34, 10, PALETTE.textDim, 3, 'right');
+  label(ctx, L.hud.score, x, 34, 10, PALETTE.textDim, TRACK - 3, 'right');
   ctx.save();
-  ctx.font = `600 34px ${FONTS.mono}`;
+  ctx.font = `600 34px ${fonts.mono}`;
   ctx.fillStyle = PALETTE.text;
   ctx.textAlign = 'right';
   ctx.letterSpacing = '1px';
-  ctx.fillText(game.score.toLocaleString('en-US'), x, 66);
+  ctx.fillText(number(game.score), x, 66);
   ctx.restore();
-  label(ctx, `BEST ${Math.max(game.best, game.score).toLocaleString('en-US')}`, x, 88, 11, PALETTE.textDim, 2, 'right');
+  label(ctx, L.hud.best(number(Math.max(game.best, game.score))), x, 88, 11, PALETTE.textDim, 2, 'right');
 }
 
 function drawCombo(ctx, game) {
@@ -93,8 +94,8 @@ function drawCombo(ctx, game) {
   const heat = Math.min(1, game.comboTimer / TUNING.comboWindow);
   ctx.save();
   ctx.globalAlpha = 0.55 + heat * 0.45;
-  label(ctx, `×${game.comboMult}`, centre, 122, 26 + heat * 4, PALETTE.fire, 2, 'center', FONTS.mono);
-  label(ctx, 'COMBO', centre, 138, 9, 'rgba(255, 179, 71, 0.6)', 4, 'center');
+  label(ctx, `×${game.comboMult}`, centre, 122, 26 + heat * 4, PALETTE.fire, 2, 'center', fonts.mono);
+  label(ctx, L.hud.combo, centre, 138, 9, 'rgba(255, 179, 71, 0.6)', 4, 'center');
   ctx.restore();
 }
 
@@ -104,8 +105,8 @@ function drawBoss(ctx, game) {
   const w = 420;
   const x = (VIEW.width - w) / 2;
   const y = 114;
-  label(ctx, 'LEVIATHAN', x, y - 8, 11, 'rgba(255, 160, 90, 0.85)', 4);
-  label(ctx, boss.litTime >= TUNING.armour.leviathan ? 'SHELL OPEN' : 'SHELL CLOSED', x + w, y - 8, 9, PALETTE.textDim, 3, 'right');
+  label(ctx, L.hud.leviathan, x, y - 8, 11, 'rgba(255, 160, 90, 0.85)', 4);
+  label(ctx, boss.litTime >= TUNING.armour.leviathan ? L.hud.shellOpen : L.hud.shellClosed, x + w, y - 8, 9, PALETTE.textDim, 3, 'right');
   ctx.fillStyle = 'rgba(9, 14, 22, 0.85)';
   ctx.fillRect(x, y, w, 7);
   const pct = Math.max(0, boss.hp / boss.maxHp);
@@ -126,7 +127,7 @@ function drawOverdrive(ctx, game, time) {
   const h = 9;
   const pct = Math.min(1, game.overdrive / TUNING.overdriveMax);
   const ready = pct >= 1;
-  label(ctx, 'OVERDRIVE', x, y - 10, 10, ready ? PALETTE.fire : PALETTE.textDim, 3);
+  label(ctx, L.hud.overdrive, x, y - 10, 10, ready ? PALETTE.fire : PALETTE.textDim, TRACK - 3);
   ctx.fillStyle = 'rgba(10, 15, 24, 0.9)';
   ctx.fillRect(x, y, w, h);
   if (pct > 0) {
@@ -151,10 +152,10 @@ function drawOverdrive(ctx, game, time) {
     const pulse = 0.55 + Math.sin(time * 6) * 0.25;
     ctx.save();
     ctx.globalAlpha = pulse;
-    label(ctx, 'SPACE', x + w + 12, y + 9, 11, PALETTE.fireHot, 3);
+    label(ctx, L.hud.ready, x + w + 12, y + 9, 11, PALETTE.fireHot, 3);
     ctx.restore();
   } else if (game.odTimer > 0) {
-    label(ctx, 'BURNING', x + w + 12, y + 9, 10, 'rgba(255, 190, 120, 0.8)', 3);
+    label(ctx, L.hud.burning, x + w + 12, y + 9, 10, 'rgba(255, 190, 120, 0.8)', 3);
   }
 }
 
@@ -168,7 +169,7 @@ export function drawBanner(ctx, game) {
   ctx.globalAlpha = fade;
   ctx.translate(0, rise);
   const centre = VIEW.width / 2;
-  label(ctx, b.text, centre, 246, 40, PALETTE.textWarm, 6, 'center', FONTS.display);
+  label(ctx, b.text, centre, 246, 40, PALETTE.textWarm, 6, 'center', fonts.display);
   if (b.sub) label(ctx, b.sub, centre, 276, 13, 'rgba(223, 230, 240, 0.7)', 4, 'center');
   ctx.restore();
 }
@@ -180,6 +181,6 @@ export function drawHud(ctx, game, time) {
   drawCombo(ctx, game);
   drawBoss(ctx, game);
   drawOverdrive(ctx, game, time);
-  label(ctx, 'M  MUTE', VIEW.width - M, VIEW.height - 30, 10, 'rgba(127, 142, 163, 0.7)', 3, 'right');
+  label(ctx, L.hud.mute, VIEW.width - M, VIEW.height - 30, 10, 'rgba(127, 142, 163, 0.7)', 3, 'right');
   drawBanner(ctx, game);
 }

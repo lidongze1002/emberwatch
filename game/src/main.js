@@ -8,10 +8,10 @@ import { Sound } from './audio.js';
 import { Input } from './input.js';
 import { Game } from './game.js';
 import { prepareShot } from './shots.js';
+import { L } from './text.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d', { alpha: false });
-const status = document.getElementById('status');
 
 const sound = new Sound();
 const input = new Input(canvas);
@@ -22,6 +22,11 @@ input.onFirstGesture = () => {
 input.attach();
 
 const game = new Game(sound, input);
+// the two editions are separate pages; the little corner link loads the other one
+game.onNavigate = (href) => {
+  window.location.href = href;
+};
+
 const params = new URLSearchParams(window.location.search);
 const shotName = params.get('shot');
 const seed = Number(params.get('seed')) || 1;
@@ -42,7 +47,7 @@ window.addEventListener('resize', fit);
 fit();
 
 if (shotMode) {
-  document.title = `Emberwatch — ${shotName}`;
+  document.title = `${L.title.name} — ${shotName}`;
 }
 
 let last = performance.now();
@@ -73,7 +78,6 @@ function frame(now) {
 
   if (shotMode && drawn >= 1) {
     window.__shotReady = true;
-    if (status) status.textContent = `Screenshot scene ${shotName} ready.`;
   }
 
   requestAnimationFrame(frame);
@@ -82,4 +86,4 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 // Exposed only so a test harness can read the run's state; the game never consults it.
-window.__emberwatch = { game, sound, input };
+window.__emberwatch = { game, sound, input, locale: L.code };

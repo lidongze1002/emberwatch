@@ -17,7 +17,18 @@ node serve.ts
 ```
 
 Then open <http://localhost:8080>. Mouse aims the beam, Space or right click spends Overdrive,
-1/2/3 pick an upgrade card, M mutes.
+1/2/3 pick an upgrade card, M mutes, and C opens the record from the title or the ending.
+
+## Two editions
+
+`game/index.html` is the English edition; `game/zh.html` is 中文版. Each page loads its own
+word-book (`game/src/locale/en.js`, `game/src/locale/zh.js`) and speaks only that language;
+the corner note on the title screen is the only link between them. Both run the same engine,
+so the rules and the screenshots are the same game in two voices.
+
+The record (`C`) is the written content: seven shadows with how each one dies, the ten gifts
+the lamp offers, and the eight tides with a line of the keeper's lore for each — with the wave
+banner carrying a new line of the story into every tide.
 
 ## How it is built
 

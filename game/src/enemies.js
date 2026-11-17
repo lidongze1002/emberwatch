@@ -319,3 +319,26 @@ export function shadowDistance(e) {
 export function insideView(e, pad = 80) {
   return e.x > -pad && e.x < VIEW.width + pad && e.y > -pad && e.y < VIEW.height + pad;
 }
+
+// The order the record lists the bestiary in: smallest trouble first, the leviathan last.
+export const SHADOW_ORDER = ['crawler', 'skitter', 'bulwark', 'splitter', 'spawnling', 'moth', 'boss'];
+
+// A still, warm-lit portrait of one shadow, for the record. Same silhouette code as the game,
+// scaled down, so the book cannot drift away from what the player actually meets.
+export function drawShadowPortrait(ctx, type, x, y, radius, time) {
+  drawShadow(ctx, {
+    id: 0,
+    type,
+    x,
+    y,
+    radius,
+    heading: Math.PI / 2,
+    glow: 0.3,
+    lit: false,
+    litTime: 0,
+    flash: 0,
+    age: 0,
+    phase: 0,
+    tendrils: [0.3, 1.1, 2.0, 2.9, 3.8, 4.7, 5.6],
+  }, time);
+}

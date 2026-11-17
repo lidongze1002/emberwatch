@@ -2,7 +2,7 @@
 // book, kills and their rewards, the moment a shadow reaches the cliff, and the two ways a
 // run can end. It reads input, updates the world, and asks the other modules to draw it.
 
-import { KEYS, LAMP, PALETTE, TUNING, VIEW, WAVES, SHADOWS } from './config.js';
+import { KEYS, LAMP, PALETTE, TUNING, WAVES } from './config.js';
 import { Rng } from './rng.js';
 import { Particles } from './particles.js';
 import { aimAt, createBeam, spendOverdrive, updateBeam } from './beam.js';
@@ -10,7 +10,9 @@ import { createShadow, shadowDistance, updateShadow } from './enemies.js';
 import { applyUpgrade, offerUpgrades } from './upgrades.js';
 import { createScene, drawScene } from './render.js';
 import { drawHud } from './hud.js';
-import { cardAt, drawResults, drawTitle, drawUpgrades } from './overlays.js';
+import { cardAt, drawResults, drawTitle, drawUpgrades, tTitleLinkAt } from './overlays.js';
+import { drawCodex, codexTabAt } from './codex.js';
+import { L } from './text.js';
 
 const BEST_KEY = 'emberwatch.best.v1';
 
@@ -45,6 +47,9 @@ export class Game {
     this.best = loadBest();
     this.autopilot = null;
     this.fixedSeed = false;
+    this.onNavigate = null;
+    this.codexOpen = false;
+    this.codexPage = 0;
     this.reset(1);
   }
 
@@ -91,6 +96,8 @@ export class Game {
     this.sparkSeed = 0;
     this.newBest = false;
     this.attractAngle = Math.PI / 2;
+    this.codexOpen = false;
+    this.codexPage = 0;
     this.seedAttract();
   }
 
@@ -122,8 +129,9 @@ export class Game {
 
   beginWave(index) {
     const wave = WAVES[index];
+    const written = L.waves[index];
     this.wave = index + 1;
-    this.waveTitle = wave.title;
+    this.waveTitle = written.name;
     this.waveTotal = 0;
     this.waveSpawned = 0;
     this.waveGone = 0;
@@ -160,10 +168,10 @@ export class Game {
     this.spawnQueue = queue;
     this.waveTotal = queue.length;
 
-    const name = wave.boss ? 'LEVIATHAN' : `WAVE ${this.wave}`;
+    const name = wave.boss ? L.banner.leviathan : L.banner.wave(this.wave);
     this.banner = {
       text: name,
-      sub: wave.boss ? 'It remembers the last lamp.' : wave.title,
+      sub: wave.boss ? L.banner.leviathanSub : written.lore,
       age: 0,
       life: wave.boss ? 3.4 : 2.5,
     };
@@ -185,6 +193,7 @@ export class Game {
   }
 
   update(dt) {
+    if (this.codexOpen) return;
     this.clock += dt;
     if (this.state === 'title') {
       this.updateAttract(dt);
@@ -357,7 +366,7 @@ export class Game {
     }
 
     if (big) {
-      this.banner = { text: 'THE LEVIATHAN FALLS', sub: 'The sea goes quiet.', age: 0, life: 3.2 };
+      this.banner = { text: L.banner.falls, sub: L.banner.fallsSub, age: 0, life: 3.2 };
       this.flashScreen = 0.9;
       this.overdrive = TUNING.overdriveMax;
       for (const other of this.shadows) {
@@ -461,6 +470,30 @@ export class Game {
         this.sound.toggleMute();
         continue;
       }
+      if (this.codexOpen) {
+        if (code === 'KeyC' || code === 'Escape') {
+          this.codexOpen = false;
+        } else if (code === 'ArrowLeft') {
+          this.codexPage = (this.codexPage + 2) % 3;
+          this.sound.select();
+        } else if (code === 'ArrowRight') {
+          this.codexPage = (this.codexPage + 1) % 3;
+          this.sound.select();
+        } else {
+          const page = /^(Digit|Numpad)([1-3])$/.exec(code);
+          if (page) {
+            this.codexPage = Number(page[2]) - 1;
+            this.sound.select();
+          }
+        }
+        continue;
+      }
+      if (code === 'KeyC' && (this.state === 'title' || this.state === 'results')) {
+        this.codexOpen = true;
+        this.codexPage = 0;
+        this.sound.select();
+        continue;
+      }
       if (this.state === 'title' && (code === 'Enter' || code === 'Space')) {
         this.startRun();
         continue;
@@ -483,7 +516,21 @@ export class Game {
     }
 
     for (const click of clicks) {
+      if (this.codexOpen) {
+        const tab = codexTabAt(click.x, click.y);
+        if (tab >= 0) {
+          this.codexPage = tab;
+          this.sound.select();
+        } else {
+          this.codexOpen = false;
+        }
+        continue;
+      }
       if (this.state === 'title') {
+        if (tTitleLinkAt(click.x, click.y)) {
+          this.onNavigate?.(L.otherHref);
+          continue;
+        }
         this.startRun();
         continue;
       }
@@ -510,6 +557,10 @@ export class Game {
 
   draw(ctx, time) {
     drawScene(ctx, this, time);
+    if (this.codexOpen) {
+      drawCodex(ctx, this, time);
+      return;
+    }
     if (this.state === 'title') {
       drawTitle(ctx, this, time);
     } else if (this.state === 'playing') {

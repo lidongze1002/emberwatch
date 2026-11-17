@@ -70,34 +70,28 @@ export const PALETTE = {
   bad: '#e0554a',
 };
 
-export const FONTS = {
-  display: '"Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif',
-  ui: '"Trebuchet MS", "Segoe UI", Tahoma, sans-serif',
-  mono: '"Consolas", "Courier New", monospace',
-};
-
-// hp, speed px/s, radius px, score, and the sentence the HUD shows when a new one appears.
+// hp, speed px/s, radius px, score. Names and lore live in the page's word-book, not here.
 export const SHADOWS = {
-  crawler: { hp: 4, speed: 30, radius: 16, score: 10, name: 'Crawler' },
-  skitter: { hp: 3, speed: 52, radius: 13, score: 15, name: 'Skitter' },
-  bulwark: { hp: 12, speed: 22, radius: 23, score: 40, name: 'Bulwark' },
-  splitter: { hp: 6, speed: 38, radius: 20, score: 25, name: 'Splitter' },
-  spawnling: { hp: 1.5, speed: 64, radius: 10, score: 5, name: 'Spawnling' },
-  moth: { hp: 5, speed: 46, radius: 15, score: 25, name: 'Moth' },
-  boss: { hp: 60, speed: 22, radius: 54, score: 500, name: 'Leviathan' },
+  crawler: { hp: 4, speed: 30, radius: 16, score: 10 },
+  skitter: { hp: 3, speed: 52, radius: 13, score: 15 },
+  bulwark: { hp: 12, speed: 22, radius: 23, score: 40 },
+  splitter: { hp: 6, speed: 38, radius: 20, score: 25 },
+  spawnling: { hp: 1.5, speed: 64, radius: 10, score: 5 },
+  moth: { hp: 5, speed: 46, radius: 15, score: 25 },
+  boss: { hp: 60, speed: 22, radius: 54, score: 500 },
 };
 
 // The eight tides. A wave is a bag of shadows; the game deals them out in an interleaved
 // order so a wave never arrives as one species at a time.
 export const WAVES = [
-  { title: 'The tide rises', spawn: { crawler: 10 } },
-  { title: 'Quick water', spawn: { crawler: 12, skitter: 6 } },
-  { title: 'Stone in the surf', spawn: { crawler: 8, skitter: 8, bulwark: 3 } },
-  { title: 'They come apart', spawn: { skitter: 10, splitter: 5 } },
-  { title: 'Wings over water', spawn: { bulwark: 5, moth: 8, crawler: 8 } },
-  { title: 'The long dark', spawn: { skitter: 12, splitter: 6, bulwark: 4 } },
-  { title: 'All of them', spawn: { moth: 8, bulwark: 5, crawler: 10, skitter: 8 } },
-  { title: 'Leviathan', spawn: { boss: 1, skitter: 8, crawler: 8 }, boss: true },
+  { spawn: { crawler: 10 } },
+  { spawn: { crawler: 12, skitter: 6 } },
+  { spawn: { crawler: 8, skitter: 8, bulwark: 3 } },
+  { spawn: { skitter: 10, splitter: 5 } },
+  { spawn: { bulwark: 5, moth: 8, crawler: 8 } },
+  { spawn: { skitter: 12, splitter: 6, bulwark: 4 } },
+  { spawn: { moth: 8, bulwark: 5, crawler: 10, skitter: 8 } },
+  { spawn: { boss: 1, skitter: 8, crawler: 8 }, boss: true },
 ];
 
 export const KEYS = {

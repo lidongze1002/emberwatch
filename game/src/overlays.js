@@ -1,12 +1,21 @@
-// The three painted screens: the title, the choice between waves, and the ending. All of it
-// is canvas — no DOM, no images — so a staged frame is the same surface the game draws on.
-// Card geometry lives here because the mouse is tested against what is actually drawn.
+// The painted screens: the title, the choice between waves, and the ending. All of it is canvas
+// — no DOM, no images — so a staged frame is the same surface the game draws on. Every word
+// comes from the page's word-book, and card geometry lives here because the mouse is tested
+// against what is actually drawn.
 
-import { FONTS, PALETTE, VIEW } from './config.js';
+import { PALETTE, VIEW } from './config.js';
+import { L, fonts } from './text.js';
 import { drawSigil } from './upgrades.js';
 import { label } from './hud.js';
 
 const CARD = { width: 286, height: 330, gap: 34, y: 318 };
+
+// the little language link in the title's bottom-left corner
+export const TITLE_LINK = { x: 104, y: 676, w: 150, h: 38 };
+
+export function tTitleLinkAt(x, y) {
+  return x >= TITLE_LINK.x && x <= TITLE_LINK.x + TITLE_LINK.w && y >= TITLE_LINK.y && y <= TITLE_LINK.y + TITLE_LINK.h;
+}
 
 export function cardRects() {
   const total = CARD.width * 3 + CARD.gap * 2;
@@ -24,24 +33,31 @@ export function cardAt(x, y) {
   return rects.findIndex((r) => x >= r.x && x <= r.x + r.w && y >= r.y - 10 && y <= r.y + r.h + 10);
 }
 
-function wrap(ctx, text, maxWidth) {
-  const words = text.split(' ');
+// Words wrap on spaces; a run with no space in it (Chinese) wraps on characters instead, so the
+// same function serves both word-books.
+export function wrap(ctx, text, maxWidth) {
   const lines = [];
   let line = '';
-  for (const word of words) {
-    const test = line ? `${line} ${word}` : word;
-    if (ctx.measureText(test).width > maxWidth && line) {
-      lines.push(line);
-      line = word;
+  for (const ch of text) {
+    const next = line + ch;
+    if (line && ctx.measureText(next).width > maxWidth) {
+      const space = line.lastIndexOf(' ');
+      if (space > 0 && !L.cjk) {
+        lines.push(line.slice(0, space));
+        line = `${line.slice(space + 1)}${ch}`;
+      } else {
+        lines.push(line);
+        line = ch === ' ' ? '' : ch;
+      }
     } else {
-      line = test;
+      line = next;
     }
   }
   if (line) lines.push(line);
   return lines;
 }
 
-function rule(ctx, x1, x2, y, colour) {
+export function rule(ctx, x1, x2, y, colour) {
   ctx.save();
   ctx.strokeStyle = colour;
   ctx.lineWidth = 1;
@@ -52,7 +68,7 @@ function rule(ctx, x1, x2, y, colour) {
   ctx.restore();
 }
 
-function diamond(ctx, x, y, size, colour) {
+export function diamond(ctx, x, y, size, colour) {
   ctx.save();
   ctx.fillStyle = colour;
   ctx.beginPath();
@@ -67,7 +83,7 @@ function diamond(ctx, x, y, size, colour) {
 
 function keyCap(ctx, x, y, text, width, colour) {
   ctx.save();
-  ctx.font = `12px ${FONTS.mono}`;
+  ctx.font = `12px ${fonts.mono}`;
   ctx.letterSpacing = '1px';
   const w = width ?? Math.max(48, ctx.measureText(text).width + 22);
   const h = 26;
@@ -97,6 +113,7 @@ function keyCap(ctx, x, y, text, width, colour) {
 
 export function drawTitle(ctx, game, time) {
   const cx = VIEW.width / 2;
+  const layout = L.titleLayout;
   const veil = ctx.createRadialGradient(cx, 350, 120, cx, 400, 780);
   veil.addColorStop(0, 'rgba(4, 7, 13, 0.46)');
   veil.addColorStop(0.62, 'rgba(4, 7, 13, 0.66)');
@@ -109,53 +126,60 @@ export function drawTitle(ctx, game, time) {
   rule(ctx, 120, VIEW.width - 120, VIEW.height - 84, 'rgba(200, 170, 130, 0.18)');
   diamond(ctx, cx, 84, 3.5, 'rgba(255, 190, 120, 0.55)');
 
-  label(ctx, 'THE LAST LIGHT ON THE CLIFF', cx, 130, 15, 'rgba(240, 201, 141, 0.84)', 8, 'center');
+  label(ctx, L.title.eyebrow, cx, 130, 15, 'rgba(240, 201, 141, 0.84)', 8, 'center');
 
-  const titleY = 226;
+  const titleY = layout.titleY;
   const grad = ctx.createLinearGradient(cx - 380, titleY - 90, cx + 380, titleY + 20);
   grad.addColorStop(0, '#ffd79a');
   grad.addColorStop(0.45, '#fff0cd');
   grad.addColorStop(1, '#f19a45');
   ctx.save();
-  ctx.font = `bold 104px ${FONTS.display}`;
+  ctx.font = `${fonts.titleWeight} ${fonts.titleSize}px ${fonts.display}`;
   ctx.textAlign = 'center';
-  ctx.letterSpacing = '10px';
+  ctx.letterSpacing = `${fonts.titleSpacing}px`;
   ctx.shadowColor = 'rgba(255, 130, 40, 0.55)';
   ctx.shadowBlur = 48;
   ctx.fillStyle = grad;
-  ctx.fillText('EMBERWATCH', cx, titleY);
+  ctx.fillText(L.title.name, cx, titleY);
   ctx.shadowBlur = 0;
   ctx.fillStyle = 'rgba(255, 240, 205, 0.16)';
-  ctx.fillText('EMBERWATCH', cx, titleY - 1);
+  ctx.fillText(L.title.name, cx, titleY - 1);
   ctx.restore();
 
-  rule(ctx, cx - 250, cx - 26, 258, 'rgba(255, 190, 120, 0.35)');
-  rule(ctx, cx + 26, cx + 250, 258, 'rgba(255, 190, 120, 0.35)');
-  diamond(ctx, cx, 258, 4, 'rgba(255, 190, 120, 0.8)');
+  const ruleY = titleY + layout.ruleGap;
+  rule(ctx, cx - 250, cx - 26, ruleY, 'rgba(255, 190, 120, 0.35)');
+  rule(ctx, cx + 26, cx + 250, ruleY, 'rgba(255, 190, 120, 0.35)');
+  diamond(ctx, cx, ruleY, 4, 'rgba(255, 190, 120, 0.8)');
 
-  label(ctx, 'Every ninth night the sea sends up what it has swallowed.', cx, 300, 21, 'rgba(223, 230, 240, 0.84)', 1, 'center', FONTS.display);
-  label(ctx, 'One lamp. Eight tides. Keep it burning until dawn.', cx, 328, 19, 'rgba(223, 230, 240, 0.56)', 1, 'center', FONTS.display);
+  const line1 = ruleY + layout.lineGap;
+  label(ctx, L.title.lines[0], cx, line1, 21, 'rgba(223, 230, 240, 0.84)', 1, 'center', fonts.display);
+  label(ctx, L.title.lines[1], cx, line1 + 28, 19, 'rgba(223, 230, 240, 0.56)', 1, 'center', fonts.display);
 
-  const cols = [
-    { key: 'MOUSE', text: 'aim the beam' },
-    { key: 'SPACE', text: 'spend overdrive' },
-    { key: '1  2  3', text: 'choose a gift' },
-  ];
+  const controlY = line1 + layout.controlsGap;
   const xs = [cx - 268, cx, cx + 268];
-  cols.forEach((col, i) => {
-    keyCap(ctx, xs[i], 400, col.key, col.key.length > 6 ? 92 : 76, 'rgba(240, 201, 141, 0.85)');
-    label(ctx, col.text, xs[i], 438, 14, 'rgba(223, 230, 240, 0.62)', 1, 'center');
+  L.title.controls.forEach((col, i) => {
+    keyCap(ctx, xs[i], controlY, col.key, col.key.length > 6 ? 92 : 76, 'rgba(240, 201, 141, 0.85)');
+    label(ctx, col.text, xs[i], controlY + 38, 14, 'rgba(223, 230, 240, 0.62)', 1, 'center');
   });
 
   const pulse = 0.62 + Math.sin(time * 2.6) * 0.3;
+  const ctaY = controlY + layout.ctaGap;
   ctx.save();
   ctx.globalAlpha = pulse;
-  label(ctx, 'CLICK TO TAKE THE WATCH', cx, 488, 19, PALETTE.fireHot, 7, 'center');
+  label(ctx, L.title.cta, cx, ctaY, 19, PALETTE.fireHot, 7, 'center');
   ctx.restore();
-  rule(ctx, cx - 176, cx + 176, 502, `rgba(255, 190, 120, ${0.14 + pulse * 0.16})`);
+  rule(ctx, cx - 176, cx + 176, ctaY + 14, `rgba(255, 190, 120, ${0.14 + pulse * 0.16})`);
 
-  label(ctx, `BEST  ${game.best.toLocaleString('en-US')}`, VIEW.width - 120, 132, 11, 'rgba(255, 179, 71, 0.7)', 3, 'right', FONTS.mono);
-  label(ctx, '8 WAVES  ·  THE LAST IS A LEVIATHAN  ·  NO SAVE, NO MERCY', cx, 698, 10, 'rgba(127, 142, 163, 0.75)', 4, 'center');
+  label(ctx, `${L.title.best}  ${game.best.toLocaleString('en-US')}`, VIEW.width - 120, 132, 11, 'rgba(255, 179, 71, 0.7)', 3, 'right', fonts.mono);
+
+  // the two corner notes: the other edition, and the record
+  ctx.save();
+  ctx.globalAlpha = 0.55;
+  label(ctx, L.otherLabel, TITLE_LINK.x, TITLE_LINK.y + 20, 10, PALETTE.textDim, 3);
+  rule(ctx, TITLE_LINK.x, TITLE_LINK.x + 74, TITLE_LINK.y + 28, 'rgba(127, 142, 163, 0.35)');
+  ctx.restore();
+  label(ctx, L.title.record, VIEW.width - 120, VIEW.height - 104, 10, 'rgba(127, 142, 163, 0.7)', 3, 'right');
+  label(ctx, L.title.footer, cx, VIEW.height - 104, 10, 'rgba(127, 142, 163, 0.75)', 4, 'center');
 }
 
 export function drawUpgrades(ctx, game, time) {
@@ -168,14 +192,15 @@ export function drawUpgrades(ctx, game, time) {
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, VIEW.width, VIEW.height);
 
-  label(ctx, `WAVE ${game.wave} CLEARED`, cx, 172, 12, 'rgba(240, 201, 141, 0.75)', 7, 'center');
-  label(ctx, 'Choose a gift from the lamp', cx, 232, 42, PALETTE.text, 1, 'center', FONTS.display);
-  label(ctx, 'One for this tide. It will not be offered again.', cx, 264, 15, 'rgba(223, 230, 240, 0.5)', 1, 'center', FONTS.display);
+  label(ctx, L.cards.cleared(game.wave), cx, 172, 12, 'rgba(240, 201, 141, 0.75)', 7, 'center');
+  label(ctx, L.cards.title, cx, 232, 42, PALETTE.text, 1, 'center', fonts.display);
+  label(ctx, L.cards.sub, cx, 264, 15, 'rgba(223, 230, 240, 0.5)', 1, 'center', fonts.display);
 
   const rects = cardRects();
   game.cards.forEach((card, i) => {
     const r = rects[i];
     if (!r) return;
+    const entry = L.upgrades[card.id];
     const hover = game.hoverCard === i;
     const lift = hover ? -8 : 0;
     const x = r.x;
@@ -210,11 +235,11 @@ export function drawUpgrades(ctx, game, time) {
     drawSigil(ctx, card.sigil, x + w / 2, y + 78, 76, colour);
 
     ctx.textAlign = 'center';
-    label(ctx, card.name, x + w / 2, y + 168, 27, hover ? PALETTE.fireHot : PALETTE.text, 1, 'center', FONTS.display);
-    ctx.font = `15px ${FONTS.ui}`;
+    label(ctx, entry.name, x + w / 2, y + 168, fonts.cardName, hover ? PALETTE.fireHot : PALETTE.text, 1, 'center', fonts.display);
+    ctx.font = `15px ${fonts.ui}`;
     ctx.fillStyle = 'rgba(223, 230, 240, 0.58)';
     ctx.textAlign = 'center';
-    const lines = wrap(ctx, card.blurb, w - 52);
+    const lines = wrap(ctx, entry.blurb, w - 52);
     lines.slice(0, 4).forEach((line, n) => ctx.fillText(line, x + w / 2, y + 204 + n * 22));
 
     rule(ctx, x + 40, x + w - 40, y + h - 62, 'rgba(160, 185, 210, 0.16)');
@@ -225,7 +250,7 @@ export function drawUpgrades(ctx, game, time) {
   const pulse = 0.5 + Math.sin(time * 3) * 0.25;
   ctx.save();
   ctx.globalAlpha = pulse;
-  label(ctx, 'PRESS 1 · 2 · 3   OR CLICK A CARD', cx, 720, 11, 'rgba(240, 201, 141, 0.9)', 5, 'center');
+  label(ctx, L.cards.footer, cx, 720, 11, 'rgba(240, 201, 141, 0.9)', 5, 'center');
   ctx.restore();
 }
 
@@ -254,35 +279,33 @@ export function drawResults(ctx, game, time) {
   ctx.fillRect(0, 0, VIEW.width, VIEW.height);
 
   rule(ctx, 150, VIEW.width - 150, 150, 'rgba(200, 170, 130, 0.18)');
-  label(ctx, won ? 'THE NINTH MORNING' : 'THE WATCH ENDS', cx, 196, 12, 'rgba(240, 201, 141, 0.8)', 8, 'center');
+  const layout = L.resultsLayout;
+  label(ctx, won ? L.results.victoryEyebrow : L.results.defeatEyebrow, cx, layout.eyebrowY, 12, 'rgba(240, 201, 141, 0.8)', 8, 'center');
 
-  const headline = won ? 'THE LEVIATHAN FALLS' : 'THE LIGHT GOES OUT';
+  const headline = won ? L.results.victoryTitle : L.results.defeatTitle;
   ctx.save();
-  ctx.font = `bold 62px ${FONTS.display}`;
+  ctx.font = `${fonts.headlineWeight} ${fonts.headlineSize}px ${fonts.display}`;
   ctx.textAlign = 'center';
   ctx.letterSpacing = '4px';
   ctx.shadowColor = won ? 'rgba(255, 190, 110, 0.5)' : 'rgba(255, 80, 50, 0.35)';
   ctx.shadowBlur = 36;
   ctx.fillStyle = won ? '#ffe4b5' : '#e8d2c0';
-  ctx.fillText(headline, cx, 272);
+  ctx.fillText(headline, cx, layout.headlineY);
   ctx.restore();
 
-  label(ctx, won
-    ? 'Dawn comes up grey and quiet. The lamp is still lit.'
-    : 'The cliff is dark. Somewhere below, the sea keeps what it took.',
-    cx, 312, 18, 'rgba(223, 230, 240, 0.62)', 1, 'center', FONTS.display);
+  label(ctx, won ? L.results.victorySub : L.results.defeatSub, cx, layout.subY, 18, 'rgba(223, 230, 240, 0.62)', 1, 'center', fonts.display);
 
   // four figures, with the score given the space it earned
   const stats = [
-    { key: 'SCORE', value: game.score.toLocaleString('en-US'), big: true },
-    { key: 'BEST', value: Math.max(game.best, game.score).toLocaleString('en-US') },
-    { key: 'WAVE', value: `${Math.min(game.wave, game.waveCount)} / ${game.waveCount}` },
-    { key: 'BURNED', value: String(game.kills) },
+    { key: L.results.score, value: game.score.toLocaleString('en-US'), big: true },
+    { key: L.results.best, value: Math.max(game.best, game.score).toLocaleString('en-US') },
+    { key: L.results.wave, value: `${Math.min(game.wave, game.waveCount)} / ${game.waveCount}` },
+    { key: L.results.burned, value: String(game.kills) },
   ];
   const xs = [cx - 330, cx - 110, cx + 110, cx + 330];
   stats.forEach((stat, i) => {
     label(ctx, stat.key, xs[i], 404, 10, 'rgba(127, 142, 163, 0.9)', 4, 'center');
-    label(ctx, stat.value, xs[i], stat.big ? 462 : 450, stat.big ? 46 : 34, stat.big ? PALETTE.fireHot : PALETTE.text, 1, 'center', FONTS.mono);
+    label(ctx, stat.value, xs[i], stat.big ? 462 : 450, stat.big ? 46 : 34, stat.big ? PALETTE.fireHot : PALETTE.text, 1, 'center', fonts.mono);
   });
   rule(ctx, cx - 400, cx + 400, 494, 'rgba(200, 170, 130, 0.14)');
 
@@ -290,16 +313,17 @@ export function drawResults(ctx, game, time) {
     const pulse = 0.7 + Math.sin(time * 4) * 0.2;
     ctx.save();
     ctx.globalAlpha = pulse;
-    label(ctx, 'A NEW BEST FOR THE TOWER', cx, 528, 11, PALETTE.fire, 5, 'center');
+    label(ctx, L.results.newBest, cx, 528, 11, PALETTE.fire, 5, 'center');
     ctx.restore();
   }
 
   const pulse = 0.62 + Math.sin(time * 2.4) * 0.3;
   ctx.save();
   ctx.globalAlpha = pulse;
-  label(ctx, 'CLICK TO KEEP WATCH AGAIN', cx, 620, 18, PALETTE.fireHot, 6, 'center');
+  label(ctx, L.results.again, cx, 620, 18, PALETTE.fireHot, 6, 'center');
   ctx.restore();
-  label(ctx, 'OR PRESS  R', cx, 646, 10, 'rgba(127, 142, 163, 0.7)', 4, 'center');
+  label(ctx, L.results.orPress, cx, 646, 10, 'rgba(127, 142, 163, 0.7)', 4, 'center');
 
-  label(ctx, `THE LAMP HELD ${game.wavesCleared} OF ${game.waveCount} TIDES`, cx, 706, 10, 'rgba(127, 142, 163, 0.6)', 4, 'center');
+  label(ctx, L.results.held(game.wavesCleared, game.waveCount), cx, 706, 10, 'rgba(127, 142, 163, 0.6)', 4, 'center');
+  label(ctx, L.title.record, VIEW.width - 150, 706, 10, 'rgba(127, 142, 163, 0.6)', 3, 'right');
 }
