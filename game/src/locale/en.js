@@ -51,7 +51,7 @@ export const en = {
     quiet: 'THE HOUSE IS QUIET',
     paused: 'PAUSED',
     speed: (n) => `${n}×`,
-    hint: 'CLICK TO SEND · 1/2/3 TAKE OVER · SPACE RECALL · P PAUSE · Q LAMP',
+    hint: 'FULL AUTO · P PAUSE · 1/2 SPEED · Q LAMP',
     legend: 'TSUCHIGUMO',
     controlling: (name) => `YOU HAVE ${name}`,
     possessHint: 'WASD MOVE · LMB FIRE · ESC RELEASE',

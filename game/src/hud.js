@@ -58,15 +58,15 @@ export function drawHud(ctx, game, time) {
   ctx.save();
   ctx.fillStyle = 'rgba(8, 11, 17, 0.72)';
   ctx.beginPath();
-  ctx.roundRect(cx - 250, 18, 500, 40, 6);
+  ctx.roundRect(cx - 250, 54, 500, 40, 6);
   ctx.fill();
   steps.forEach((step, i) => {
-    label(ctx, step.text, x + 24, 44, 12, step.done ? 'rgba(160, 220, 180, 0.95)' : 'rgba(200, 212, 228, 0.8)', 2, 'left', fonts.mono);
+    label(ctx, step.text, x + 24, 80, 12, step.done ? 'rgba(160, 220, 180, 0.95)' : 'rgba(200, 212, 228, 0.8)', 2, 'left', fonts.mono);
     if (i < steps.length - 1) {
       ctx.strokeStyle = 'rgba(120, 140, 165, 0.35)';
       ctx.beginPath();
-      ctx.moveTo(x + 142, 28);
-      ctx.lineTo(x + 142, 48);
+      ctx.moveTo(x + 142, 64);
+      ctx.lineTo(x + 142, 84);
       ctx.stroke();
     }
     x += 166;
@@ -75,13 +75,13 @@ export function drawHud(ctx, game, time) {
 
   // the legend, and whether the house is singing
   const lx = VIEW.width - 44;
-  label(ctx, L.hud.legend, lx, 46, 14, 'rgba(220, 120, 120, 0.9)', 4, 'right');
+  label(ctx, L.hud.legend, lx, 76, 14, 'rgba(220, 120, 120, 0.9)', 4, 'right');
   const on = game.power;
-  label(ctx, on ? L.hud.music : L.hud.quiet, lx, 68, 10, on ? 'rgba(240, 190, 130, 0.85)' : 'rgba(150, 180, 170, 0.8)', 3, 'right');
+  label(ctx, on ? L.hud.music : L.hud.quiet, lx, 98, 10, on ? 'rgba(240, 190, 130, 0.85)' : 'rgba(150, 180, 170, 0.8)', 3, 'right');
   ctx.save();
   ctx.fillStyle = on ? 'rgba(220, 90, 80, 0.9)' : 'rgba(120, 200, 170, 0.8)';
   ctx.beginPath();
-  ctx.arc(lx - 152, 62, 3, 0, Math.PI * 2);
+  ctx.arc(lx - 152, 92, 3, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
@@ -89,7 +89,7 @@ export function drawHud(ctx, game, time) {
   const cardW = 232;
   const cardH = 54;
   game.agents.forEach((a, i) => {
-    const y = VIEW.height - 40 - (i + 1) * (cardH + 8);
+    const y = VIEW.height - 78 - (i + 1) * (cardH + 6);
     agentCard(ctx, a, 30, y, cardW, cardH);
     if (game.possessed === a) {
       ctx.save();
@@ -125,9 +125,9 @@ export function drawHud(ctx, game, time) {
   }
 
   // the case line and the hint
-  label(ctx, `${L.title.foot}`, 34, VIEW.height - 22, 10, 'rgba(120, 136, 156, 0.75)', 3);
-  label(ctx, L.hud.hint, VIEW.width / 2, VIEW.height - 22, 9, 'rgba(120, 136, 156, 0.7)', 2, 'center');
-  label(ctx, `${Math.floor(game.clock)}s`, VIEW.width - 34, VIEW.height - 22, 10, 'rgba(120, 136, 156, 0.7)', 1, 'right', fonts.mono);
+  label(ctx, `${L.title.foot}`, 34, VIEW.height - 54, 10, 'rgba(120, 136, 156, 0.75)', 3);
+  label(ctx, L.hud.hint, VIEW.width / 2, VIEW.height - 54, 9, 'rgba(120, 136, 156, 0.7)', 2, 'center');
+  label(ctx, `${Math.floor(game.clock)}s`, VIEW.width - 34, VIEW.height - 54, 10, 'rgba(120, 136, 156, 0.7)', 1, 'right', fonts.mono);
 
   if (game.paused) {
     ctx.fillStyle = 'rgba(4, 6, 10, 0.55)';

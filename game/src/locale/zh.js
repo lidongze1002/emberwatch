@@ -50,7 +50,7 @@ export const zh = {
     quiet: '礼堂安静了',
     paused: '已暂停',
     speed: (n) => `${n}×`,
-    hint: '点地面派人 · 1/2/3 接管 · 空格撤回 · P 暂停 · Q 提灯',
+    hint: '全自动 · P 暂停 · 1/2 速度 · Q 提灯',
     legend: '土蜘蛛',
     controlling: (name) => `接管 ${name}`,
     possessHint: 'WASD 移动 · 左键开火 · ESC 松开',

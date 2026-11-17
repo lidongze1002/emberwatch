@@ -3,7 +3,7 @@
 import { POSSESS_SECONDS, SPAWNS, TUNING, VIEW } from './config.js';
 import { buildLevel } from './level.js';
 import { createAgents, createThralls, updateUnits } from './units.js';
-import { drawWorld } from './render.js';
+import { drawWorld, drawBars } from './render.js';
 import { drawHud } from './hud.js';
 import { drawBrief, drawResult, drawTitle, tTitleLinkAt } from './overlays.js';
 import { L } from './text.js';
@@ -42,6 +42,53 @@ export class Game {
     this.won = false;
     this.possessed = null;
     this.possessTimer = 0;
+    this.auto = true;
+    this.directorClock = 0;
+  }
+
+  // The duty officer's standing order: cut the power, then take the house, then get out.
+  direct() {
+    if (this.state !== 'play') return;
+    const sw = SPAWNS.switchboard;
+    const nearSwitch = this.agents.some((a) => !a.down && !a.taken && Math.hypot(a.x - sw.x, a.y - sw.y) < 46);
+    const heading = this.agents.some((a) => a.order.kind === 'goto' && Math.hypot(a.order.x - sw.x, a.order.y - (sw.y + 34)) < 60);
+    if (this.power && !nearSwitch && !heading) {
+      this.orderNearest(sw.x, sw.y + 34);
+      return;
+    }
+    const alive = this.thralls.filter((t) => !t.dead);
+    if (alive.length) {
+      const focusing = this.agents.some((a) => a.order.kind === 'focus' && a.order.target && !a.order.target.dead);
+      if (!focusing) {
+        let best = null;
+        let bestDist = Infinity;
+        for (const t of alive) {
+          for (const a of this.free()) {
+            const d = Math.hypot(t.x - a.x, t.y - a.y);
+            if (d < bestDist) {
+              bestDist = d;
+              best = t;
+            }
+          }
+        }
+        for (const a of this.free()) {
+          if (a.order.kind === 'revive') continue;
+          a.order = { kind: 'focus', target: best };
+          a.path = null;
+        }
+      }
+      return;
+    }
+    if (!this.power && this.kills >= this.thralls.length) {
+      const leaving = this.agents.some((a) => a.order.kind === 'goto' && Math.hypot(a.order.x - SPAWNS.exit.x, a.order.y - SPAWNS.exit.y) < 40);
+      if (!leaving) {
+        for (const a of this.free()) {
+          if (a.order.kind === 'revive') continue;
+          a.order = { kind: 'goto', x: SPAWNS.exit.x, y: SPAWNS.exit.y };
+          a.path = null;
+        }
+      }
+    }
   }
 
   startRun() {
@@ -76,6 +123,11 @@ export class Game {
     this.shake = Math.max(0, this.shake - dt * 14);
     this.flashWhite = Math.max(0, this.flashWhite - dt * 2.4);
     this.lampCooldown = Math.max(0, this.lampCooldown - dt);
+    this.directorClock += dt;
+    if (this.directorClock > 0.8) {
+      this.directorClock = 0;
+      if (this.auto) this.direct();
+    }
 
     if (this.possessed) {
       const a = this.possessed;
@@ -223,11 +275,8 @@ export class Game {
         this.possessed = null;
         this.possessTimer = 0;
       }
-      if (code === 'Digit1') this.takeOver(0);
-      if (code === 'Digit2') this.takeOver(1);
-      if (code === 'Digit3') this.takeOver(2);
-      if (code === 'Digit4') this.speed = 1;
-      if (code === 'Digit5') this.speed = 2;
+      if (code === 'Digit1') this.speed = 1;
+      if (code === 'Digit2') this.speed = 2;
     }
 
     for (const click of clicks) {
@@ -283,5 +332,6 @@ export class Game {
     else if (this.state === 'brief') drawBrief(ctx, this, time);
     else if (this.state === 'play') drawHud(ctx, this, time);
     else if (this.state === 'result') drawResult(ctx, this, time);
+    drawBars(ctx);
   }
 }
