@@ -71,3 +71,22 @@
 5. 用 `tools/nw-cases.mjs` 扩一条「连打五案 + 招人」的回归。
 
 > 美术未到位之前，立绘位用**空白相纸 + 一行铅笔编号**（`NO PHOTO ON FILE`），这比错误的占位图更符合卷宗气质。
+
+---
+
+## 8. 实现状态（nightwatch 分支）
+
+| 条目 | 位置 | 状态 |
+| --- | --- | --- |
+| 现金、报酬、医药、抚恤、半薪 | `game/src/roster.js` `settle()` | 完成 |
+| 名册 6 人、三个出勤位、待命费 ¥200/案 | `roster.js` `squadOf()` / `settle()` | 完成 |
+| 换班（点一个人顶同一岗位） | 值班室卡片 → `setDuty()` | 完成 |
+| 招聘 2–3 人、要价、不招 | `overlays.js` `drawHire()` | 完成 |
+| 特质（手稳／耳背／老练／夜眼）改一条规则 | `units.js` / `rules.js` | 完成 |
+| 阵亡撤出名册、页脚黑框一行 | `roster.js` `memorial` | 完成 |
+| 档案照片位（`NO PHOTO ON FILE`）、情报照片（程序生成） | `overlays.js` | 占位（无美术） |
+| 存档（roster/cash/closed/upgrades） | `saveRoster()` / `loadRoster()` | 完成 |
+| 装备：好灯 ¥900（光锥 +8%、灯油 −10%） | `buyLamp()` / `units.js` / `render.js` | 完成 |
+| 选案页只显示已解锁的案子 | —— | **未做**：五案一开始全开，便于评审一次看全 |
+
+数值都在 `roster.js` 顶部（`MEDICAL` / `PENSION` / `BENCH_FEE` / `LAMP_PRICE` / `TRAITS[].price`），要调只改这一处。
