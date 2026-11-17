@@ -12,13 +12,21 @@
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-game.ts';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+const ENTRY = 'emberwatch';
+const shots = existsSync(join(here, 'screenshots')) ? readdirSync(join(here, 'screenshots')) : [];
+
+// The game is a folder of static files, so the only mistake worth refusing here is an entry
+// with no game/index.html: copying that would ship a dossier for a page that cannot open.
+if (!existsSync(join(here, 'game', 'index.html'))) {
+  throw new Error(`${ENTRY}: game/index.html is missing, so nothing was written to ${out}`);
+}
 
 mkdirSync(out, { recursive: true });
 cpSync(join(here, 'game'), join(out, 'game'), { recursive: true });
@@ -39,3 +47,4 @@ writeFileSync(
     game_path_max_bytes: 1000,
   }),
 );
+console.log(ENTRY, 'dossier written to', out, 'with', shots.length, 'screenshots');

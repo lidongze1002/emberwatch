@@ -1,0 +1,5 @@
+# the grader's stand-in for /output when main.ts runs locally
+out/
+
+# scratch from local playtests
+*.log

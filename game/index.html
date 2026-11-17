@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Emberwatch</title>
+<meta name="description" content="Emberwatch: keep the last lighthouse burning while eight tides of shadow climb out of the sea. A light-sweep arcade defence.">
+<link rel="icon" href="data:,">
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #04060b;
+  }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+      radial-gradient(ellipse at 50% 45%, #0a1220 0%, #04060b 62%, #010204 100%);
+    font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    color: #dfe6f0;
+  }
+  #game {
+    display: block;
+    cursor: crosshair;
+    touch-action: none;
+    box-shadow: 0 24px 90px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(120, 150, 185, 0.12);
+    background: #04060b;
+  }
+  /* Read aloud, never shown: the status line a screen reader announces. */
+  #status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<canvas id="game" width="1280" height="800"
+  aria-label="Emberwatch: aim the lighthouse beam with the mouse, burn the shadows climbing out of the sea, and keep the lamp lit for eight waves."></canvas>
+<p id="status" role="status" aria-live="polite">Emberwatch. Click to take the watch.</p>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
