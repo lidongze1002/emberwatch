@@ -620,7 +620,7 @@ function drawStation(ctx, game, time) {
   const names = ['south', 'west', 'east'];
   names.forEach((name, i) => {
     const gx = bx + 24 + i * 46;
-    const live = r.open === name && r.admitted < 1;
+    const live = r.open === name && r.admitted < 1 && !(r.warmup > 0);
     ctx.fillStyle = live ? 'rgba(214, 240, 228, 0.95)' : 'rgba(90, 110, 110, 0.4)';
     ctx.beginPath();
     ctx.arc(gx, by + 20, 4, 0, Math.PI * 2);
@@ -894,7 +894,7 @@ function drawDoors(ctx, game, time) {
     // 活着的那个门斗：里面是暖的，外面是冷的
     for (const [name, zone] of Object.entries(c.zones)) {
       if (name === 'platform') continue;
-      const live = r.open === name && r.admitted < 1;
+      const live = r.open === name && r.admitted < 1 && !(r.warmup > 0);
       if (!live) continue;
       const cx = zone.x + zone.w / 2;
       const cy = zone.y + zone.h / 2;
@@ -916,7 +916,7 @@ function drawDoors(ctx, game, time) {
     }
     for (const [name, rect] of Object.entries(c.rule.shutters)) {
       const [x, y, w, h] = rect;
-      const live = r.open === name && r.admitted < 1;
+      const live = r.open === name && r.admitted < 1 && !(r.warmup > 0);
       if (live) {
         // 门开了：里面是白的，什么都看不见
         const g = ctx.createLinearGradient(x, y, x + w, y + h);

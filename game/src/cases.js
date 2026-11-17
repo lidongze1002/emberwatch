@@ -222,6 +222,7 @@ const STATION = {
   },
   rule: {
     kind: 'timetable',
+    firstTrain: 18,
     phaseSeconds: 16,
     lastTrain: 96,
     order: ['south', 'west', 'east'],

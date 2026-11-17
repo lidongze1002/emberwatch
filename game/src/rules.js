@@ -40,6 +40,7 @@ export function initRules(game) {
     r.open = c.rule.order[0];
     r.admitted = 0;
     r.ejected = 0;
+    r.warmup = c.rule.firstTrain || 0;
     // 一张票只卖给一个人：上车前先到小卖亭拿票
     r.tickets = 0;
     for (const a of game.agents) {
@@ -130,6 +131,15 @@ export function updateRules(game, dt) {
   }
 
   if (c.rule.kind === 'timetable') {
+    // 第一班车还没进站：站台先静 18 秒，这时间刚好够去小卖亭拿票
+    if (r.warmup > 0) {
+      r.warmup = Math.max(0, r.warmup - dt);
+      if (r.warmup === 0) {
+        game.say(L.hud.firstTrain);
+        game.sound.door();
+      }
+      return;
+    }
     r.phaseT += dt;
     if (r.phaseT >= c.rule.phaseSeconds) {
       r.phaseT = 0;
@@ -764,6 +774,7 @@ export function afterRules(game, dt) {
         continue;
       }
       const zone = c.zones[r.open];
+      if (r.warmup > 0) continue;
       if (inZone(zone, a.x, a.y)) {
         a.extracted = true;
         game.extracted += 1;
@@ -920,6 +931,9 @@ export function readout(game) {
   if (c.rule.kind === 'timetable') {
     const left = Math.ceil(c.rule.phaseSeconds - r.phaseT);
     const tickets = L.hud.tickets(r.tickets || 0, game.agents.length);
+    if (r.warmup > 0) {
+      return { stamp: L.hud.stampGate, line: `${tickets} · ${L.hud.firstTrainIn(Math.ceil(r.warmup))}`, live: true };
+    }
     return {
       stamp: L.hud.stampGate,
       line: `${tickets} · ${r.admitted >= 1 ? L.hud.oneThrough : L.hud.nextGate(L.hud.gates[r.open], left)}`,
@@ -1081,6 +1095,10 @@ export function directRules(game) {
     const need = kiosk && game.agents.some((a) => !a.extracted && !a.down && !a.taken && !a.ticket);
     if (need) {
       sendAll(game, kiosk.x, kiosk.y + kiosk.h / 2 + 20, true);
+      return;
+    }
+    if (r.warmup > 0) {
+      sendAll(game, c.spawns.wait.x, c.spawns.wait.y);
       return;
     }
     if (r.admitted >= 1) return;
