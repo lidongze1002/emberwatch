@@ -24,32 +24,24 @@ function rule(ctx, x1, y1, x2, y2, colour) {
   ctx.stroke();
 }
 
-// a portrait plate: a dark frame, a silhouette, and the unit number in the corner
+// a monogram plate: a dark frame, the unit number, and a hairline. No silhouette: at this size a
+// drawn face reads as clip art, a monogram reads as a file.
 function portrait(ctx, agent, x, y, w, h) {
   ctx.fillStyle = 'rgba(12, 15, 20, 0.85)';
   ctx.fillRect(x, y, w, h);
   ctx.strokeStyle = 'rgba(200, 206, 216, 0.22)';
   ctx.lineWidth = 1;
   ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-  // head and shoulders, in the flat grey of a bad ID photo
-  const cx = x + w / 2;
-  ctx.fillStyle = 'rgba(120, 128, 140, 0.5)';
-  ctx.beginPath();
-  ctx.arc(cx, y + h * 0.42, w * 0.18, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(cx, y + h * 1.02, w * 0.42, h * 0.5, 0, Math.PI, Math.PI * 2);
-  ctx.fill();
-  // a faint scan of the print
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
-  for (let i = 3; i < h; i += 4) ctx.fillRect(x + 2, y + i, w - 4, 1);
-  label(ctx, agent.id.replace('a', 'A-0'), x + 4, y + h - 4, 7, 'rgba(220, 224, 232, 0.5)', 0, 'left', fonts.mono);
+  const id = agent.id.replace('a', '0');
+  label(ctx, id, x + w / 2, y + h / 2 + 4, 13, 'rgba(226, 214, 196, 0.75)', 0, 'center', fonts.mono);
+  ctx.fillStyle = 'rgba(206, 108, 96, 0.55)';
+  ctx.fillRect(x + 4, y + h - 5, w - 8, 1);
 }
 
 function fileRow(ctx, agent, x, y, w) {
   const meta = L.agent[agent.role];
   const down = agent.down || agent.taken;
-  portrait(ctx, agent, x, y, 34, 42);
+  portrait(ctx, agent, x, y, 30, 38);
   label(ctx, meta.name, x + 44, y + 13, 13, down ? 'rgba(150, 130, 130, 0.8)' : 'rgba(232, 236, 242, 0.95)', 2, 'left', fonts.display);
   label(ctx, meta.line, x + 44, y + 28, 9, 'rgba(168, 178, 192, 0.7)', 0);
   // condition: a hairline track with one red-orange segment
@@ -102,12 +94,12 @@ export function drawHud(ctx, game, time) {
   const fileX = left;
   const fileW = 250;
   game.agents.forEach((a, i) => {
-    fileRow(ctx, a, fileX, VIEW.height - 196 + i * 52, fileW);
+    fileRow(ctx, a, fileX, VIEW.height - 226 + i * 54, fileW);
   });
 
   // ---- footer ----------------------------------------------------------
-  label(ctx, L.hud.hint, left, VIEW.height - 58, 8, 'rgba(168, 178, 192, 0.55)', 2, 'left', fonts.mono);
-  label(ctx, `${String(Math.floor(game.clock)).padStart(3, '0')}s`, VIEW.width - left, VIEW.height - 58, 9, 'rgba(200, 206, 216, 0.55)', 1, 'right', fonts.mono);
+  label(ctx, L.hud.hint, left, VIEW.height - 56, 8, 'rgba(168, 178, 192, 0.55)', 2, 'left', fonts.mono);
+  label(ctx, `${String(Math.floor(game.clock)).padStart(3, '0')}s`, VIEW.width - left, VIEW.height - 56, 9, 'rgba(200, 206, 216, 0.55)', 1, 'right', fonts.mono);
   if (game.auto) label(ctx, 'AUTO', VIEW.width - left, VIEW.height - 44, 8, 'rgba(206, 108, 96, 0.55)', 3, 'right', fonts.mono);
 
   if (game.paused) {
