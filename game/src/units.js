@@ -641,11 +641,26 @@ function updateAgentInner(game, a, dt) {
       // no line: close the distance and let the path find the door
       walkTo(game, a, target.x, target.y, dt);
     } else if (dist < 120) {
-      // too close: back off while firing, the way a person with a rifle would
+      // too close: back off while firing, the way a person with a rifle would. If the straight
+      // line back is a wall (the stage lip, a bench), try around it before standing still.
       const away = Math.atan2(a.y - target.y, a.x - target.x);
-      const bx = a.x + Math.cos(away) * 90;
-      const by = a.y + Math.sin(away) * 90;
-      if (!solid(bx, by, TUNING.agentRadius)) walkTo(game, a, bx, by, dt);
+      let backed = false;
+      for (const turn of [0, 0.5, -0.5, 0.9, -0.9, 1.4, -1.4]) {
+        const ang = away + turn;
+        const bx = a.x + Math.cos(ang) * 90;
+        const by = a.y + Math.sin(ang) * 90;
+        if (!solid(bx, by, TUNING.agentRadius)) {
+          walkTo(game, a, bx, by, dt);
+          backed = true;
+          break;
+        }
+      }
+      if (!backed) {
+        // no room to give: hold the line and keep shooting
+        a.path = null;
+        a.vx = 0;
+        a.vy = 0;
+      }
     } else if (dist > want) {
       walkTo(game, a, target.x, target.y, dt);
     } else {

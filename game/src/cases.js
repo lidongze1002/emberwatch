@@ -176,7 +176,7 @@ const STATION = {
   fee: 2400,
   decor: 'station',
   bounds: B,
-  cam: { scale: 1.35, x: 640, y: 430 },
+  cam: { scale: 1.2, x: 640, y: 430 },
   key: { x: 640, y: 120 },
   palette: {
     ink: '#0a0c0f',
