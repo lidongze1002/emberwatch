@@ -43,6 +43,7 @@ export function spawnBoss(game) {
       damage: SPIDER.damage,
       cooldownMax: SPIDER.cooldown,
       radius: SPIDER.radius,
+      rise: 0,
     });
     game.thralls.push(t);
     game.shake = 8;
@@ -857,6 +858,12 @@ function shootMirror(game, t, target) {
 
 function updateThrall(game, t, dt) {
   if (t.dead) return;
+  if (t.kind === 'spider' && (t.rise || 0) < 1) {
+    // 从台口地板下立起来：起身这一段不动也不打。
+    t.rise = Math.min(1, (t.rise || 0) + dt / 0.9);
+    t.step += dt * 0.8;
+    return;
+  }
   if (t.kind === 'hachi') {
     updateHachi(game, t, dt);
     return;

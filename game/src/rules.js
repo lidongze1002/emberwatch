@@ -91,7 +91,12 @@ export function updateRules(game, dt) {
         game.flashWhite = 0.6;
         game.say(L.hud.quiet);
         game.sound.power();
-        spawnBoss(game);
+        const t = spawnBoss(game);
+        // 她起身这一下是一颗镜头：0.8 秒推到台口，给一个剪影，再交还跟随。
+        if (t) {
+          game.shot = { kind: 'rise', x: t.x, y: t.y + 100, scale: 1.92, t: 0 };
+          t.rise = 0;
+        }
       }
     } else {
       game.pull = Math.max(0, game.pull - dt * 2);

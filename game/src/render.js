@@ -19,11 +19,9 @@ export function screenToWorld(sx, sy) {
 }
 
 function followSquad(game, time) {
-  CAM.scale = game.case.cam.scale;
+  const base = game.case.cam.scale;
   BOUNDS = game.case.bounds;
   KEY = game.case.key;
-  const halfW = VIEW.width / 2 / CAM.scale;
-  const halfH = VIEW.height / 2 / CAM.scale;
   let cx = CAM.x;
   let cy = CAM.y;
   let n = 0;
@@ -41,9 +39,42 @@ function followSquad(game, time) {
   }
   const dt = camClock < 0 ? 0.016 : Math.min(0.08, Math.max(0, time - camClock));
   camClock = time;
+  // 镜头也有一场戏：亮相的时候推到台口，给完剪影再交还跟随。
+  const shot = game.shot;
+  let w = 0;
+  let targetScale = base;
+  let tx = cx;
+  let ty = cy;
+  if (shot) {
+    shot.t += dt;
+    const push = 0.8;
+    const hold = 0.9;
+    const pull = 0.9;
+    const ease = (v) => (v < 0.5 ? 2 * v * v : 1 - 2 * (1 - v) * (1 - v));
+    if (shot.t < push) w = ease(shot.t / push);
+    else if (shot.t < push + hold) w = 1;
+    else w = ease(Math.max(0, 1 - (shot.t - push - hold) / pull));
+    if (shot.t > push + hold + pull) {
+      game.shot = null;
+      w = 0;
+    }
+    shot.w = w;
+    tx = cx + (shot.x - cx) * w;
+    ty = cy + (shot.y - cy) * w;
+    targetScale = base + (shot.scale - base) * w;
+  }
+  CAM.scale = targetScale;
+  const halfW = VIEW.width / 2 / CAM.scale;
+  const halfH = VIEW.height / 2 / CAM.scale;
   const k = 1 - Math.exp(-dt * 5);
-  CAM.x += (cx - CAM.x) * k;
-  CAM.y += (cy - CAM.y) * k;
+  if (shot && w > 0.001) {
+    // 推镜是一次真正的推：0.8 秒内到位，不靠指数的尾巴慢慢蹭过去。
+    CAM.x = tx;
+    CAM.y = ty;
+  } else {
+    CAM.x += (tx - CAM.x) * k;
+    CAM.y += (ty - CAM.y) * k;
+  }
   CAM.x = Math.min(BOUNDS.x1 - halfW, Math.max(BOUNDS.x0 + halfW, CAM.x));
   CAM.y = Math.min(BOUNDS.y1 - halfH, Math.max(BOUNDS.y0 + halfH, CAM.y));
 }
@@ -1277,10 +1308,11 @@ function drawFlashlights(ctx, game) {
 }
 
 function drawThralls(ctx, game, time) {
+  const dim = game.shot ? 1 - 0.42 * (game.shot.w || 0) : 1;
   for (const t of game.thralls) {
     if (t.dead) continue;
     if (t.kind === 'spider') {
-      drawSpider(ctx, t, time);
+      drawSpider(ctx, t, time, dim);
       continue;
     }
     if (t.kind === 'spiderling') {
@@ -1532,9 +1564,22 @@ function drawThralls(ctx, game, time) {
 
 // The tsuchigumo: a woman in a white dress on the boards, eight legs under the hem, and the
 // screen only sees her crown. Everything here is local to her facing.
-function drawSpider(ctx, t, time) {
+function drawSpider(ctx, t, time, dim = 1) {
+  const rise = t.rise === undefined ? 1 : t.rise;
   ctx.save();
   ctx.translate(t.x, t.y);
+  // 起身：从台口地板下升上来，先是一团更黑的影，再是人。镜头里她先只是一个剪影。
+  if (rise < 1 || dim < 1) {
+    ctx.globalAlpha = (0.25 + 0.75 * rise) * dim;
+    const glow = ctx.createRadialGradient(0, 10, 6, 0, 10, 88);
+    glow.addColorStop(0, `rgba(255, 206, 150, ${(0.26 * (1 - rise) + 0.14) * (1.2 - dim)})`);
+    glow.addColorStop(0.5, `rgba(210, 120, 70, ${0.14 * (1 - rise) + 0.06})`);
+    glow.addColorStop(1, 'rgba(210, 120, 70, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 10, 88, 0, Math.PI * 2);
+    ctx.fill();
+  }
   const sh = ctx.createRadialGradient(6, 14, 4, 6, 14, 46);
   sh.addColorStop(0, 'rgba(0, 0, 0, 0.6)');
   sh.addColorStop(1, 'rgba(0, 0, 0, 0)');
@@ -1544,7 +1589,8 @@ function drawSpider(ctx, t, time) {
   ctx.fill();
 
   ctx.rotate(t.aim + Math.PI / 2);
-  ctx.scale(1.5, 1.5);
+  const rs = 0.5 + 0.5 * rise;
+  ctx.scale(1.5 * rs, 1.5 * rs);
 
   // eight legs, two joints each, alternating like a gait instead of waving together
   ctx.strokeStyle = 'rgba(24, 20, 26, 0.9)';
@@ -1654,11 +1700,13 @@ function drawSpider(ctx, t, time) {
   ctx.restore();
 
   // her condition, in the same language as the squad
-  const w = 54;
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-  ctx.fillRect(t.x - w / 2, t.y - 62, w, 3);
-  ctx.fillStyle = 'rgba(206, 108, 96, 0.95)';
-  ctx.fillRect(t.x - w / 2, t.y - 62, (w * t.hp) / t.maxHp, 3);
+  if (rise >= 1) {
+    const w = 54;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(t.x - w / 2, t.y - 62, w, 3);
+    ctx.fillStyle = 'rgba(206, 108, 96, 0.95)';
+    ctx.fillRect(t.x - w / 2, t.y - 62, (w * t.hp) / t.maxHp, 3);
+  }
 }
 
 // 八尺様：白裙、黑长发从头盖到腰、赤脚。她比人高，但俯视看不到个子——只能靠更长更软的投影，
@@ -2485,6 +2533,14 @@ function drawPost(ctx, game, time) {
   vig.addColorStop(1, 'rgba(0,0,0,0.8)');
   ctx.fillStyle = vig;
   ctx.fillRect(0, 0, VIEW.width, VIEW.height);
+
+  // 亮相那颗镜头：上下压两条黑边，收回去的时候一起退掉
+  if (game.shot && game.shot.w > 0.01) {
+    const h = 54 * game.shot.w;
+    ctx.fillStyle = `rgba(2, 3, 5, ${0.92 * game.shot.w})`;
+    ctx.fillRect(0, 0, VIEW.width, h);
+    ctx.fillRect(0, VIEW.height - h, VIEW.width, h);
+  }
 
   const g = grainTile();
   ctx.save();
