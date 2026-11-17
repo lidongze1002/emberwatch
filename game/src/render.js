@@ -1252,6 +1252,107 @@ function drawApartmentProps(ctx, game) {
   ctx.fillRect(682, 508, 2, 2);
 }
 
+// 屋顶不是一块蓝板：沥青屋面有碎石、卷材接缝、积水、天窗，还有一台空调外机。
+// 碎石是 64 px 的固定噪点，生成一次后平铺。
+let gravel = null;
+function gravelTile() {
+  if (gravel) return gravel;
+  const c = document.createElement('canvas');
+  c.width = 64;
+  c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = '#20211f';
+  g.fillRect(0, 0, 64, 64);
+  for (let i = 0; i < 420; i += 1) {
+    const v = 40 + Math.random() * 70;
+    g.fillStyle = `rgba(${v}, ${v - 2}, ${v - 6}, ${0.12 + Math.random() * 0.3})`;
+    g.fillRect(Math.random() * 64, Math.random() * 64, 1, 1);
+  }
+  gravel = c;
+  return c;
+}
+
+function drawRoof(ctx, x, y, w, h) {
+  // 两块楼板不该长得一模一样：用位置算一个 0–1 的小偏移，把天窗和外机挪开
+  const v = ((x * 17 + y * 31) % 7) / 7;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x + 2, y + 2, w - 4, h - 4);
+  ctx.clip();
+  ctx.globalAlpha = 0.55;
+  ctx.fillStyle = ctx.createPattern(gravelTile(), 'repeat');
+  ctx.fillRect(x, y, w, h);
+  ctx.globalAlpha = 1;
+  // 卷材接缝：一道一道横过屋面
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+  ctx.lineWidth = 1;
+  for (let i = 46; i < h; i += 44) {
+    ctx.beginPath();
+    ctx.moveTo(x + 3, y + i);
+    ctx.lineTo(x + w - 3, y + i);
+    ctx.stroke();
+  }
+  // 积水：反射的是一小块冷天，所以只有边缘亮
+  for (const [px, py, rx, ry] of [[0.24 + v * 0.06, 0.36, 44, 12], [0.62 - v * 0.05, 0.72, 30, 9], [0.86, 0.3 + v * 0.1, 18, 6]]) {
+    const cx = x + w * px;
+    const cy = y + h * py;
+    const g = ctx.createRadialGradient(cx, cy, 2, cx, cy, rx);
+    g.addColorStop(0, 'rgba(96, 110, 120, 0.22)');
+    g.addColorStop(0.75, 'rgba(40, 46, 52, 0.4)');
+    g.addColorStop(1, 'rgba(20, 22, 24, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(180, 196, 206, 0.16)';
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx * 0.92, ry * 0.92, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  // 天窗：楼下有一间还亮着的屋子
+  const sx = x + w * (0.7 - v * 0.08);
+  const sy = y + h * 0.18;
+  ctx.fillStyle = 'rgba(12, 12, 11, 0.9)';
+  ctx.fillRect(sx, sy, 48, 30);
+  ctx.fillStyle = 'rgba(226, 196, 140, 0.16)';
+  ctx.fillRect(sx + 3, sy + 3, 42, 24);
+  ctx.strokeStyle = 'rgba(200, 210, 214, 0.18)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(sx + 0.5, sy + 0.5, 47, 29);
+  ctx.beginPath();
+  ctx.moveTo(sx + 24, sy + 3);
+  ctx.lineTo(sx + 24, sy + 27);
+  ctx.stroke();
+  // 空调外机：壳、风扇、四只脚
+  const ax = x + w * (0.16 + v * 0.06);
+  const ay = y + h * (0.6 - v * 0.08);
+  ctx.fillStyle = 'rgba(6, 7, 8, 0.4)';
+  ctx.fillRect(ax + 4, ay + 26, 46, 5);
+  const shell = ctx.createLinearGradient(ax, ay, ax, ay + 26);
+  shell.addColorStop(0, '#4c5153');
+  shell.addColorStop(1, '#22262a');
+  ctx.fillStyle = shell;
+  ctx.fillRect(ax, ay, 46, 26);
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+  ctx.lineWidth = 0.8;
+  ctx.strokeRect(ax + 0.5, ay + 0.5, 45, 25);
+  ctx.strokeStyle = 'rgba(200, 214, 218, 0.22)';
+  ctx.beginPath();
+  ctx.arc(ax + 15, ay + 13, 9, 0, Math.PI * 2);
+  ctx.stroke();
+  for (let i = 0; i < 3; i += 1) {
+    const a = (i / 3) * Math.PI * 2 + 0.4;
+    ctx.beginPath();
+    ctx.moveTo(ax + 15, ay + 13);
+    ctx.lineTo(ax + 15 + Math.cos(a) * 7, ay + 13 + Math.sin(a) * 7);
+    ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+  for (let i = 0; i < 4; i += 1) ctx.fillRect(ax + 30, ay + 4 + i * 5, 12, 1.4);
+  ctx.restore();
+}
+
 function drawWalls(ctx, game) {
   const c = game.case;
   for (const [x, y, w, h] of c.walls) {
@@ -1282,19 +1383,23 @@ function drawWalls(ctx, game) {
         ctx.lineTo(x + w - 6, y + i);
         ctx.stroke();
       }
-      // 屋顶的两处设备：一截风管、一个水箱
-      ctx.fillStyle = 'rgba(160, 176, 190, 0.09)';
-      ctx.fillRect(x + w * 0.62, y + h * 0.3, 54, 22);
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-      ctx.fillRect(x + w * 0.62, y + h * 0.3 + 19, 54, 3);
-      ctx.fillStyle = 'rgba(150, 166, 178, 0.08)';
-      ctx.beginPath();
-      ctx.arc(x + w * 0.26, y + h * 0.62, 17, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(200, 216, 232, 0.1)';
-      ctx.beginPath();
-      ctx.arc(x + w * 0.26, y + h * 0.62, 17, 0, Math.PI * 2);
-      ctx.stroke();
+      // 屋顶的两处设备：一截风管、一个水箱（公寓的楼板另有画法）
+      if (c.decor !== 'corridor') {
+        ctx.fillStyle = 'rgba(160, 176, 190, 0.09)';
+        ctx.fillRect(x + w * 0.62, y + h * 0.3, 54, 22);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fillRect(x + w * 0.62, y + h * 0.3 + 19, 54, 3);
+        ctx.fillStyle = 'rgba(150, 166, 178, 0.08)';
+        ctx.beginPath();
+        ctx.arc(x + w * 0.26, y + h * 0.62, 17, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(200, 216, 232, 0.1)';
+        ctx.beginPath();
+        ctx.arc(x + w * 0.26, y + h * 0.62, 17, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        drawRoof(ctx, x, y, w, h);
+      }
     }
     ctx.fillStyle = 'rgba(190, 205, 225, 0.22)';
     ctx.fillRect(x, y, w, 1.5);
