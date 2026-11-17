@@ -24,6 +24,11 @@ export function createAgents() {
       spread: spec.spread,
       colour: spec.colour,
       aim: -Math.PI / 2,
+      facing: -Math.PI / 2,
+      vx: 0,
+      vy: 0,
+      recoil: 0,
+      pose: 'carry',
       cooldown: 0,
       order: { kind: 'hold' },
       path: null,
@@ -92,6 +97,13 @@ function nearestDowned(game, a) {
   return best;
 }
 
+function turnToward(from, to, maxStep) {
+  let delta = to - from;
+  while (delta > Math.PI) delta -= Math.PI * 2;
+  while (delta < -Math.PI) delta += Math.PI * 2;
+  return from + Math.max(-maxStep, Math.min(maxStep, delta));
+}
+
 function walkTo(game, a, x, y, dt) {
   const now = game.clock;
   const r = TUNING.agentRadius;
@@ -113,24 +125,40 @@ function walkTo(game, a, x, y, dt) {
   const dx = step.x - a.x;
   const dy = step.y - a.y;
   const dist = Math.hypot(dx, dy);
-  if (dist < 6) {
+  if (dist < 8) {
     a.path.shift();
-    return !a.path.length;
+    if (!a.path.length) {
+      a.vx *= 0.5;
+      a.vy *= 0.5;
+      return true;
+    }
   }
-  const nx = a.x + (dx / dist) * a.speed * dt;
-  const ny = a.y + (dy / dist) * a.speed * dt;
+  const want = Math.atan2(dy, dx);
+  const speed = a.speed;
+  const k = Math.min(1, dt * 8);
+  a.vx += (Math.cos(want) * speed - a.vx) * k;
+  a.vy += (Math.sin(want) * speed - a.vy) * k;
+
+  const nx = a.x + a.vx * dt;
+  const ny = a.y + a.vy * dt;
   if (!solid(nx, ny, r)) {
     a.x = nx;
     a.y = ny;
-  } else if (!solid(a.x, ny, r)) {
-    a.y = ny;
   } else if (!solid(nx, a.y, r)) {
     a.x = nx;
+    a.vy = 0;
+  } else if (!solid(a.x, ny, r)) {
+    a.y = ny;
+    a.vx = 0;
   } else {
+    a.vx = 0;
+    a.vy = 0;
     a.path = null;
     return false;
   }
-  a.step += dt * 6;
+  const v = Math.hypot(a.vx, a.vy);
+  if (v > 14) a.facing = turnToward(a.facing, Math.atan2(a.vy, a.vx), dt * 7);
+  a.step += v * dt * 0.12;
   return false;
 }
 
@@ -139,6 +167,7 @@ function fire(game, a, target) {
   const dist = Math.hypot(target.x - a.x, target.y - a.y);
   if (dist > a.range || !lineClear(a.x, a.y, target.x, target.y, 4)) return;
   a.cooldown = a.fireRate;
+  a.recoil = 1;
   a.aim = Math.atan2(target.y - a.y, target.x - a.x);
   const spread = (Math.random() - 0.5) * a.spread * 2;
   const angle = a.aim + spread;
@@ -159,6 +188,12 @@ function updateAgent(game, a, dt) {
   if (a.down || a.extracted || a.taken) return;
   a.cooldown = Math.max(0, a.cooldown - dt);
   a.flash = Math.max(0, a.flash - dt * 4);
+  a.recoil = Math.max(0, a.recoil - dt * 6);
+  // the body always faces where it is going; the weapon faces what it is on
+  if (Math.hypot(a.vx, a.vy) < 12) {
+    a.facing = turnToward(a.facing, a.aim, dt * 6);
+  }
+  a.pose = a.state === 'fighting' || a.order.kind === 'focus' ? 'ready' : 'carry';
 
   // you are in this one: hands on, no orders
   if (game.possessed === a) {

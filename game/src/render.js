@@ -610,8 +610,9 @@ function drawAgents(ctx, game, time) {
     ctx.ellipse(6, 15, 28, 13, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.rotate(a.aim + Math.PI / 2);
+    ctx.rotate(a.facing + Math.PI / 2);
     ctx.rotate(Math.sin(a.step) * 0.045);
+    const shortAngle = (v) => Math.atan2(Math.sin(v), Math.cos(v));
     const swing = Math.sin(a.step) * 4.4;
     const coat = a.role === 'veteran' ? '#2f3743' : a.role === 'rookie' ? '#263d47' : '#3a3226';
     const coatLight = a.role === 'veteran' ? '#4b5566' : a.role === 'rookie' ? '#3d6070' : '#5c4e38';
@@ -682,6 +683,16 @@ function drawAgents(ctx, game, time) {
     ctx.fillStyle = 'rgba(18, 22, 28, 0.55)';
     ctx.fillRect(-10, -9, 20, 3);
 
+    // the upper body twists toward the target; the weapon has two carries
+    ctx.save();
+    ctx.rotate(shortAngle(a.aim - a.facing));
+    ctx.save();
+    if (a.pose === 'carry') {
+      ctx.translate(0, 6);
+      ctx.rotate(0.55);
+    } else {
+      ctx.translate(0, a.recoil * 3);
+    }
     ctx.strokeStyle = coatLight;
     ctx.lineWidth = 5.5;
     ctx.lineCap = 'round';
@@ -723,6 +734,7 @@ function drawAgents(ctx, game, time) {
     ctx.moveTo(-9, -6);
     ctx.quadraticCurveTo(-4, -26, 2, -34);
     ctx.stroke();
+    ctx.restore();
 
     // head: the crown of the head, hair over it, a sliver of forehead at the front
     ctx.fillStyle = '#c69a7d';
@@ -757,6 +769,7 @@ function drawAgents(ctx, game, time) {
       ctx.lineTo(-6 + i * 4, -1);
       ctx.stroke();
     }
+    ctx.restore();
     ctx.restore();
 
     if (a.charmed) {

@@ -18,31 +18,34 @@ function agentCard(ctx, agent, x, y, w, h) {
   const meta = L.agent[agent.role];
   const down = agent.down || agent.taken;
   ctx.save();
-  ctx.fillStyle = 'rgba(8, 11, 17, 0.82)';
-  ctx.strokeStyle = down ? 'rgba(120, 60, 60, 0.5)' : 'rgba(160, 185, 210, 0.18)';
+  // a dossier strip, not a card: a rank tab, a rule, a readout
+  ctx.fillStyle = 'rgba(6, 9, 14, 0.62)';
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = down ? 'rgba(120, 60, 60, 0.8)' : agent.colour;
+  ctx.fillRect(x, y, 3, h);
+  ctx.strokeStyle = 'rgba(180, 196, 216, 0.14)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.roundRect(x, y, w, h, 5);
-  ctx.fill();
+  ctx.moveTo(x + 8, y);
+  ctx.lineTo(x + w, y);
+  ctx.moveTo(x, y + h - 0.5);
+  ctx.lineTo(x + w, y + h - 0.5);
   ctx.stroke();
 
-  ctx.fillStyle = down ? 'rgba(120, 60, 60, 0.8)' : agent.colour;
-  ctx.beginPath();
-  ctx.arc(x + 18, y + h / 2, 6, 0, Math.PI * 2);
-  ctx.fill();
+  label(ctx, meta.name, x + 14, y + 17, 11, down ? 'rgba(160, 140, 140, 0.7)' : PALETTE.pale, 3);
+  label(ctx, meta.line, x + 14, y + 33, 9, 'rgba(140, 156, 176, 0.7)', 0.2);
 
-  label(ctx, meta.name, x + 34, y + 20, 12, down ? 'rgba(160, 140, 140, 0.7)' : PALETTE.pale, 2);
-  label(ctx, meta.line, x + 34, y + 36, 9, 'rgba(140, 156, 176, 0.75)', 0);
-
-  const hpW = 74;
-  const hp = Math.max(0, agent.hp) / agent.maxHp;
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(x + w - hpW - 14, y + 14, hpW, 5);
-  ctx.fillStyle = hp > 0.5 ? 'rgba(190, 220, 190, 0.9)' : hp > 0.25 ? 'rgba(240, 200, 120, 0.9)' : 'rgba(220, 100, 90, 0.95)';
-  ctx.fillRect(x + w - hpW - 14, y + 14, hpW * hp, 5);
-  label(ctx, `${Math.max(0, Math.ceil(agent.hp))}`, x + w - 14, y + 34, 10, 'rgba(160, 176, 196, 0.8)', 0, 'right', fonts.mono);
+  // hit points as ten ticks, the way an instrument reports them
+  const ticks = 10;
+  const filled = Math.ceil((Math.max(0, agent.hp) / agent.maxHp) * ticks);
+  for (let i = 0; i < ticks; i += 1) {
+    ctx.fillStyle = i < filled
+      ? (filled > 6 ? 'rgba(180, 214, 186, 0.85)' : filled > 3 ? 'rgba(230, 196, 120, 0.85)' : 'rgba(214, 96, 88, 0.9)')
+      : 'rgba(120, 140, 165, 0.18)';
+    ctx.fillRect(x + w - 88 + i * 8, y + 12, 5, 3);
+  }
   const stateText = agent.taken ? L.state.charmed : down ? L.state.down : L.state[agent.state] || '';
-  label(ctx, stateText, x + w - 14, y + h - 10, 9, 'rgba(240, 201, 141, 0.7)', 2, 'right');
+  label(ctx, stateText, x + w - 14, y + h - 9, 9, 'rgba(240, 201, 141, 0.75)', 2, 'right', fonts.mono);
   ctx.restore();
 }
 
