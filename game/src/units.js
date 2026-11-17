@@ -427,6 +427,16 @@ function updateThrall(game, t, dt) {
       t.cooldown = t.cooldownMax || THRALL.cooldown;
       target.hp -= t.damage || THRALL.damage;
       target.flash = 1;
+      // the broadcast: static arcs off the set onto everyone standing close
+      if (t.kind !== 'spiderling') {
+        for (const other of game.agents) {
+          if (other === target || other.down || other.taken || other.extracted) continue;
+          if (Math.hypot(other.x - t.x, other.y - t.y) < THRALL.special.range) {
+            other.hp -= 2;
+            other.flash = Math.max(other.flash, 0.8);
+          }
+        }
+      }
       game.shake = 6;
       game.sound.hurt();
       if (target.hp <= 0) {
@@ -446,6 +456,8 @@ function updateThrall(game, t, dt) {
     t.wanderClock = 1.4 + Math.random() * 2;
     t.wander = Math.random() * Math.PI * 2;
   }
+  // the set faces where the body is drifting, not where it last saw someone
+  t.aim += Math.atan2(Math.sin(t.wander - t.aim), Math.cos(t.wander - t.aim)) * Math.min(1, dt * 4);
   const nx = t.x + Math.cos(t.wander) * t.speed * 0.4 * dt;
   const ny = t.y + Math.sin(t.wander) * t.speed * 0.4 * dt;
   if (!solid(nx, ny, 10)) {
