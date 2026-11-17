@@ -733,7 +733,63 @@ function drawPaddies(ctx, game, time) {
   }
   ctx.fillStyle = 'rgba(255, 200, 130, 0.12)';
   ctx.fillRect(zone.x, zone.y, zone.w, zone.h);
-  ctx.strokeStyle = 'rgba(201, 162, 90, 0.45)';
+  // 茅草屋顶：一排排短斜线，屋脊一道横缝，檐口压暗
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(zone.x + 1, zone.y + 1, zone.w - 2, zone.h - 2);
+  ctx.clip();
+  for (let row = 0; row < 7; row += 1) {
+    const y = zone.y + 6 + row * (zone.h - 12) / 7;
+    for (let i = 0; i < zone.w; i += 5) {
+      const s = ((i * 13 + row * 7) % 5) / 5;
+      ctx.strokeStyle = `rgba(${150 + s * 50}, ${124 + s * 40}, ${78 + s * 28}, 0.5)`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(zone.x + i + (row % 2) * 2, y);
+      ctx.lineTo(zone.x + i - 2 + (row % 2) * 2, y + 5);
+      ctx.stroke();
+    }
+  }
+  ctx.strokeStyle = 'rgba(40, 30, 18, 0.5)';
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(zone.x + 4, zone.y + zone.h * 0.46);
+  ctx.lineTo(zone.x + zone.w - 4, zone.y + zone.h * 0.46);
+  ctx.stroke();
+  const eave = ctx.createLinearGradient(0, zone.y + zone.h - 12, 0, zone.y + zone.h);
+  eave.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  eave.addColorStop(1, 'rgba(0, 0, 0, 0.45)');
+  ctx.fillStyle = eave;
+  ctx.fillRect(zone.x, zone.y + zone.h - 12, zone.w, 12);
+  ctx.restore();
+  // 烟囱：一口黑砖筒，顶上飘三缕烟
+  const chx = zone.x + zone.w * 0.74;
+  const chy = zone.y + zone.h * 0.22;
+  ctx.fillStyle = 'rgba(20, 16, 12, 0.9)';
+  ctx.fillRect(chx, chy, 14, 12);
+  ctx.fillStyle = 'rgba(190, 180, 168, 0.2)';
+  ctx.fillRect(chx, chy, 14, 2);
+  for (let i = 0; i < 3; i += 1) {
+    const t = (time * 0.22 + i / 3) % 1;
+    ctx.fillStyle = `rgba(180, 176, 168, ${0.1 * (1 - t)})`;
+    ctx.beginPath();
+    ctx.ellipse(chx + 7 + Math.sin(t * 5 + i) * 8, chy - 8 - t * 34, 6 + t * 10, 4 + t * 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // 门：南侧一个黑洞，门口一片暖光（灯要送进去）
+  const doorW = 34;
+  const dx0 = zone.x + zone.w / 2 - doorW / 2;
+  const dy0 = zone.y + zone.h - 16;
+  ctx.fillStyle = 'rgba(6, 5, 4, 0.92)';
+  ctx.fillRect(dx0, dy0, doorW, 16);
+  const spill = ctx.createRadialGradient(zone.x + zone.w / 2, zone.y + zone.h - 4, 3, zone.x + zone.w / 2, zone.y + zone.h - 4, 54);
+  spill.addColorStop(0, 'rgba(255, 210, 150, 0.3)');
+  spill.addColorStop(1, 'rgba(255, 180, 110, 0)');
+  ctx.fillStyle = spill;
+  ctx.beginPath();
+  ctx.arc(zone.x + zone.w / 2, zone.y + zone.h - 4, 54, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(201, 162, 90, 0.3)';
   ctx.lineWidth = 1.5;
   ctx.strokeRect(zone.x + 0.5, zone.y + 0.5, zone.w - 1, zone.h - 1);
   const lamp = ctx.createRadialGradient(zone.x + zone.w / 2, zone.y + zone.h - 14, 4, zone.x + zone.w / 2, zone.y + zone.h - 14, 120);
