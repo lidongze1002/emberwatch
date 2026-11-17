@@ -46,6 +46,11 @@ export const en = {
   },
   hud: {
     objective: 'CUT THE POWER · CLEAR THE HOUSE · GET THEM OUT',
+    file: 'FIELD FILE',
+    team: 'ASSIGNED',
+    obj: { power: 'CUT THE POWER', clear: 'CLEAR THE HOUSE', out: 'EXTRACT THE SQUAD' },
+    done: 'DONE',
+    open: 'OPEN',
     power: (on) => (on ? 'POWER ON' : 'POWER CUT'),
     music: 'THE HOUSE IS SINGING',
     quiet: 'THE HOUSE IS QUIET',

@@ -117,6 +117,38 @@ function woodTile() {
   return c;
 }
 
+// Wool: a twill weave at 32 px, one diagonal in the light and one against it. Generated once and
+// laid over the coat inside its own silhouette, so the cloth moves with the body.
+let wool = null;
+let woolPattern = null;
+function woolTile() {
+  if (wool) return wool;
+  const c = document.createElement('canvas');
+  c.width = 32;
+  c.height = 32;
+  const g = c.getContext('2d');
+  for (let i = 0; i < 64; i += 1) {
+    const y = i * 0.5;
+    g.strokeStyle = i % 2 ? 'rgba(255, 240, 220, 0.06)' : 'rgba(0, 0, 0, 0.16)';
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(0, y);
+    g.lineTo(32, y);
+    g.stroke();
+  }
+  for (let i = 0; i < 26; i += 1) {
+    const x = Math.random() * 32;
+    g.strokeStyle = 'rgba(255, 246, 232, 0.035)';
+    g.lineWidth = 0.7;
+    g.beginPath();
+    g.moveTo(x, Math.random() * 32);
+    g.lineTo(x + 3, Math.random() * 32);
+    g.stroke();
+  }
+  wool = c;
+  return c;
+}
+
 let velvet = null;
 function velvetTile() {
   if (velvet) return velvet;
@@ -473,126 +505,213 @@ function drawThralls(ctx, game, time) {
     ctx.save();
     ctx.translate(t.x, t.y);
 
-    // contact shadow
-    const sh = ctx.createRadialGradient(5, 14, 2, 5, 14, 26);
-    sh.addColorStop(0, 'rgba(0, 0, 0, 0.6)');
+    // contact shadow, cast the same way as everything else
+    const sh = ctx.createRadialGradient(4, 7, 1, 4, 7, 20);
+    sh.addColorStop(0, 'rgba(0, 0, 0, 0.52)');
+    sh.addColorStop(0.5, 'rgba(0, 0, 0, 0.26)');
     sh.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = sh;
     ctx.beginPath();
-    ctx.ellipse(5, 14, 26, 12, 0, 0, Math.PI * 2);
+    ctx.ellipse(4, 8, 19, 12, 0, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.rotate(t.aim + Math.PI / 2);
-    const swing = Math.sin(t.step * 1.4) * 3.4;
+    const swing = Math.sin(t.step * 1.4) * 3.6;
+    const suit = '#4b453a';
+    const suitLit = '#6f6758';
+    const lb = Math.atan2(KEY.y - t.y, KEY.x - t.x) - (t.aim + Math.PI / 2);
+    const litX = Math.cos(lb);
+    const litY = Math.sin(lb);
+    const suitGrad = ctx.createLinearGradient(litX * 12, litY * 12, -litX * 13, -litY * 13);
+    suitGrad.addColorStop(0, suitLit);
+    suitGrad.addColorStop(0.55, suit);
+    suitGrad.addColorStop(1, '#15140f');
 
-    ctx.fillStyle = '#141720';
-    ctx.beginPath();
-    ctx.roundRect(-10, 4 + swing, 8, 20, 3);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.roundRect(2, 4 - swing, 8, 20, 3);
-    ctx.fill();
+    // the legs: from above only the boots show, one ahead of the other
+    for (const b of [{ x: -5.2, y: 8.6 - swing, a: -0.06 }, { x: 5.2, y: 8.6 + swing, a: 0.06 }]) {
+      ctx.strokeStyle = '#191712';
+      ctx.lineWidth = 4.4;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(b.x * 0.9, 5.2);
+      ctx.lineTo(b.x, b.y - 3);
+      ctx.stroke();
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.rotate(b.a);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+      ctx.beginPath();
+      ctx.ellipse(1.5, 2.4, 4.2, 5.4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#0c0a08';
+      ctx.beginPath();
+      ctx.roundRect(-2.9, -4.6, 5.8, 9.4, 2.7);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(190, 200, 210, 0.12)';
+      ctx.beginPath();
+      ctx.roundRect(-2.1, -4, 4.2, 3.8, 1.8);
+      ctx.fill();
+      ctx.restore();
+    }
 
-    // suit: shoulders, lapels, a white shirt
-    ctx.fillStyle = '#9a9282';
+    // the jacket: shoulders, back, a short hem — no shirt, no tie, nothing from the front
+    ctx.fillStyle = suitGrad;
     ctx.beginPath();
-    ctx.ellipse(0, -2, 17, 19, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(60, 52, 44, 0.5)';
-    ctx.beginPath();
-    ctx.ellipse(0, 2, 17, 15, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(240, 236, 224, 0.6)';
-    ctx.beginPath();
-    ctx.moveTo(-5, -16);
-    ctx.lineTo(0, -1);
-    ctx.lineTo(5, -16);
+    ctx.moveTo(-10.6, -3);
+    ctx.quadraticCurveTo(-12.4, 1, -9.6, 3.6);
+    ctx.quadraticCurveTo(-8.6, 7.8, -7.4, 9);
+    ctx.quadraticCurveTo(0, 10.4, 7.4, 9);
+    ctx.quadraticCurveTo(8.6, 7.8, 9.6, 3.6);
+    ctx.quadraticCurveTo(12.4, 1, 10.6, -3);
+    ctx.quadraticCurveTo(0, -6.4, -10.6, -3);
     ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = 'rgba(30, 24, 20, 0.55)';
-    ctx.fillRect(-1, -16, 2, 15);
-    // a tie, and two buttons catching the light
-    ctx.fillStyle = 'rgba(40, 18, 18, 0.9)';
-    ctx.beginPath();
-    ctx.moveTo(-2, -14);
-    ctx.lineTo(2, -14);
-    ctx.lineTo(1, -4);
-    ctx.lineTo(-1, -4);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = 'rgba(255, 240, 210, 0.5)';
-    ctx.beginPath();
-    ctx.arc(0, 1, 1, 0, Math.PI * 2);
-    ctx.arc(0, 6, 1, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.strokeStyle = '#807867';
-    ctx.lineWidth = 6;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(-13, -6);
-    ctx.lineTo(-15, 7 + swing * 0.5);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(13, -6);
-    ctx.lineTo(15, 7 - swing * 0.5);
-    ctx.stroke();
-
-    // the set, seen from above: a top panel, vents at the back, a sliver of screen at the front
-    ctx.fillStyle = '#0a0c10';
-    ctx.beginPath();
-    ctx.roundRect(-15, -40, 30, 24, 3.5);
-    ctx.fill();
-    // bevel: lit on the stage side, dark at the back
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.09)';
-    ctx.fillRect(-13, -39.4, 26, 1.4);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
-    ctx.fillRect(-13, -17.6, 26, 1.6);
-    // vents and a handle at the back of the set
-    ctx.strokeStyle = 'rgba(120, 130, 120, 0.35)';
+    // shoulder seams
+    ctx.strokeStyle = 'rgba(10, 9, 7, 0.4)';
     ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-8.4, -2.6);
+    ctx.quadraticCurveTo(-9.2, 2.4, -8, 8.4);
+    ctx.moveTo(8.4, -2.6);
+    ctx.quadraticCurveTo(9.2, 2.4, 8, 8.4);
+    ctx.stroke();
+
+    // the arms come forward to carry the set: both forearms under its front corners
+    for (const side of [-1, 1]) {
+      ctx.strokeStyle = suit;
+      ctx.lineWidth = 5.2;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(side * 8.2, -0.4);
+      ctx.lineTo(side * 8.6, -5.4);
+      ctx.stroke();
+      ctx.strokeStyle = suitLit;
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.moveTo(side * 8.7, -1.2);
+      ctx.lineTo(side * 9.1, -5.2);
+      ctx.stroke();
+      ctx.fillStyle = '#8d7a63';
+      ctx.beginPath();
+      ctx.arc(side * 6.6, -6.6, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // the set on the shoulders, from above: a plastic top, the bevel, vents at the back,
+    // a handle, and the only screen you can see — one crushed hot line at the front.
+    const setGrad = ctx.createLinearGradient(-6, -11, 7, 3);
+    setGrad.addColorStop(0, '#9a9180');
+    setGrad.addColorStop(0.42, '#6b6558');
+    setGrad.addColorStop(1, '#2a2923');
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
+    ctx.beginPath();
+    ctx.roundRect(-7.4, -10.2, 15.4, 14.6, 2);
+    ctx.fill();
+    ctx.fillStyle = setGrad;
+    ctx.beginPath();
+    ctx.roundRect(-7.5, -11, 15, 14.4, 1.8);
+    ctx.fill();
+    // the case seam: a bezel line all the way round the top face
+    ctx.strokeStyle = 'rgba(16, 16, 13, 0.5)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.roundRect(-6.1, -9.7, 12.2, 11.6, 1.2);
+    ctx.stroke();
+    // the bevel: lit along the front top edge, dark where the case turns away
+    ctx.fillStyle = 'rgba(255, 250, 236, 0.2)';
+    ctx.beginPath();
+    ctx.roundRect(-6.9, -10.6, 13.8, 1.8, 0.9);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
+    ctx.fillRect(-6.6, 2.2, 13.2, 1.2);
+    // vents at the back of the top face
+    ctx.strokeStyle = 'rgba(18, 18, 15, 0.5)';
+    ctx.lineWidth = 0.8;
     for (let i = 0; i < 3; i += 1) {
       ctx.beginPath();
-      ctx.moveTo(-9, -22 + i * 2.2);
-      ctx.lineTo(9, -22 + i * 2.2);
+      ctx.moveTo(-4.4, 0.4 + i * 1.5);
+      ctx.lineTo(4.4, 0.4 + i * 1.5);
       ctx.stroke();
     }
-    ctx.fillStyle = '#2b3028';
-    ctx.fillRect(-5, -17, 10, 2);
-
-    // the only screen you can see from above: a hot line at the front edge, and its spill
+    ctx.fillStyle = '#38352d';
+    ctx.beginPath();
+    ctx.roundRect(-2.8, 2.6, 5.6, 1.6, 0.6);
+    ctx.fill();
+    // the channel dial and the volume knob, along the right of the top face
+    ctx.fillStyle = '#1d1c17';
+    ctx.beginPath();
+    ctx.arc(6.6, -4.4, 1.25, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(6.6, -1.2, 0.95, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 246, 220, 0.22)';
+    ctx.lineWidth = 0.55;
+    ctx.beginPath();
+    ctx.moveTo(6.6, -5.4);
+    ctx.lineTo(6.6, -3.4);
+    ctx.stroke();
+    // the gloss on the plastic: one soft streak, corner to corner
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = '#fff6e2';
+    ctx.beginPath();
+    ctx.moveTo(-6.4, -2.2);
+    ctx.lineTo(-2.2, -9.2);
+    ctx.lineTo(1.4, -9.2);
+    ctx.lineTo(-2.6, -2.2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    // the screen line, and the light it throws on the floor in front of him
     const flick = 0.55 + Math.sin(time * 24 + t.step * 3) * 0.3;
-    ctx.fillStyle = `rgba(150, 240, 222, ${0.85 * flick})`;
-    ctx.fillRect(-13, -40.6, 26, 1.6);
-    const spill = ctx.createLinearGradient(0, -40, 0, -78);
-    spill.addColorStop(0, `rgba(140, 235, 215, ${0.22 * flick})`);
+    ctx.fillStyle = `rgba(168, 244, 228, ${0.9 * flick})`;
+    ctx.fillRect(-7.8, -10.9, 15.6, 1.5);
+    const spill = ctx.createLinearGradient(0, -10, 0, -38);
+    spill.addColorStop(0, `rgba(140, 235, 215, ${0.24 * flick})`);
     spill.addColorStop(1, 'rgba(140, 235, 215, 0)');
     ctx.fillStyle = spill;
     ctx.beginPath();
-    ctx.moveTo(-13, -40);
-    ctx.lineTo(13, -40);
-    ctx.lineTo(26, -78);
-    ctx.lineTo(-26, -78);
+    ctx.moveTo(-7.4, -10.4);
+    ctx.lineTo(7.4, -10.4);
+    ctx.lineTo(15, -36);
+    ctx.lineTo(-15, -36);
     ctx.closePath();
     ctx.fill();
 
-    // antennas, seen from above as two rods out of the back
-    ctx.strokeStyle = '#4a5040';
-    ctx.lineWidth = 1.3;
+    // antennas out of the back of the case: rabbit ears, long and thin, with a bead at the tip
+    ctx.strokeStyle = '#47453a';
+    ctx.lineWidth = 1.1;
     ctx.beginPath();
-    ctx.moveTo(-10, -17);
-    ctx.lineTo(-17, -5);
-    ctx.moveTo(10, -17);
-    ctx.lineTo(17, -5);
+    ctx.moveTo(-5, 2.6);
+    ctx.lineTo(-9.4, 12.6);
+    ctx.moveTo(5, 2.6);
+    ctx.lineTo(9.4, 12.6);
     ctx.stroke();
+    ctx.strokeStyle = 'rgba(255, 246, 220, 0.28)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(-4.8, 2.8);
+    ctx.lineTo(-9.1, 12.2);
+    ctx.moveTo(5.2, 2.8);
+    ctx.lineTo(9.7, 12.2);
+    ctx.stroke();
+    ctx.fillStyle = '#5d5a4c';
+    ctx.beginPath();
+    ctx.arc(-9.4, 12.6, 1.1, 0, Math.PI * 2);
+    ctx.arc(9.4, 12.6, 1.1, 0, Math.PI * 2);
+    ctx.fill();
 
     if (t.hitFlash > 0.02) {
-      ctx.globalAlpha = Math.min(0.85, t.hitFlash);
-      ctx.fillStyle = '#fff';
+      // a short bloom on the set, not a white disc over the whole body
+      const hit = ctx.createRadialGradient(0, -4, 1, 0, -4, 19);
+      hit.addColorStop(0, `rgba(255, 246, 232, ${0.55 * t.hitFlash})`);
+      hit.addColorStop(0.5, `rgba(255, 226, 196, ${0.16 * t.hitFlash})`);
+      hit.addColorStop(1, 'rgba(255, 210, 170, 0)');
+      ctx.fillStyle = hit;
       ctx.beginPath();
-      ctx.arc(0, -10, 26, 0, Math.PI * 2);
+      ctx.arc(0, -4, 19, 0, Math.PI * 2);
       ctx.fill();
-      ctx.globalAlpha = 1;
     }
     ctx.restore();
 
@@ -680,15 +799,15 @@ function drawAgents(ctx, game, time) {
     const gait = moving ? Math.sin(a.step) : Math.sin(a.step) * 0.12;
     const stride = 7.4 * Math.min(1, speed / 120);
     const boot = [
-      { x: -5.2, y: 10.4 - gait * stride, a: -0.06 },
-      { x: 5.2, y: 10.4 + gait * stride, a: 0.06 },
+      { x: -5.2, y: 8.8 - gait * stride, a: -0.06 },
+      { x: 5.2, y: 8.8 + gait * stride, a: 0.06 },
     ];
     for (const b of boot) {
       ctx.strokeStyle = '#171c23';
       ctx.lineWidth = 4.4;
       ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(b.x * 0.9, 6.4);
+      ctx.moveTo(b.x * 0.9, 5.2);
       ctx.lineTo(b.x, b.y - 3);
       ctx.stroke();
       ctx.save();
@@ -720,34 +839,50 @@ function drawAgents(ctx, game, time) {
     ctx.translate(cloth.x * 0.5, cloth.y * 0.5);
     ctx.fillStyle = '#0c0f14';
     ctx.beginPath();
-    ctx.moveTo(-9.4, 2);
-    ctx.quadraticCurveTo(-11.4, 8, -8.4, 11.4);
-    ctx.quadraticCurveTo(0, 13.6, 8.4, 11.4);
-    ctx.quadraticCurveTo(11.4, 8, 9.4, 2);
+    ctx.moveTo(-9.4, 1);
+    ctx.quadraticCurveTo(-11, 6, -8.2, 9.2);
+    ctx.quadraticCurveTo(0, 11.2, 8.2, 9.2);
+    ctx.quadraticCurveTo(11, 6, 9.4, 1);
     ctx.closePath();
     ctx.fill();
     ctx.fillStyle = coatGrad;
     ctx.beginPath();
-    ctx.moveTo(-8.8, 0);
-    ctx.quadraticCurveTo(-10.6, 7.4, -7.8, 10.2);
-    ctx.quadraticCurveTo(0, 12, 7.8, 10.2);
-    ctx.quadraticCurveTo(10.6, 7.4, 8.8, 0);
+    ctx.moveTo(-8.8, -1);
+    ctx.quadraticCurveTo(-10.2, 5.4, -7.6, 8);
+    ctx.quadraticCurveTo(0, 9.6, 7.6, 8);
+    ctx.quadraticCurveTo(10.2, 5.4, 8.8, -1);
     ctx.closePath();
     ctx.fill();
     ctx.restore();
 
     // shoulders and back: 22 px across at the shoulder line, tapering to the hips
+    const bodyPath = new Path2D();
+    bodyPath.moveTo(-10.4, -3.2);
+    bodyPath.quadraticCurveTo(-12.2, 0.8, -9.4, 3.4);
+    bodyPath.quadraticCurveTo(-8.2, 7.6, -7.4, 8.4);
+    bodyPath.quadraticCurveTo(0, 9.8, 7.4, 8.4);
+    bodyPath.quadraticCurveTo(8.2, 7.6, 9.4, 3.4);
+    bodyPath.quadraticCurveTo(12.2, 0.8, 10.4, -3.2);
+    bodyPath.quadraticCurveTo(0, -6.8, -10.4, -3.2);
+    bodyPath.closePath();
     ctx.fillStyle = coatGrad;
-    ctx.beginPath();
-    ctx.moveTo(-10.4, -3.2);
-    ctx.quadraticCurveTo(-12.2, 0.8, -9.4, 3.4);
-    ctx.quadraticCurveTo(-8.4, 9, -7.6, 10.6);
-    ctx.quadraticCurveTo(0, 12.2, 7.6, 10.6);
-    ctx.quadraticCurveTo(8.4, 9, 9.4, 3.4);
-    ctx.quadraticCurveTo(12.2, 0.8, 10.4, -3.2);
-    ctx.quadraticCurveTo(0, -6.8, -10.4, -3.2);
-    ctx.closePath();
-    ctx.fill();
+    ctx.fill(bodyPath);
+    // the weave, laid inside the silhouette with a second fill of the same path
+    if (!woolPattern) woolPattern = ctx.createPattern(woolTile(), 'repeat');
+    ctx.save();
+    ctx.globalAlpha = 0.7;
+    ctx.fillStyle = woolPattern;
+    ctx.fill(bodyPath);
+    ctx.restore();
+    // three folds down the back of the coat, lit side first
+    ctx.strokeStyle = 'rgba(6, 9, 13, 0.28)';
+    ctx.lineWidth = 1;
+    for (let i = -1; i <= 1; i += 1) {
+      ctx.beginPath();
+      ctx.moveTo(i * 5.2, -1);
+      ctx.quadraticCurveTo(i * 6.6 + 1, 4, i * 5.4, 8);
+      ctx.stroke();
+    }
     // shoulder pads: two domes, lit from the stage side and dark on the other
     for (const side of [-1, 1]) {
       const pad = ctx.createRadialGradient(
@@ -780,11 +915,14 @@ function drawAgents(ctx, game, time) {
     ctx.moveTo(-7.2, -4);
     ctx.lineTo(6.4, 1.6);
     ctx.stroke();
-    // a warm rim from the stage side, at the edge of the shoulder
-    ctx.fillStyle = 'rgba(255, 214, 160, 0.14)';
-    ctx.beginPath();
-    ctx.ellipse(rimX * 0.72, rimY * 0.62 - 1.5, 4.6, 3, lightAngle, 0, Math.PI * 2);
-    ctx.fill();
+    // the rim belongs to the light: a hairline along the lit half of the coat, fading to nothing
+    const rimGrad = ctx.createLinearGradient(litX * 13, litY * 13, -litX * 10, -litY * 10);
+    rimGrad.addColorStop(0, 'rgba(255, 220, 172, 0.4)');
+    rimGrad.addColorStop(0.38, 'rgba(255, 220, 172, 0.06)');
+    rimGrad.addColorStop(1, 'rgba(255, 220, 172, 0)');
+    ctx.strokeStyle = rimGrad;
+    ctx.lineWidth = 1.15;
+    ctx.stroke(bodyPath);
 
     // the upper body turns toward the target, but only so far: hips face the walk, chest and
     // weapon face the work. The arms are two joints, not one noodle.
@@ -859,18 +997,31 @@ function drawAgents(ctx, game, time) {
     ctx.rotate(carry);
     ctx.translate(0, -4);
     const gunX = 3.2;
-    // butt stock
-    ctx.fillStyle = '#241c15';
+    // the weapon lies over a thin shadow of its own, so it is not pasted on the coat
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.beginPath();
+    ctx.roundRect(gunX - 2.4, -26.4, 4.8, 25.6, 1.6);
+    ctx.fill();
+    // butt stock: oiled walnut
+    const stockGrad = ctx.createLinearGradient(gunX - 2, 0, gunX + 2, 0);
+    stockGrad.addColorStop(0, '#5a4028');
+    stockGrad.addColorStop(0.5, '#3c2a1a');
+    stockGrad.addColorStop(1, '#22170f');
+    ctx.fillStyle = stockGrad;
     ctx.beginPath();
     ctx.roundRect(gunX - 1.9, -3.4, 3.8, 4.6, 1.2);
     ctx.fill();
-    // receiver
-    ctx.fillStyle = '#121720';
+    // receiver: parkerised steel, flat top face lit from the stage
+    const steel = ctx.createLinearGradient(gunX - 2.4, 0, gunX + 2.4, 0);
+    steel.addColorStop(0, '#4a5563');
+    steel.addColorStop(0.35, '#2b333d');
+    steel.addColorStop(1, '#0e1319');
+    ctx.fillStyle = steel;
     ctx.beginPath();
     ctx.roundRect(gunX - 2.2, -12.8, 4.4, 9.8, 1);
     ctx.fill();
-    ctx.fillStyle = 'rgba(196, 212, 234, 0.2)';
-    ctx.fillRect(gunX - 1.7, -12.2, 0.9, 8.4);
+    ctx.fillStyle = 'rgba(236, 244, 255, 0.5)';
+    ctx.fillRect(gunX - 1.9, -12.2, 0.8, 8.4);
     // magazine, angled out of the receiver
     ctx.save();
     ctx.translate(gunX - 1.4, -11.2);
@@ -888,16 +1039,20 @@ function drawAgents(ctx, game, time) {
     ctx.fillStyle = 'rgba(150, 220, 224, 0.5)';
     ctx.fillRect(gunX - 0.8, -14.2, 1.6, 1.2);
     // barrel and muzzle
-    ctx.fillStyle = '#0d1218';
+    const barrel = ctx.createLinearGradient(gunX - 1, 0, gunX + 1, 0);
+    barrel.addColorStop(0, '#5a6675');
+    barrel.addColorStop(0.45, '#232a33');
+    barrel.addColorStop(1, '#0b0f14');
+    ctx.fillStyle = barrel;
     ctx.beginPath();
     ctx.roundRect(gunX - 1, -24.4, 2, 11.8, 0.7);
     ctx.fill();
     ctx.beginPath();
     ctx.roundRect(gunX - 1.3, -25.6, 2.6, 2.2, 0.6);
     ctx.fill();
-    // one glint along the top of the barrel: the only specular on the weapon
-    ctx.fillStyle = 'rgba(206, 220, 238, 0.42)';
-    ctx.fillRect(gunX - 0.4, -23.6, 0.7, 9.4);
+    // one glint along the top of the barrel: the only hard specular on the weapon
+    ctx.fillStyle = 'rgba(224, 236, 252, 0.62)';
+    ctx.fillRect(gunX - 0.55, -23.6, 0.65, 9.4);
     // sling, sagging under the receiver
     ctx.strokeStyle = 'rgba(24, 28, 34, 0.9)';
     ctx.lineWidth = 1.1;
@@ -916,37 +1071,29 @@ function drawAgents(ctx, game, time) {
     ctx.rotate(headTurn);
     ctx.translate(0, 1.2);
     const hair = a.role === 'veteran' ? '#2f2922' : a.role === 'rookie' ? '#2c251d' : '#272319';
-    // collar shadow: it sits on the body, it does not float
-    ctx.fillStyle = 'rgba(6, 8, 12, 0.32)';
+    // the head rests on the collar and drops its own small shadow away from the light.
+    // Flat crown + a hairline of rim on the lit edge reads better than a shaded ball at 11 px.
+    ctx.fillStyle = 'rgba(6, 8, 12, 0.2)';
     ctx.beginPath();
-    ctx.ellipse(1.2, -1.4, 6.2, 4.6, 0, 0, Math.PI * 2);
+    ctx.ellipse(-litX * 1.4 + 0.4, -3.1 - litY * 1.4 + 0.7, 5.6, 5.2, 0, 0, Math.PI * 2);
     ctx.fill();
-    const crownGrad = ctx.createRadialGradient(rimX * 0.46 - 0.8, rimY * 0.4 - 4.4, 0.8, 0, -3.4, 6.2);
-    crownGrad.addColorStop(0, 'rgba(255, 238, 208, 0.2)');
-    crownGrad.addColorStop(0.5, 'rgba(255, 238, 208, 0)');
-    crownGrad.addColorStop(1, 'rgba(0, 0, 0, 0.55)');
     ctx.fillStyle = hair;
     ctx.beginPath();
     ctx.ellipse(0, -3.4, 5.2, 5.5, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = crownGrad;
-    ctx.beginPath();
-    ctx.ellipse(0, -3.4, 5.2, 5.5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // hairline: the crown stops a little short of the brow
-    ctx.strokeStyle = 'rgba(12, 10, 8, 0.45)';
+    ctx.strokeStyle = 'rgba(255, 226, 186, 0.3)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.ellipse(0, -3.9, 4.1, 4.3, 0, Math.PI * 0.18, Math.PI * 0.82);
+    ctx.ellipse(0, -3.4, 4.7, 5, 0, lightAngle - 0.85, lightAngle + 0.85);
     ctx.stroke();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
+    ctx.beginPath();
+    ctx.ellipse(-litX * 3, -3.4 - litY * 3, 3.6, 3.9, 0, 0, Math.PI * 2);
+    ctx.fill();
 
     if (a.role === 'veteran') {
       // a peaked cap: the crown, the band, then the visor toward the front
       ctx.fillStyle = '#191e25';
-      ctx.beginPath();
-      ctx.ellipse(0, -3.4, 5.5, 5.5, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = crownGrad;
       ctx.beginPath();
       ctx.ellipse(0, -3.4, 5.5, 5.5, 0, 0, Math.PI * 2);
       ctx.fill();
@@ -962,15 +1109,15 @@ function drawAgents(ctx, game, time) {
       ctx.beginPath();
       ctx.ellipse(0, -3.5, 5.3, 5.3, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = crownGrad;
-      ctx.beginPath();
-      ctx.ellipse(0, -3.5, 5.3, 5.3, 0, 0, Math.PI * 2);
-      ctx.fill();
       ctx.strokeStyle = 'rgba(12, 18, 22, 0.7)';
       ctx.lineWidth = 1.3;
       ctx.beginPath();
       ctx.arc(0, -3.5, 4.4, Math.PI * 0.1, Math.PI * 0.9);
       ctx.stroke();
+      ctx.fillStyle = 'rgba(255, 236, 210, 0.1)';
+      ctx.beginPath();
+      ctx.ellipse(litX * 2.6, -3.6 + litY * 2.6, 2.6, 2.2, lightAngle, 0, Math.PI * 2);
+      ctx.fill();
     } else {
       // a hood, wet with the cold: cloth around the skull
       ctx.fillStyle = '#1e221b';
@@ -982,10 +1129,6 @@ function drawAgents(ctx, game, time) {
       ctx.beginPath();
       ctx.arc(0, -3.4, 5, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.fillStyle = crownGrad;
-      ctx.beginPath();
-      ctx.ellipse(0, -3.6, 4.2, 4.2, 0, 0, Math.PI * 2);
-      ctx.fill();
     }
     ctx.restore();
     ctx.restore();
@@ -1000,10 +1143,15 @@ function drawAgents(ctx, game, time) {
       ctx.stroke();
     }
 
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
-    ctx.fillRect(a.x - 21, a.y + 26, 42, 4);
-    ctx.fillStyle = a.colour;
-    ctx.fillRect(a.x - 21, a.y + 26, (42 * Math.max(0, a.hp)) / a.maxHp, 4);
+    if (a.hp < a.maxHp) {
+      // a hairline, only when there is something to say
+      const w = 22;
+      const ratio = Math.max(0, a.hp) / a.maxHp;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(a.x - w / 2, a.y + 21, w, 1.6);
+      ctx.fillStyle = ratio <= 0.35 ? 'rgba(196, 92, 78, 0.9)' : 'rgba(226, 220, 206, 0.6)';
+      ctx.fillRect(a.x - w / 2, a.y + 21, w * ratio, 1.6);
+    }
 
     if (a.flash > 0) {
       ctx.fillStyle = `rgba(255, 80, 70, ${a.flash * 0.45})`;
@@ -1121,18 +1269,21 @@ function drawPost(ctx, game, time) {
   if (game.toastText && game.toast > 0) {
     ctx.save();
     ctx.globalAlpha = Math.min(1, game.toast * 2);
-    ctx.font = `600 15px ${L.fonts.ui}`;
-    ctx.textAlign = 'center';
-    const w = ctx.measureText(game.toastText).width + 36;
-    ctx.fillStyle = 'rgba(6, 9, 14, 0.82)';
-    ctx.beginPath();
-    ctx.roundRect(VIEW.width / 2 - w / 2, 60, w, 30, 3);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(201, 162, 90, 0.3)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.fillStyle = 'rgba(255, 226, 180, 0.95)';
-    ctx.fillText(game.toastText, VIEW.width / 2, 80);
+    ctx.font = `9px ${L.fonts.mono}`;
+    ctx.letterSpacing = '2px';
+    ctx.textAlign = 'left';
+    const w = ctx.measureText(game.toastText).width + 24;
+    const x = VIEW.width / 2 - w / 2;
+    // a strip of paper, not a panel: one rule above, one below, a thin amber tick at the left
+    ctx.fillStyle = 'rgba(5, 7, 11, 0.7)';
+    ctx.fillRect(x, 56, w, 22);
+    ctx.fillStyle = 'rgba(201, 162, 90, 0.55)';
+    ctx.fillRect(x, 56, 2, 22);
+    ctx.fillStyle = 'rgba(206, 200, 186, 0.22)';
+    ctx.fillRect(x, 56, w, 1);
+    ctx.fillRect(x, 77, w, 1);
+    ctx.fillStyle = 'rgba(233, 227, 214, 0.92)';
+    ctx.fillText(game.toastText, x + 12, 71);
     ctx.restore();
   }
 }
