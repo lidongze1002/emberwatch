@@ -77,11 +77,42 @@ export function spawnBoss(game) {
   return null;
 }
 
+// 一处能站人的地方：从给定点向外找第一个不压墙/家具的落点。刷在墙里的小蜘蛛子
+// 打不到也走不出来，整场就卡在那里，所以刷怪一律先过这一道。
+export function freeSpot(x, y, radius = 11, from = 10, to = 80) {
+  if (!solid(x, y, radius)) return { x, y };
+  for (let r = from; r <= to; r += 6) {
+    for (let k = 0; k < 16; k += 1) {
+      const a = (k / 16) * Math.PI * 2 + r * 0.1;
+      const px = x + Math.cos(a) * r;
+      const py = y + Math.sin(a) * r;
+      if (!solid(px, py, radius)) return { x: px, y: py };
+    }
+  }
+  return { x, y };
+}
+
+// 一处「站得开」的地方：比身体半径多留一圈余量。卡在座椅缝里的人，位置上不算撞墙，
+// 但四周都不够宽，路径永远拉不出去，必须退到真正空的地方。
+function roomySpot(x, y, radius) {
+  if (!solid(x, y, radius + 7)) return { x, y };
+  for (let r = 14; r <= 90; r += 7) {
+    for (let k = 0; k < 16; k += 1) {
+      const a = (k / 16) * Math.PI * 2 + r * 0.07;
+      const px = x + Math.cos(a) * r;
+      const py = y + Math.sin(a) * r;
+      if (!solid(px, py, radius + 7)) return { x: px, y: py };
+    }
+  }
+  return freeSpot(x, y, radius);
+}
+
 // 她死的时候从裙下散出三只蜘蛛子：不清理干净就不算清场
 function spawnSpiderlings(game, x, y) {
   for (let i = 0; i < 3; i += 1) {
     const a = (i / 3) * Math.PI * 2 + 0.4;
-    game.thralls.push(baseBody(x + Math.cos(a) * 26, y + Math.sin(a) * 26, {
+    const s = freeSpot(x + Math.cos(a) * 26, y + Math.sin(a) * 26, 9);
+    game.thralls.push(baseBody(s.x, s.y, {
       id: `sp${game.thralls.length}`,
       kind: 'spiderling',
       hp: SPIDERLING.hp,
@@ -128,7 +159,8 @@ export function spawnMirrors(game, given) {
   for (let i = 0; i < (boss.count || 3); i += 1) {
     const s = spots[i % spots.length];
     const spec = AGENTS[roles[i % 3]];
-    game.thralls.push(baseBody(s.x, s.y, {
+    const at = freeSpot(s.x, s.y, 10);
+    game.thralls.push(baseBody(at.x, at.y, {
       id: `mirror-${i}`,
       kind: 'mirror',
       role: roles[i % 3],
@@ -272,6 +304,27 @@ function walkTo(game, a, x, y, dt) {
     a.path = findPath(game.level, a.x, a.y, x, y);
     a.pathAt = now;
     a.goal = { x, y };
+  }
+  // 不走路的「走路」：三十帧没挪出八步、离目标还远，说明脚卡在座椅/门框的缝里，
+  // 路径怎么拉都会穿过实体。把人放回最近的空地，再重新找路。
+  if (!a.stallAt) a.stallAt = { x: a.x, y: a.y, t: 0 };
+  a.stallAt.t += dt;
+  const travelled = Math.hypot(a.x - a.stallAt.x, a.y - a.stallAt.y);
+  if (travelled > 8) {
+    a.stallAt = { x: a.x, y: a.y, t: 0 };
+  } else if (a.stallAt.t > 0.8) {
+    a.stallAt = { x: a.x, y: a.y, t: 0 };
+    if (Math.hypot(x - a.x, y - a.y) > 40) {
+      const seat = roomySpot(a.x, a.y, r);
+      if (Math.hypot(seat.x - a.x, seat.y - a.y) > 1) {
+        a.x = seat.x;
+        a.y = seat.y;
+        a.path = null;
+        a.pathAt = 0;
+        a.vx = 0;
+        a.vy = 0;
+      }
+    }
   }
   const step = a.path && a.path[0];
   if (!step) {
@@ -840,6 +893,23 @@ export function updateUnits(game, dt) {
   for (const a of game.agents) updateAgent(game, a, dt);
   for (const t of game.thralls) updateThrall(game, t, dt);
   updateBullets(game, dt);
+
+  // 被推挤/刷新进墙里的东西不会再自己走回来，也没人打得到它。半秒还没脱身就放回空地。
+  for (const t of game.thralls) {
+    if (t.dead || t.kind === 'kune') continue;
+    if (solid(t.x, t.y, 9)) {
+      t.stuckT = (t.stuckT || 0) + dt;
+      if (t.stuckT > 0.5) {
+        const s = freeSpot(t.x, t.y, 9);
+        t.x = s.x;
+        t.y = s.y;
+        t.path = null;
+        t.stuckT = 0;
+      }
+    } else {
+      t.stuckT = 0;
+    }
+  }
 
   // cloth: a hem lags behind whatever the body just did
   for (const body of [...game.agents, ...game.thralls]) {
