@@ -171,7 +171,8 @@ export class Game {
 
     // 第一案的出口：目标完成之后，走到门口就是出去了
     if (this.case.rule.kind === 'power') {
-      const cleared = this.kills >= this.thralls.length;
+      const pending = this.thralls.some((t) => t.death && !t.death.done);
+      const cleared = this.kills >= this.thralls.length && !pending;
       const ready = !this.power && cleared;
       const exit = this.case.spawns.exit;
       for (const a of this.agents) {

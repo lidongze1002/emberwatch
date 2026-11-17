@@ -1310,7 +1310,7 @@ function drawFlashlights(ctx, game) {
 function drawThralls(ctx, game, time) {
   const dim = game.shot ? 1 - 0.42 * (game.shot.w || 0) : 1;
   for (const t of game.thralls) {
-    if (t.dead) continue;
+    if (t.dead && !(t.death && !t.death.done)) continue;
     if (t.kind === 'spider') {
       drawSpider(ctx, t, time, dim);
       continue;
@@ -1328,6 +1328,7 @@ function drawThralls(ctx, game, time) {
       continue;
     }
     if (t.kind === 'mirror') continue;
+    const fall = t.dead && t.death && !t.death.done ? 1 - t.death.t / t.death.dur : 0;
     ctx.save();
     ctx.translate(t.x, t.y);
 
@@ -1342,6 +1343,12 @@ function drawThralls(ctx, game, time) {
     ctx.fill();
 
     ctx.rotate(t.aim + Math.PI / 2);
+    if (fall > 0) {
+      // 向前栽倒：整个身体顺着枪口方向扑出去，电视压在更前面。
+      const p = Math.min(1, fall);
+      ctx.translate(0, -9 * p);
+      ctx.scale(1 + 0.12 * p, 1 - 0.2 * p);
+    }
     const swing = Math.sin(t.step * 1.4) * 3.6;
     // winding up: the set goes red a beat before it comes at you
     if (t.charge > 0) {
@@ -1552,7 +1559,7 @@ function drawThralls(ctx, game, time) {
     }
     ctx.restore();
 
-    if (t.hp < t.maxHp) {
+    if (t.hp < t.maxHp && !t.dead) {
       const w = 32;
       ctx.fillStyle = 'rgba(0,0,0,0.6)';
       ctx.fillRect(t.x - w / 2, t.y - 50, w, 3);
@@ -1566,8 +1573,23 @@ function drawThralls(ctx, game, time) {
 // screen only sees her crown. Everything here is local to her facing.
 function drawSpider(ctx, t, time, dim = 1) {
   const rise = t.rise === undefined ? 1 : t.rise;
+  const dying = t.dead && t.death && !t.death.done ? 1 - t.death.t / t.death.dur : 0;
   ctx.save();
   ctx.translate(t.x, t.y);
+  if (dying > 0) {
+    // 跪落：裙子先塌下去，头往下沉，八条腿收进来。
+    const p = Math.min(1, dying);
+    ctx.translate(4 * p, 9 * p);
+    ctx.scale(0.94 + 0.1 * p, 1 - 0.42 * p);
+    ctx.globalAlpha = 0.9;
+    const pool = ctx.createRadialGradient(0, 14, 6, 0, 14, 54);
+    pool.addColorStop(0, `rgba(10, 6, 8, ${0.5 * p})`);
+    pool.addColorStop(1, 'rgba(10, 6, 8, 0)');
+    ctx.fillStyle = pool;
+    ctx.beginPath();
+    ctx.ellipse(0, 14, 50, 22, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
   // 起身：从台口地板下升上来，先是一团更黑的影，再是人。镜头里她先只是一个剪影。
   if (rise < 1 || dim < 1) {
     ctx.globalAlpha = (0.25 + 0.75 * rise) * dim;
@@ -1700,7 +1722,7 @@ function drawSpider(ctx, t, time, dim = 1) {
   ctx.restore();
 
   // her condition, in the same language as the squad
-  if (rise >= 1) {
+  if (rise >= 1 && !dying) {
     const w = 54;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
     ctx.fillRect(t.x - w / 2, t.y - 62, w, 3);

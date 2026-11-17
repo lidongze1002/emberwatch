@@ -263,6 +263,13 @@ export function updateRules(game, dt) {
             near = Math.min(near, Math.hypot(a.x - stand.x, a.y - stand.y));
           }
           if (near < 470) {
+            // 它从门边站出来：刚才它就在那扇门后，只是没人在看。
+            if (guard.post) {
+              guard.x = guard.post.x;
+              guard.y = guard.post.y;
+              guard.path = null;
+            }
+            guard.cooldown = Math.max(guard.cooldown, 0.7);
             guard.racing = true;
             guard.raceDoor = idx;
             r.race = idx + 1;
@@ -281,17 +288,34 @@ export function updateRules(game, dt) {
         r.contested = 1;
       }
     }
-    // 走进一扇门：门牌等于本层的号，才对
+    // 走到一扇门前，低头读一下牌子（0.45 秒）；牌子上的号等于本层的号才对。
     for (const a of game.agents) {
-      if (a.down || a.taken || a.extracted) continue;
-      if (a.order.kind !== 'goto') continue;
+      if (a.down || a.taken || a.extracted) {
+        a.readT = 0;
+        continue;
+      }
+      let at = -1;
       for (let i = 0; i < c.doors.length; i += 1) {
         const d = c.doors[i];
         const stand = { x: d.x + d.nx * 26, y: d.y + d.ny * 26 };
-        if (Math.hypot(a.order.x - stand.x, a.order.y - stand.y) < 30 && Math.hypot(a.x - stand.x, a.y - stand.y) < 26) {
-          resolveDoor(game, i);
-          return;
+        if (Math.hypot(a.x - stand.x, a.y - stand.y) >= 26) continue;
+        // 只有「被派到这扇门前」才算在读它：路过不算。
+        const ordered = a.order.kind === 'goto' && Math.hypot(a.order.x - stand.x, a.order.y - stand.y) < 30;
+        const arrived = a.order.kind === 'hold' && a.goal && Math.hypot(a.goal.x - stand.x, a.goal.y - stand.y) < 40;
+        if (ordered || arrived) {
+          at = i;
+          break;
         }
+      }
+      if (at < 0) {
+        a.readT = 0;
+        continue;
+      }
+      a.readT = (a.readT || 0) + dt;
+      if (a.readT > 0.45) {
+        a.readT = 0;
+        resolveDoor(game, at);
+        return;
       }
     }
     return;
@@ -605,6 +629,7 @@ function teleportSquad(game) {
     a.vy = 0;
     a.order = { kind: 'hold' };
     a.aversion = 0;
+    a.readT = 0;
     // 楼梯把你们吐回去的时候，伤也一起重来：楼层是重复的，身上的洞不是新的。
     if (!a.down && !a.taken) {
       a.hp = a.maxHp;
@@ -759,7 +784,8 @@ export function verdict(game) {
   const remaining = game.agents.filter((a) => !a.taken && !a.extracted);
 
   if (c.rule.kind === 'power') {
-    const cleared = game.kills >= game.thralls.length;
+    const pending = game.thralls.some((t) => t.death && !t.death.done);
+    const cleared = game.kills >= game.thralls.length && !pending;
     const done = !game.power && cleared;
     if (remaining.length === 0) return done ? 'win' : 'lose';
     if (!remaining.some((a) => !a.down)) return 'lose';

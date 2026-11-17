@@ -790,7 +790,7 @@ function updateMirror(game, t, dt) {
     if (Math.hypot(t.x - stand.x, t.y - stand.y) < 24) {
       game.copyThrough?.();
     }
-    if (best < t.range && lineClear(t.x, t.y, target.x, target.y, 4)) {
+    if (canShoot && t.cooldown <= 0 && best < t.range && lineClear(t.x, t.y, target.x, target.y, 4)) {
       shootMirror(game, t, target);
     }
     return;
@@ -865,13 +865,25 @@ function shootMirror(game, t, target) {
     life: 0.9,
     damage: t.damage,
     team: 'enemy',
+    from: t.id,
   });
   game.muzzle.push({ x: t.x + Math.cos(angle) * 28, y: t.y + Math.sin(angle) * 28, life: 0.06, cold: true });
   game.sound.shot('rookie', t.x, t.y);
 }
 
 function updateThrall(game, t, dt) {
-  if (t.dead) return;
+  if (t.dead) {
+    // 倒下的那半秒还在演：跪落 / 栽倒，演完才散小蜘蛛、才留残渣。
+    if (t.death && t.death.t > 0) {
+      t.death.t = Math.max(0, t.death.t - dt);
+      if (t.death.t <= 0) {
+        if (t.death.kind === 'kneel') spawnSpiderlings(game, t.x, t.y);
+        else if (t.death.kind === 'fall') game.debris.push({ x: t.x, y: t.y, rot: t.aim + Math.PI / 2 });
+        t.death.done = true;
+      }
+    }
+    return;
+  }
   if (t.kind === 'spider' && (t.rise || 0) < 1) {
     // 从台口地板下立起来：起身这一段不动也不打。
     t.rise = Math.min(1, (t.rise || 0) + dt / 0.9);
@@ -1070,8 +1082,9 @@ export function updateBullets(game, dt) {
             game.kills += 1;
             game.shake = Math.max(game.shake, t.kind === 'spider' ? 10 : 3);
             game.sound.kill();
-            if (t.kind === 'spider') spawnSpiderlings(game, t.x, t.y);
-            if (t.kind === 'thrall') game.debris.push({ x: t.x, y: t.y, rot: Math.random() * 6.28 });
+            // 死不是一瞬间的事：土蜘蛛先跪落，电视头先向前栽倒，然后才散/留残渣。
+            if (t.kind === 'spider') t.death = { kind: 'kneel', t: 0.45, dur: 0.45 };
+            else if (t.kind === 'thrall') t.death = { kind: 'fall', t: 0.55, dur: 0.55 };
             for (let k = 0; k < 10; k += 1) {
               game.spatter.push({
                 x: t.x,
