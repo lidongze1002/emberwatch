@@ -59,17 +59,37 @@ export function drawHud(ctx, game, time) {
   ];
   let x = cx - 230;
   ctx.save();
-  ctx.fillStyle = 'rgba(8, 11, 17, 0.72)';
+  // a hairline rail, not a card: two rules, end brackets, tick marks between the readouts
+  ctx.strokeStyle = 'rgba(201, 162, 90, 0.35)';
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.roundRect(cx - 250, 54, 500, 40, 6);
-  ctx.fill();
+  ctx.moveTo(cx - 250, 54.5);
+  ctx.lineTo(cx + 250, 54.5);
+  ctx.moveTo(cx - 250, 92.5);
+  ctx.lineTo(cx + 250, 92.5);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(201, 162, 90, 0.6)';
+  for (const bx of [cx - 250, cx + 250]) {
+    ctx.beginPath();
+    ctx.moveTo(bx, 54.5);
+    ctx.lineTo(bx, 62);
+    ctx.moveTo(bx, 92.5);
+    ctx.lineTo(bx, 85);
+    ctx.stroke();
+  }
+  const ticks = 40;
+  for (let i = 0; i <= ticks; i += 1) {
+    const tx = cx - 250 + (i / ticks) * 500;
+    ctx.fillStyle = i % 5 === 0 ? 'rgba(201, 162, 90, 0.28)' : 'rgba(201, 162, 90, 0.12)';
+    ctx.fillRect(tx, i % 5 === 0 ? 56 : 57, 1, i % 5 === 0 ? 3 : 2);
+  }
   steps.forEach((step, i) => {
-    label(ctx, step.text, x + 24, 80, 12, step.done ? 'rgba(160, 220, 180, 0.95)' : 'rgba(200, 212, 228, 0.8)', 2, 'left', fonts.mono);
+    label(ctx, step.text, x + 24, 80, 12, step.done ? 'rgba(168, 220, 182, 0.95)' : 'rgba(206, 216, 230, 0.82)', 2, 'left', fonts.mono);
     if (i < steps.length - 1) {
-      ctx.strokeStyle = 'rgba(120, 140, 165, 0.35)';
+      ctx.strokeStyle = 'rgba(120, 140, 165, 0.3)';
       ctx.beginPath();
-      ctx.moveTo(x + 142, 64);
-      ctx.lineTo(x + 142, 84);
+      ctx.moveTo(x + 142, 62);
+      ctx.lineTo(x + 142, 86);
       ctx.stroke();
     }
     x += 166;
@@ -131,6 +151,21 @@ export function drawHud(ctx, game, time) {
   label(ctx, `${L.title.foot}`, 34, VIEW.height - 54, 10, 'rgba(120, 136, 156, 0.75)', 3);
   label(ctx, L.hud.hint, VIEW.width / 2, VIEW.height - 54, 9, 'rgba(120, 136, 156, 0.7)', 2, 'center');
   label(ctx, `${Math.floor(game.clock)}s`, VIEW.width - 34, VIEW.height - 54, 10, 'rgba(120, 136, 156, 0.7)', 1, 'right', fonts.mono);
+
+  // corner brackets: the frame of the print, not a box around the world
+  ctx.save();
+  ctx.strokeStyle = 'rgba(201, 162, 90, 0.3)';
+  ctx.lineWidth = 1;
+  const m = 22;
+  const len = 26;
+  for (const [px, py, dx, dy] of [[m, m, 1, 1], [VIEW.width - m, m, -1, 1], [m, VIEW.height - m, 1, -1], [VIEW.width - m, VIEW.height - m, -1, -1]]) {
+    ctx.beginPath();
+    ctx.moveTo(px, py + dy * len);
+    ctx.lineTo(px, py);
+    ctx.lineTo(px + dx * len, py);
+    ctx.stroke();
+  }
+  ctx.restore();
 
   if (game.paused) {
     ctx.fillStyle = 'rgba(4, 6, 10, 0.55)';

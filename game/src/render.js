@@ -639,12 +639,13 @@ function drawAgents(ctx, game, time) {
     ctx.fill();
     ctx.restore();
 
-    ctx.fillStyle = '#12161c';
+    // from above the legs are mostly under the coat: what you see is a boot, forward or back
+    ctx.fillStyle = '#0f1319';
     ctx.beginPath();
-    ctx.roundRect(-9, 4 + swing, 8, 19, 3);
+    ctx.ellipse(-6, -19 + swing * 1.1, 3.8, 5.2, 0.08, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.roundRect(1, 4 - swing, 8, 19, 3);
+    ctx.ellipse(6, -19 - swing * 1.1, 3.8, 5.2, -0.08, 0, Math.PI * 2);
     ctx.fill();
 
     // coat: shoulders, a collar, a warm rim from the stage side
