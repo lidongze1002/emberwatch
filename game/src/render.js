@@ -759,20 +759,29 @@ function drawSpider(ctx, t, time) {
   ctx.fill();
 
   ctx.rotate(t.aim + Math.PI / 2);
-  const step = Math.sin(t.step * 1.6);
+  ctx.scale(1.5, 1.5);
 
-  // eight legs, thin and jointed, reaching out from under the hem
+  // eight legs, two joints each, alternating like a gait instead of waving together
   ctx.strokeStyle = 'rgba(24, 20, 26, 0.9)';
   ctx.lineWidth = 2;
   for (let i = 0; i < 8; i += 1) {
     const side = i < 4 ? -1 : 1;
     const k = i % 4;
     const baseY = -14 + k * 10;
-    const sway = Math.sin(time * 3 + i) * 3;
+    const phase = Math.sin(t.step * 3 + k * 1.7 + (side > 0 ? Math.PI : 0));
+    const kneeX = side * 30;
+    const kneeY = baseY - 10 + phase * 5;
+    const footX = side * (42 + phase * 3);
+    const footY = baseY + 14 + phase * 7;
     ctx.beginPath();
-    ctx.moveTo(side * 16, baseY);
-    ctx.quadraticCurveTo(side * 34, baseY - 8 + sway, side * 40, baseY + 16 + sway);
+    ctx.moveTo(side * 15, baseY);
+    ctx.lineTo(kneeX, kneeY);
+    ctx.lineTo(footX, footY);
     ctx.stroke();
+    ctx.fillStyle = 'rgba(24, 20, 26, 0.9)';
+    ctx.beginPath();
+    ctx.arc(kneeX, kneeY, 1.7, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   // the dress: a long pale shape, a red sash, a high collar
@@ -1425,6 +1434,17 @@ function drawPost(ctx, game, time) {
   ctx.fillStyle = grade;
   ctx.fillRect(0, 0, VIEW.width, VIEW.height);
   ctx.restore();
+
+  // the house holds its breath while she is up: a red wash and a slow pulse
+  const spider = game.thralls && game.thralls.find((t) => t.kind === 'spider' && !t.dead);
+  if (spider) {
+    const pulse = 0.5 + Math.sin(time * 1.4) * 0.2;
+    const red = ctx.createRadialGradient(spider.x, spider.y, 40, spider.x, spider.y, 420);
+    red.addColorStop(0, `rgba(120, 18, 16, ${0.16 * pulse})`);
+    red.addColorStop(1, 'rgba(90, 10, 10, 0)');
+    ctx.fillStyle = red;
+    ctx.fillRect(0, 0, VIEW.width, VIEW.height);
+  }
 
   const vig = ctx.createRadialGradient(640, 400, 260, 640, 420, 880);
   vig.addColorStop(0, 'rgba(0,0,0,0)');
