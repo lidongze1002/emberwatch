@@ -25,6 +25,7 @@ export class Game {
     this.bullets = [];
     this.muzzle = [];
     this.spatter = [];
+    this.debris = [];
     this.logs = [];
     this.clock = 0;
     this.power = true;

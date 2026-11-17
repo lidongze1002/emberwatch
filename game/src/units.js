@@ -414,11 +414,31 @@ function updateThrall(game, t, dt) {
 
   if (target) {
     t.aim = Math.atan2(target.y - t.y, target.x - t.x);
+    if (t.kind === 'thrall') {
+      if (t.rushCd > 0) t.rushCd -= dt;
+      if (t.charge > 0) {
+        // winding up: a red light, and it does not move
+        t.charge -= dt;
+        if (t.charge <= 0) {
+          t.charge = 0;
+          t.rush = 0.5;
+        }
+        return;
+      }
+      if (t.rush > 0) {
+        t.rush -= dt;
+      } else if (bestDist < 250 && bestDist > 70 && (t.rushCd || 0) <= 0) {
+        t.charge = 0.8;
+        t.rushCd = 3.8;
+        return;
+      }
+    }
+    const rush = t.rush > 0 ? 3.4 : 1;
     if (bestDist > (t.reach || THRALL.reach)) {
       const dx = (target.x - t.x) / bestDist;
       const dy = (target.y - t.y) / bestDist;
-      const nx = t.x + dx * t.speed * dt;
-      const ny = t.y + dy * t.speed * dt;
+      const nx = t.x + dx * t.speed * rush * dt;
+      const ny = t.y + dy * t.speed * rush * dt;
       if (!solid(nx, ny, 10)) {
         t.x = nx;
         t.y = ny;
@@ -500,6 +520,7 @@ export function updateBullets(game, dt) {
             game.shake = Math.max(game.shake, t.kind === 'spider' ? 10 : 3);
             game.sound.kill();
             if (t.kind === 'spider') spawnSpiderlings(game, t.x, t.y);
+            if (t.kind === 'thrall') game.debris.push({ x: t.x, y: t.y, rot: Math.random() * 6.28 });
             for (let k = 0; k < 10; k += 1) {
               game.spatter.push({
                 x: t.x,

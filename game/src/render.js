@@ -204,6 +204,7 @@ export function drawWorld(ctx, game, time) {
   drawThralls(ctx, game, time);
   drawAgents(ctx, game, time);
   drawSpatter(ctx, game);
+  drawDebris(ctx, game);
   if (!game.power) {
     ctx.fillStyle = 'rgba(4, 7, 12, 0.34)';
     ctx.fillRect(40, 40, VIEW.width - 80, VIEW.height - 80);
@@ -525,6 +526,17 @@ function drawThralls(ctx, game, time) {
 
     ctx.rotate(t.aim + Math.PI / 2);
     const swing = Math.sin(t.step * 1.4) * 3.6;
+    // winding up: the set goes red a beat before it comes at you
+    if (t.charge > 0) {
+      const pulse = 0.55 + Math.sin(time * 30) * 0.35;
+      const glow = ctx.createRadialGradient(0, -28, 2, 0, -28, 36);
+      glow.addColorStop(0, `rgba(255, 64, 52, ${0.4 * pulse})`);
+      glow.addColorStop(1, 'rgba(255, 40, 30, 0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(0, -28, 36, 0, Math.PI * 2);
+      ctx.fill();
+    }
     const suit = '#4b453a';
     const suitLit = '#6f6758';
     const lb = Math.atan2(KEY.y - t.y, KEY.x - t.x) - (t.aim + Math.PI / 2);
@@ -536,28 +548,28 @@ function drawThralls(ctx, game, time) {
     suitGrad.addColorStop(1, '#15140f');
 
     // the legs: from above only the boots show, one ahead of the other
-    for (const b of [{ x: -5.2, y: 8.6 - swing, a: -0.06 }, { x: 5.2, y: 8.6 + swing, a: 0.06 }]) {
+    for (const b of [{ x: -4.6, y: 8.6 - swing, a: -0.06 }, { x: 4.6, y: 8.6 + swing, a: 0.06 }]) {
       ctx.strokeStyle = '#191712';
-      ctx.lineWidth = 4.4;
+      ctx.lineWidth = 3.4;
       ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(b.x * 0.9, 5.2);
-      ctx.lineTo(b.x, b.y - 3);
+      ctx.lineTo(b.x, b.y - 2.6);
       ctx.stroke();
       ctx.save();
       ctx.translate(b.x, b.y);
       ctx.rotate(b.a);
       ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
       ctx.beginPath();
-      ctx.ellipse(1.5, 2.4, 4.2, 5.4, 0, 0, Math.PI * 2);
+      ctx.ellipse(1.2, 2, 3.2, 4.1, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = '#0c0a08';
       ctx.beginPath();
-      ctx.roundRect(-2.9, -4.6, 5.8, 9.4, 2.7);
+      ctx.roundRect(-2.2, -3.4, 4.4, 7, 2.1);
       ctx.fill();
       ctx.fillStyle = 'rgba(190, 200, 210, 0.12)';
       ctx.beginPath();
-      ctx.roundRect(-2.1, -4, 4.2, 3.8, 1.8);
+      ctx.roundRect(-1.6, -3, 3.2, 2.9, 1.4);
       ctx.fill();
       ctx.restore();
     }
@@ -867,8 +879,41 @@ function drawSpiderling(ctx, t, time) {
   ctx.restore();
 }
 
-function drawAgents(ctx, game, time) {
-  for (const a of game.agents) {
+function drawDebris(ctx, game) {
+  if (!game.debris || !game.debris.length) return;
+  for (const d of game.debris) {
+    ctx.save();
+    ctx.translate(d.x, d.y);
+    ctx.rotate(d.rot);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.beginPath();
+    ctx.ellipse(3, 5, 17, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#0b0d10';
+    ctx.beginPath();
+    ctx.roundRect(-13, -9, 26, 18, 3);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(90, 200, 190, 0.22)';
+    ctx.beginPath();
+    ctx.moveTo(-10, -6);
+    ctx.lineTo(3, -2);
+    ctx.lineTo(-4, 7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-8, -7);
+    ctx.lineTo(-2, 0);
+    ctx.lineTo(-6, 5);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(190, 210, 230, 0.25)';
+    ctx.fillRect(6, -7, 2, 3);
+    ctx.restore();
+  }
+}
+
+function drawAgents(ctx, game, time) {  for (const a of game.agents) {
     if (a.taken || a.extracted) continue;
     const down = a.down;
     ctx.save();
@@ -939,16 +984,16 @@ function drawAgents(ctx, game, time) {
     const gait = moving ? Math.sin(a.step) : Math.sin(a.step) * 0.12;
     const stride = 7.4 * Math.min(1, speed / 120);
     const boot = [
-      { x: -5.2, y: 8.8 - gait * stride, a: -0.06 },
-      { x: 5.2, y: 8.8 + gait * stride, a: 0.06 },
+      { x: -4.6, y: 8.8 - gait * stride, a: -0.06 },
+      { x: 4.6, y: 8.8 + gait * stride, a: 0.06 },
     ];
     for (const b of boot) {
       ctx.strokeStyle = '#171c23';
-      ctx.lineWidth = 4.4;
+      ctx.lineWidth = 3.4;
       ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(b.x * 0.9, 5.2);
-      ctx.lineTo(b.x, b.y - 3);
+      ctx.lineTo(b.x, b.y - 2.6);
       ctx.stroke();
       ctx.save();
       ctx.translate(b.x, b.y);
@@ -956,20 +1001,20 @@ function drawAgents(ctx, game, time) {
       // the boot's own contact shadow, cast with everything else
       ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
       ctx.beginPath();
-      ctx.ellipse(1.6, 2.6, 4.4, 5.6, 0, 0, Math.PI * 2);
+      ctx.ellipse(1.2, 2, 3.3, 4.2, 0, 0, Math.PI * 2);
       ctx.fill();
       // the boot from above: a leather shell, a toe, a heel
       ctx.fillStyle = '#0a0d12';
       ctx.beginPath();
-      ctx.roundRect(-2.9, -4.6, 5.8, 9.4, 2.7);
+      ctx.roundRect(-2.2, -3.4, 4.4, 7, 2.1);
       ctx.fill();
       ctx.fillStyle = 'rgba(150, 168, 190, 0.16)';
       ctx.beginPath();
-      ctx.roundRect(-2.2, -4, 4.4, 4.2, 2);
+      ctx.roundRect(-1.7, -3, 3.4, 3.1, 1.5);
       ctx.fill();
       ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
       ctx.beginPath();
-      ctx.roundRect(-2.4, 2.6, 4.8, 1.8, 0.9);
+      ctx.roundRect(-1.8, 1.9, 3.6, 1.4, 0.7);
       ctx.fill();
       ctx.restore();
     }
