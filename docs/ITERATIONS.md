@@ -452,9 +452,17 @@
 **结论**：保留。
 截图：无（小修）
 
+## 轮 68 — 英文首页的右上角写着 undefined
+**看**：截图英文首页。右上角的表单号变成了 `undefined`——上一轮给中文词库加了 `title.form`，英文词库没加；这一页正好是默认入口 `index.html`。
+**改**：补 `en.title.form = 'FORM N-7 / WATCH LOG'`。顺手写 `tools/nw-locale.mjs`：把两本词库递归比形状，任何一边多一个键就报出来。这类「一页有、另一页没有」的漏字以后会在评审之前被抓住。
+**测**：`nw-locale` → `locale shapes match`；英文首页截图右上角正常；`nw-cases` 5/5、3/3、meta 回归通过。
+**备注**：这一轮 `nw-perf` 读到 median 17.8 —— 同一时刻 `about:blank` 的空转 rAF 也是 18.0（显示器掉到约 55 Hz），游戏 draw+update 实测 2.0–2.9 ms/帧，不是渲染回归。
+**结论**：保留。
+截图：无（文案修复）
+
 ## 备注
 - `render.js` 里有一行 `window.__nwCam?.(CAM)` 的调试钩子，只给 tools 下的截图脚本用，未设置回调时无副作用。
-- 帧时：16.7 ms 是这台机器的垂直同步值；浏览器不在前台时会抖到 33（p95），median 仍是 16.7。评审时以 median 为准。
+- 帧时：16.7 ms 是这台机器 60 Hz 时的垂直同步值。电源/负载变化时显示会掉到约 55 Hz，`requestAnimationFrame` 的空转基线也跟着变成 17.8–18.0 ms（`tools/nw-idle.mjs` 可复现），此时 `nw-perf` 的 median 会跟着 +1.1 ms —— 游戏本身的 draw+update 实测只有 2.0–2.9 ms/帧（`tools/nw-draw-cost.mjs`），没有回归。评审时以「median 是否贴近当时的空转基线」为准。
 - 验收脚本（都在仓库外的 `tools/`，用 `node <名字>` 跑）：
   - `nw-cases.mjs` 五案连跑 + 局外回归（5/5 won、3/3 撤离、招人）
   - `nw-perf.mjs` 帧时与最终画面（同时写 `nw/15-cinema.jpg`）
