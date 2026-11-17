@@ -18,9 +18,57 @@ export class Sound {
       this.master.gain.value = 0.85;
       this.master.connect(this.ctx.destination);
       this.noise = this.makeNoise();
+      this.buildAria();
     } catch {
       this.ctx = null;
     }
+  }
+
+  // the house singing: two voices through a lowpass, louder the nearer the squad is to the stage
+  buildAria() {
+    const ctx = this.ctx;
+    const one = ctx.createOscillator();
+    const two = ctx.createOscillator();
+    one.type = 'sine';
+    two.type = 'sine';
+    one.frequency.value = 174.6;
+    two.frequency.value = 261.6;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 1100;
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    one.connect(filter);
+    two.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.master);
+    // a slow vibrato, like a voice carrying
+    const lfo = ctx.createOscillator();
+    const depth = ctx.createGain();
+    lfo.frequency.value = 4.6;
+    depth.gain.value = 1.6;
+    lfo.connect(depth);
+    depth.connect(one.frequency);
+    one.start();
+    two.start();
+    lfo.start();
+    this.ariaGain = gain;
+  }
+
+  aria(level) {
+    if (!this.ariaGain) return;
+    const now = this.ctx.currentTime;
+    this.ariaGain.gain.setTargetAtTime(Math.max(0, Math.min(1, level)) * 0.045, now, 0.35);
+  }
+
+  // a voice gets a place: quiet with distance, off to one side by position
+  output(pan = 0) {
+    if (!this.ctx) return null;
+    if (typeof this.ctx.createStereoPanner !== 'function') return this.master;
+    const panner = this.ctx.createStereoPanner();
+    panner.pan.value = Math.max(-0.9, Math.min(0.9, pan));
+    panner.connect(this.master);
+    return panner;
   }
 
   makeNoise() {
@@ -36,10 +84,12 @@ export class Sound {
     return buffer;
   }
 
-  tone(freq, duration, type = 'sine', level = 0.08, slide = null, delay = 0) {
+  tone(freq, duration, type = 'sine', level = 0.08, slide = null, delay = 0, pan = 0) {
     if (!this.ctx) return;
     const ctx = this.ctx;
     const t0 = ctx.currentTime + delay;
+    const out = this.output(pan);
+    if (!out) return;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = type;
@@ -49,15 +99,17 @@ export class Sound {
     gain.gain.exponentialRampToValueAtTime(level, t0 + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
     osc.connect(gain);
-    gain.connect(this.master);
+    gain.connect(out);
     osc.start(t0);
     osc.stop(t0 + duration + 0.04);
   }
 
-  burst(duration, freq, level, type = 'lowpass') {
+  burst(duration, freq, level, type = 'lowpass', pan = 0) {
     if (!this.ctx) return;
     const ctx = this.ctx;
     const t0 = ctx.currentTime;
+    const out = this.output(pan);
+    if (!out) return;
     const src = ctx.createBufferSource();
     src.buffer = this.noise;
     const filter = ctx.createBiquadFilter();
@@ -68,19 +120,21 @@ export class Sound {
     gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
     src.connect(filter);
     filter.connect(gain);
-    gain.connect(this.master);
+    gain.connect(out);
     src.start(t0);
     src.stop(t0 + duration + 0.04);
   }
 
-  shot(role) {
+  shot(role, x = 640, y = 400) {
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
     if (now - this.lastShot < 0.045) return;
     this.lastShot = now;
-    const gain = role === 'veteran' ? 0.075 : 0.05;
-    this.burst(0.07, role === 'veteran' ? 1600 : 2400, gain, 'bandpass');
-    this.tone(role === 'veteran' ? 180 : 240, 0.05, 'square', 0.02, 90);
+    const pan = (x - 640) / 640;
+    const far = Math.max(0.2, Math.min(1, 1.15 - Math.hypot(x - 840, y - 180) / 1400));
+    const gain = (role === 'veteran' ? 0.075 : 0.05) * far;
+    this.burst(0.07, role === 'veteran' ? 1600 : 2400, gain, 'bandpass', pan);
+    this.tone(role === 'veteran' ? 180 : 240, 0.05, 'square', 0.02 * far, 90, 0, pan);
   }
 
   kill() {

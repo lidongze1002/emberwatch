@@ -152,7 +152,7 @@ function fire(game, a, target) {
     team: 'agent',
   });
   game.muzzle.push({ x: a.x + Math.cos(angle) * 18, y: a.y + Math.sin(angle) * 18, life: 0.06 });
-  game.sound.shot(a.role);
+  game.sound.shot(a.role, a.x, a.y);
 }
 
 function updateAgent(game, a, dt) {

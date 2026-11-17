@@ -5,6 +5,30 @@ import { PALETTE, SEATS, SPAWNS, TUNING, VIEW, WALLS, ZONES } from './config.js'
 import { L } from './text.js';
 
 const CAM = { scale: 1.1, x: 640, y: 400 };
+const KEY = { x: 840, y: 180 };
+
+// Supersampling: the world is drawn at 2× into an offscreen plate and then resampled down, so
+// every edge, rim and fold gets a real antialiased edge. The interface stays at 1× and crisp.
+let plate = null;
+function plateOf() {
+  if (plate) return plate;
+  const canvas = document.createElement('canvas');
+  canvas.width = VIEW.width * 2;
+  canvas.height = VIEW.height * 2;
+  plate = { canvas, ctx: canvas.getContext('2d') };
+  return plate;
+}
+
+export function drawFrame(ctx, game, time) {
+  const p = plateOf();
+  const w = p.ctx;
+  w.setTransform(2, 0, 0, 2, 0, 0);
+  w.clearRect(0, 0, VIEW.width, VIEW.height);
+  drawWorld(w, game, time);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(p.canvas, 0, 0, VIEW.width, VIEW.height);
+}
 
 let grain = null;
 function grainTile() {
@@ -234,11 +258,12 @@ function drawStage(ctx, game, time) {
   // the curtain: deep velvet, folds every 14 px, a gold valance along the top
   const curtain = (x, w) => {
     for (let i = 0; i < w; i += 14) {
+      const sway = Math.sin(time * 0.55 + i * 0.08) * 2.2;
       const shade = 0.5 + Math.sin(i * 0.4) * 0.14;
       ctx.fillStyle = `rgba(${Math.round(112 * shade + 20)}, ${Math.round(26 * shade + 8)}, ${Math.round(30 * shade + 8)}, 0.95)`;
-      ctx.fillRect(x + i, stage.y - 18, 14, stage.h + 36);
+      ctx.fillRect(x + i + sway, stage.y - 18, 14, stage.h + 36);
       ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-      ctx.fillRect(x + i, stage.y - 18, 2, stage.h + 36);
+      ctx.fillRect(x + i + sway, stage.y - 18, 2, stage.h + 36);
     }
   };
   curtain(stage.x - 18, 220);
@@ -572,9 +597,14 @@ function drawAgents(ctx, game, time) {
     ctx.fill();
 
     ctx.rotate(a.aim + Math.PI / 2);
+    ctx.rotate(Math.sin(a.step) * 0.045);
     const swing = Math.sin(a.step) * 4.4;
     const coat = a.role === 'veteran' ? '#2f3743' : a.role === 'rookie' ? '#263d47' : '#3a3226';
     const coatLight = a.role === 'veteran' ? '#4b5566' : a.role === 'rookie' ? '#3d6070' : '#5c4e38';
+    // the rim belongs to the light, not to the sprite: find the key light in local space
+    const lightAngle = Math.atan2(KEY.y - a.y, KEY.x - a.x) - (a.aim + Math.PI / 2);
+    const rimX = Math.cos(lightAngle) * 9.5;
+    const rimY = Math.sin(lightAngle) * 11;
 
     ctx.fillStyle = '#12161c';
     ctx.beginPath();
@@ -593,9 +623,9 @@ function drawAgents(ctx, game, time) {
     ctx.beginPath();
     ctx.ellipse(0, -11, 12.5, 5.5, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = 'rgba(255, 214, 160, 0.16)';
+    ctx.fillStyle = 'rgba(255, 214, 160, 0.2)';
     ctx.beginPath();
-    ctx.ellipse(9, -4, 4, 12, 0.1, 0, Math.PI * 2);
+    ctx.ellipse(rimX, rimY, 4.6, 3.4, lightAngle, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = 'rgba(18, 22, 28, 0.55)';
     ctx.fillRect(-10, -9, 20, 3);

@@ -3,7 +3,7 @@
 import { POSSESS_SECONDS, SPAWNS, TUNING, VIEW } from './config.js';
 import { buildLevel } from './level.js';
 import { createAgents, createThralls, updateUnits } from './units.js';
-import { drawWorld, drawBars } from './render.js';
+import { drawFrame, drawBars } from './render.js';
 import { drawHud } from './hud.js';
 import { drawBrief, drawResult, drawTitle, tTitleLinkAt } from './overlays.js';
 import { L } from './text.js';
@@ -127,6 +127,16 @@ export class Game {
     if (this.directorClock > 0.8) {
       this.directorClock = 0;
       if (this.auto) this.direct();
+    }
+    this.ariaClock = (this.ariaClock || 0) + dt;
+    if (this.ariaClock > 0.2) {
+      this.ariaClock = 0;
+      let near = 9999;
+      for (const a of this.agents) {
+        if (a.taken || a.extracted) continue;
+        near = Math.min(near, Math.hypot(a.x - 840, a.y - 180));
+      }
+      this.sound.aria(this.power ? Math.max(0, 1 - near / 900) : 0);
     }
 
     if (this.possessed) {
@@ -327,7 +337,7 @@ export class Game {
   }
 
   draw(ctx, time) {
-    drawWorld(ctx, this, time);
+    drawFrame(ctx, this, time);
     if (this.state === 'title') drawTitle(ctx, this, time);
     else if (this.state === 'brief') drawBrief(ctx, this, time);
     else if (this.state === 'play') drawHud(ctx, this, time);
