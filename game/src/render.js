@@ -635,16 +635,27 @@ function drawAgents(ctx, game, time) {
       continue;
     }
 
-    const sh = ctx.createRadialGradient(6, 15, 2, 6, 15, 28);
-    sh.addColorStop(0, 'rgba(0, 0, 0, 0.62)');
+    // one light, one shadow: the pool falls down-right, the body sits in a tighter pocket of
+    // its own dark so the boots touch the floor instead of hovering over it.
+    const sh = ctx.createRadialGradient(4, 7, 1, 4, 7, 22);
+    sh.addColorStop(0, 'rgba(0, 0, 0, 0.5)');
+    sh.addColorStop(0.5, 'rgba(0, 0, 0, 0.26)');
     sh.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = sh;
     ctx.beginPath();
-    ctx.ellipse(6, 15, 28, 13, 0, 0, Math.PI * 2);
+    ctx.ellipse(4, 8, 21, 13, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.beginPath();
+    ctx.ellipse(1.5, 3.5, 11, 8, 0, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.rotate(a.facing + Math.PI / 2);
-    ctx.rotate(Math.sin(a.step) * 0.045);
+    ctx.rotate(Math.sin(a.step) * 0.05 * Math.min(1, Math.hypot(a.vx, a.vy) / 110));
+    ctx.translate(Math.sin(a.step * 0.5) * 0.5 * Math.min(1, Math.hypot(a.vx, a.vy) / 110), 0);
+    // the body leans a touch into the turn instead of snapping to it
+    const lean = Math.atan2(Math.sin(a.aim - a.facing), Math.cos(a.aim - a.facing));
+    ctx.rotate(Math.max(-0.4, Math.min(0.4, lean)) * 0.07);
     const shortAngle = (v) => Math.atan2(Math.sin(v), Math.cos(v));
     const swing = Math.sin(a.step) * 4.4;
     const coat = a.role === 'veteran' ? '#2f3743' : a.role === 'rookie' ? '#263d47' : '#3a3226';
@@ -662,10 +673,12 @@ function drawAgents(ctx, game, time) {
     coatGrad.addColorStop(1, '#0d1016');
 
     // legs, seen from above: two thin shins under the hem, boots at the ends. One foot is
-    // forward, the other back — never two legs in parallel, which is a front view.
-    const gait = Math.sin(a.step);
-    const moving = Math.hypot(a.vx, a.vy) > 10;
-    const stride = moving ? 5.8 : 0;
+    // forward, the other back — never two legs in parallel, which is a front view. The stride
+    // is as long as the speed deserves: a creep shuffles, a run reaches.
+    const speed = Math.hypot(a.vx, a.vy);
+    const moving = speed > 10;
+    const gait = moving ? Math.sin(a.step) : Math.sin(a.step) * 0.12;
+    const stride = 7.4 * Math.min(1, speed / 120);
     const boot = [
       { x: -5.2, y: 10.4 - gait * stride, a: -0.06 },
       { x: 5.2, y: 10.4 + gait * stride, a: 0.06 },
@@ -681,6 +694,11 @@ function drawAgents(ctx, game, time) {
       ctx.save();
       ctx.translate(b.x, b.y);
       ctx.rotate(b.a);
+      // the boot's own contact shadow, cast with everything else
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+      ctx.beginPath();
+      ctx.ellipse(1.6, 2.6, 4.4, 5.6, 0, 0, Math.PI * 2);
+      ctx.fill();
       // the boot from above: a leather shell, a toe, a heel
       ctx.fillStyle = '#0a0d12';
       ctx.beginPath();
@@ -730,14 +748,20 @@ function drawAgents(ctx, game, time) {
     ctx.quadraticCurveTo(0, -6.8, -10.4, -3.2);
     ctx.closePath();
     ctx.fill();
-    // shoulder pads: two domes, the light side brighter
-    ctx.fillStyle = coatLight;
-    ctx.beginPath();
-    ctx.ellipse(-7.4, -1.4, 4.6, 4.9, -0.22, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(7.4, -1.4, 4.6, 4.9, 0.22, 0, Math.PI * 2);
-    ctx.fill();
+    // shoulder pads: two domes, lit from the stage side and dark on the other
+    for (const side of [-1, 1]) {
+      const pad = ctx.createRadialGradient(
+        side * 7.4 + Math.cos(lightAngle) * 2.4, -1.4 + Math.sin(lightAngle) * 2.4, 0.6,
+        side * 7.4, -1.4, 6,
+      );
+      pad.addColorStop(0, coatLight);
+      pad.addColorStop(0.7, coat);
+      pad.addColorStop(1, 'rgba(8, 11, 15, 0.65)');
+      ctx.fillStyle = pad;
+      ctx.beginPath();
+      ctx.ellipse(side * 7.4, -1.4, 4.6, 4.9, side * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+    }
     // the seam down the spine
     ctx.strokeStyle = 'rgba(8, 10, 14, 0.45)';
     ctx.lineWidth = 1;
@@ -764,8 +788,10 @@ function drawAgents(ctx, game, time) {
 
     // the upper body turns toward the target, but only so far: hips face the walk, chest and
     // weapon face the work. The arms are two joints, not one noodle.
+    const wantTwist = shortAngle(a.aim - a.facing) * 0.8;
+    const twist = Math.max(-0.6, Math.min(0.6, wantTwist));
     ctx.save();
-    ctx.rotate(Math.max(-0.6, Math.min(0.6, shortAngle(a.aim - a.facing) * 0.8)));
+    ctx.rotate(twist);
     const carry = a.pose === 'carry' ? -0.42 : 0;
     const recoil = a.pose === 'carry' ? 0 : a.recoil * 2.4;
     const ca = Math.cos(carry);
@@ -783,19 +809,32 @@ function drawAgents(ctx, game, time) {
     const elbowL = { x: -6.4, y: -8.8 };
 
     const sleeve = (from, to, width) => {
-      ctx.strokeStyle = coatLight;
-      ctx.lineWidth = width;
       ctx.lineCap = 'round';
+      // the cloth itself
+      ctx.strokeStyle = coat;
+      ctx.lineWidth = width;
       ctx.beginPath();
       ctx.moveTo(from.x, from.y);
       ctx.lineTo(to.x, to.y);
       ctx.stroke();
-      // the underside of the sleeve falls away from the stage light
-      ctx.strokeStyle = 'rgba(7, 10, 14, 0.4)';
-      ctx.lineWidth = width * 0.42;
+      // the lit edge is on the stage side, and only a quarter of the limb wide
+      const ox = Math.cos(lightAngle) * width * 0.26;
+      const oy = Math.sin(lightAngle) * width * 0.26;
+      ctx.save();
+      ctx.globalAlpha = 0.6;
+      ctx.strokeStyle = coatLight;
+      ctx.lineWidth = width * 0.62;
       ctx.beginPath();
-      ctx.moveTo(from.x, from.y + width * 0.3);
-      ctx.lineTo(to.x, to.y + width * 0.3);
+      ctx.moveTo(from.x + ox, from.y + oy);
+      ctx.lineTo(to.x + ox, to.y + oy);
+      ctx.stroke();
+      ctx.restore();
+      // the underside falls away from the stage light
+      ctx.strokeStyle = 'rgba(7, 10, 14, 0.42)';
+      ctx.lineWidth = width * 0.34;
+      ctx.beginPath();
+      ctx.moveTo(from.x - ox * 0.9, from.y - oy * 0.9 + width * 0.22);
+      ctx.lineTo(to.x - ox * 0.9, to.y - oy * 0.9 + width * 0.22);
       ctx.stroke();
     };
     sleeve(shoulderR, elbowR, 5.8);
@@ -870,6 +909,12 @@ function drawAgents(ctx, game, time) {
 
     // head: a skull under hair, 11 px across and a touch longer than wide. From straight above
     // there is no face — only the crown, a hairline at the front, and the light on one side.
+    // The neck turns a little further than the chest: people look where they are about to shoot.
+    const headTurn = Math.max(-0.34, Math.min(0.34, wantTwist - twist));
+    ctx.save();
+    ctx.translate(0, -1.2);
+    ctx.rotate(headTurn);
+    ctx.translate(0, 1.2);
     const hair = a.role === 'veteran' ? '#2f2922' : a.role === 'rookie' ? '#2c251d' : '#272319';
     // collar shadow: it sits on the body, it does not float
     ctx.fillStyle = 'rgba(6, 8, 12, 0.32)';
@@ -877,9 +922,9 @@ function drawAgents(ctx, game, time) {
     ctx.ellipse(1.2, -1.4, 6.2, 4.6, 0, 0, Math.PI * 2);
     ctx.fill();
     const crownGrad = ctx.createRadialGradient(rimX * 0.46 - 0.8, rimY * 0.4 - 4.4, 0.8, 0, -3.4, 6.2);
-    crownGrad.addColorStop(0, 'rgba(255, 238, 208, 0.38)');
-    crownGrad.addColorStop(0.42, 'rgba(255, 238, 208, 0.02)');
-    crownGrad.addColorStop(1, 'rgba(0, 0, 0, 0.42)');
+    crownGrad.addColorStop(0, 'rgba(255, 238, 208, 0.2)');
+    crownGrad.addColorStop(0.5, 'rgba(255, 238, 208, 0)');
+    crownGrad.addColorStop(1, 'rgba(0, 0, 0, 0.55)');
     ctx.fillStyle = hair;
     ctx.beginPath();
     ctx.ellipse(0, -3.4, 5.2, 5.5, 0, 0, Math.PI * 2);
@@ -942,6 +987,7 @@ function drawAgents(ctx, game, time) {
       ctx.ellipse(0, -3.6, 4.2, 4.2, 0, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.restore();
     ctx.restore();
     ctx.restore();
 

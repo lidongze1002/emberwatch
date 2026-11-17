@@ -128,13 +128,15 @@ function walkTo(game, a, x, y, dt) {
   if (dist < 8) {
     a.path.shift();
     if (!a.path.length) {
-      a.vx *= 0.5;
-      a.vy *= 0.5;
+      a.vx *= 0.55;
+      a.vy *= 0.55;
       return true;
     }
   }
   const want = Math.atan2(dy, dx);
-  const speed = a.speed;
+  // the last leg is the only one that brakes: a body that arrives at full speed skates
+  const braking = a.path.length <= 1 ? Math.max(0.2, Math.min(1, dist / 30)) : 1;
+  const speed = a.speed * braking;
   const k = Math.min(1, dt * 8);
   a.vx += (Math.cos(want) * speed - a.vx) * k;
   a.vy += (Math.sin(want) * speed - a.vy) * k;
@@ -157,7 +159,7 @@ function walkTo(game, a, x, y, dt) {
     return false;
   }
   const v = Math.hypot(a.vx, a.vy);
-  if (v > 14) a.facing = turnToward(a.facing, Math.atan2(a.vy, a.vx), dt * 7);
+  if (v > 14) a.facing = turnToward(a.facing, Math.atan2(a.vy, a.vx), dt * (v > 50 ? 4.8 : 3.2));
   a.step += v * dt * 0.12;
   return false;
 }
@@ -191,7 +193,7 @@ function updateAgent(game, a, dt) {
   a.recoil = Math.max(0, a.recoil - dt * 6);
   // the body always faces where it is going; the weapon faces what it is on
   if (Math.hypot(a.vx, a.vy) < 12) {
-    a.facing = turnToward(a.facing, a.aim, dt * 6);
+    a.facing = turnToward(a.facing, a.aim, dt * 3.4);
   }
   a.pose = a.state === 'fighting' || a.order.kind === 'focus' ? 'ready' : 'carry';
 
