@@ -928,8 +928,11 @@ function sendAll(game, x, y, force = false) {
     // 目标没变：只补发那些已经停下的人
     const list = game.free();
     list.forEach((a, i) => {
-      if (a.order.kind === 'revive' || a.order.kind === 'focus') return;
-      if (a.order.kind === 'hold') {
+      if (a.order.kind === 'revive') return;
+      // 目标已经死了的「集火」不算命令：否则这个人会一直卡在一条旧的 focus 上
+      if (a.order.kind === 'focus' && a.order.target && !a.order.target.dead) return;
+      const stale = a.order.kind === 'goto' && Math.hypot(a.order.x - x, a.order.y - y) > 110;
+      if (a.order.kind === 'hold' || a.order.kind === 'focus' || stale) {
         const off = SLOT[i % SLOT.length];
         let tx = x + off[0];
         let ty = y + off[1];

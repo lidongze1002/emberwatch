@@ -429,7 +429,7 @@ function walkTo(game, a, x, y, dt) {
   const braking = a.path.length <= 1 ? Math.max(0.2, Math.min(1, dist / 30)) : 1;
   // 灯一亮，全队的步子就压下来：火不能灭。这不是负重，是规矩。
   const carrying = game.case.rule.kind === 'gaze' && (game.rule.lit || (game.rule.lights > 0));
-  const speed = a.speed * braking * (carrying ? 0.4 : 1);
+  const speed = a.speed * braking * (carrying ? 0.36 : 1);
   const k = Math.min(1, dt * 8);
   a.vx += (Math.cos(want) * speed - a.vx) * k;
   a.vy += (Math.sin(want) * speed - a.vy) * k;
