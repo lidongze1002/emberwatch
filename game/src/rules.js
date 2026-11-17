@@ -74,6 +74,11 @@ export function initRules(game) {
 
 function shuttersOf(game) {
   const out = [];
+  // 第一班车还没进站：三扇门都是实墙
+  if (game.rule.warmup > 0) {
+    for (const rect of Object.values(game.case.rule.shutters)) out.push(rect);
+    return out;
+  }
   for (const [name, rect] of Object.entries(game.case.rule.shutters)) {
     if (name !== game.rule.open) out.push(rect);
   }
@@ -137,6 +142,7 @@ export function updateRules(game, dt) {
       if (r.warmup === 0) {
         game.say(L.hud.firstTrain);
         game.sound.door();
+        setExtras(game.level, shuttersOf(game));
       }
       return;
     }
