@@ -2174,14 +2174,17 @@ function drawAgents(ctx, game, time) {
     const twist = Math.max(-0.6, Math.min(0.6, wantTwist));
     ctx.save();
     ctx.rotate(twist);
-    const carry = a.pose === 'carry' ? -0.42 : 0;
-    const recoil = a.pose === 'carry' ? 0 : a.recoil * 2.4;
+    const poseT = typeof a.poseT === 'number' ? a.poseT : a.pose === 'carry' ? 0 : 1;
+    const dip = (a.poseDip || 0) * 1.7;
+    const carry = -0.42 * (1 - poseT) + 0.05 * dip;
+    const recoil = poseT > 0.5 ? a.recoil * 2.4 : 0;
+    const gunY = 4 + recoil + dip;
     const ca = Math.cos(carry);
     const sa = Math.sin(carry);
     // a point on the weapon, mapped back into the body's frame so the hands sit on it
     const wp = (x, y) => ({
-      x: x * ca - (y - 4 - recoil) * sa,
-      y: 4 + recoil + x * sa + (y - 4 - recoil) * ca,
+      x: x * ca - (y - gunY) * sa,
+      y: gunY + x * sa + (y - gunY) * ca,
     });
     const grip = wp(3.2, -9.6);
     const support = wp(2.4, -18.4);
@@ -2237,7 +2240,7 @@ function drawAgents(ctx, game, time) {
 
     // the rifle: butt at the shoulder, 26 px to the muzzle, all top faces
     ctx.save();
-    ctx.translate(0, 4 + recoil);
+    ctx.translate(0, gunY);
     ctx.rotate(carry);
     ctx.translate(0, -4);
     const gunX = 3.2;

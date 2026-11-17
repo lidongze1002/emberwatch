@@ -186,6 +186,8 @@ export function spawnMirrors(game, given) {
       vy: 0,
       recoil: 0,
       pose: 'ready',
+      poseT: 1,
+      poseDip: 0,
       flash: 0,
       cooldown: 3.2 + Math.random() * 0.8,
       post: { x: at.x, y: at.y },
@@ -224,6 +226,8 @@ export function spawnEcho(game) {
     vy: 0,
     recoil: 0,
     pose: 'ready',
+    poseT: 1,
+    poseDip: 0,
     flash: 0,
     cooldown: 2.6,
     post: null,
@@ -256,6 +260,8 @@ export function createAgents(game) {
       vy: 0,
       recoil: 0,
       pose: 'carry',
+      poseT: 0,
+      poseDip: 0,
       cooldown: 0,
       order: { kind: 'hold' },
       path: null,
@@ -482,7 +488,15 @@ function updateAgentInner(game, a, dt) {
   if (Math.hypot(a.vx, a.vy) < 12) {
     a.facing = turnToward(a.facing, a.aim, dt * 3.4);
   }
-  a.pose = a.state === 'fighting' || a.order.kind === 'focus' ? 'ready' : 'carry';
+  // 抬枪 / 收枪不是瞬切：0.15 秒走过去，换姿势时枪口还会往下沉一点。
+  const engagedNow = (a.state === 'fighting' || a.order.kind === 'focus') && (a.aversion || 0) <= 0;
+  const wantPose = engagedNow ? 1 : 0;
+  const before = a.poseT === undefined ? wantPose : a.poseT;
+  const step = dt / 0.15;
+  a.poseT = before + Math.max(-step, Math.min(step, wantPose - before));
+  const vel = Math.abs(a.poseT - before) / Math.max(dt, 1e-4);
+  a.poseDip = Math.max((a.poseDip || 0) - dt * 9, Math.min(1, vel / 6.6));
+  a.pose = a.poseT > 0.5 ? 'ready' : 'carry';
   // with nothing to shoot, the weapon — and the torch on it — follows the walk, not the last target
   const engaged = a.state === 'fighting' || a.order.kind === 'focus';
   if (!engaged && a.aversion <= 0) a.aim = turnToward(a.aim, a.facing, dt * 7);
