@@ -2,12 +2,65 @@
 // the rounds in the air. The player gives objectives; every step, target and retreat here is the
 // agent's own call.
 
-import { AGENTS, SPAWNS, THRALL, TUNING, ZONES } from './config.js';
+import { AGENTS, SPIDER, SPIDERLING, SPIDER_SPAWN, SPAWNS, THRALL, TUNING, ZONES } from './config.js';
 import { findPath, lineClear, solid, walkClear } from './level.js';
 
 const inZone = (zone, x, y) => x > zone.x && x < zone.x + zone.w && y > zone.y && y < zone.y + zone.h;
 
-export function createAgents() {
+export function spawnSpider(game) {
+  if (game.thralls.some((t) => t.kind === 'spider' && !t.dead)) return;
+  game.thralls.push({
+    id: 'spider',
+    kind: 'spider',
+    x: SPIDER_SPAWN.x,
+    y: SPIDER_SPAWN.y,
+    hp: SPIDER.hp,
+    maxHp: SPIDER.hp,
+    speed: SPIDER.speed,
+    reach: SPIDER.reach,
+    damage: SPIDER.damage,
+    cooldownMax: SPIDER.cooldown,
+    radius: SPIDER.radius,
+    cooldown: 0,
+    hitFlash: 0,
+    dead: false,
+    aim: Math.PI / 2,
+    wander: 0,
+    wanderClock: 0,
+    stun: 0,
+    step: 0,
+    cloth: { x: 0, y: 0, sway: 0 },
+  });
+  game.shake = 8;
+}
+
+function spawnSpiderlings(game, x, y) {
+  for (let i = 0; i < 3; i += 1) {
+    const a = (i / 3) * Math.PI * 2 + 0.4;
+    game.thralls.push({
+      id: `sp${i}`,
+      kind: 'spiderling',
+      x: x + Math.cos(a) * 26,
+      y: y + Math.sin(a) * 26,
+      hp: SPIDERLING.hp,
+      maxHp: SPIDERLING.hp,
+      speed: SPIDERLING.speed,
+      reach: SPIDERLING.reach,
+      damage: SPIDERLING.damage,
+      cooldownMax: SPIDERLING.cooldown,
+      radius: SPIDERLING.radius,
+      cooldown: 0,
+      hitFlash: 0,
+      dead: false,
+      aim: a,
+      wander: a,
+      wanderClock: 0,
+      stun: 0,
+      step: Math.random() * 6,
+      cloth: { x: 0, y: 0, sway: 0 },
+    });
+  }
+}
   return SPAWNS.agents.map((spot, i) => {
     const spec = AGENTS[spot.role];
     return {
@@ -357,7 +410,7 @@ function updateThrall(game, t, dt) {
 
   if (target) {
     t.aim = Math.atan2(target.y - t.y, target.x - t.x);
-    if (bestDist > THRALL.reach) {
+    if (bestDist > (t.reach || THRALL.reach)) {
       const dx = (target.x - t.x) / bestDist;
       const dy = (target.y - t.y) / bestDist;
       const nx = t.x + dx * t.speed * dt;
@@ -367,8 +420,8 @@ function updateThrall(game, t, dt) {
         t.y = ny;
       }
     } else if (t.cooldown <= 0) {
-      t.cooldown = THRALL.cooldown;
-      target.hp -= THRALL.damage;
+      t.cooldown = t.cooldownMax || THRALL.cooldown;
+      target.hp -= t.damage || THRALL.damage;
       target.flash = 1;
       game.shake = 6;
       game.sound.hurt();
@@ -428,8 +481,9 @@ export function updateBullets(game, dt) {
           if (t.hp <= 0) {
             t.dead = true;
             game.kills += 1;
-            game.shake = Math.max(game.shake, 3);
+            game.shake = Math.max(game.shake, t.kind === 'spider' ? 10 : 3);
             game.sound.kill();
+            if (t.kind === 'spider') spawnSpiderlings(game, t.x, t.y);
             for (let k = 0; k < 10; k += 1) {
               game.spatter.push({
                 x: t.x,

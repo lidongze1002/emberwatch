@@ -502,6 +502,14 @@ function drawFlashlights(ctx, game) {
 function drawThralls(ctx, game, time) {
   for (const t of game.thralls) {
     if (t.dead) continue;
+    if (t.kind === 'spider') {
+      drawSpider(ctx, t, time);
+      continue;
+    }
+    if (t.kind === 'spiderling') {
+      drawSpiderling(ctx, t, time);
+      continue;
+    }
     ctx.save();
     ctx.translate(t.x, t.y);
 
@@ -723,6 +731,122 @@ function drawThralls(ctx, game, time) {
       ctx.fillRect(t.x - w / 2, t.y - 50, (w * t.hp) / t.maxHp, 3);
     }
   }
+}
+
+// The tsuchigumo: a woman in a white dress on the boards, eight legs under the hem, and the
+// screen only sees her crown. Everything here is local to her facing.
+function drawSpider(ctx, t, time) {
+  ctx.save();
+  ctx.translate(t.x, t.y);
+  const sh = ctx.createRadialGradient(6, 14, 4, 6, 14, 46);
+  sh.addColorStop(0, 'rgba(0, 0, 0, 0.6)');
+  sh.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = sh;
+  ctx.beginPath();
+  ctx.ellipse(6, 16, 44, 22, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.rotate(t.aim + Math.PI / 2);
+  const step = Math.sin(t.step * 1.6);
+
+  // eight legs, thin and jointed, reaching out from under the hem
+  ctx.strokeStyle = 'rgba(24, 20, 26, 0.9)';
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 8; i += 1) {
+    const side = i < 4 ? -1 : 1;
+    const k = i % 4;
+    const baseY = -14 + k * 10;
+    const sway = Math.sin(time * 3 + i) * 3;
+    ctx.beginPath();
+    ctx.moveTo(side * 16, baseY);
+    ctx.quadraticCurveTo(side * 34, baseY - 8 + sway, side * 40, baseY + 16 + sway);
+    ctx.stroke();
+  }
+
+  // the dress: a long pale shape, a red sash, a high collar
+  const dress = ctx.createLinearGradient(0, -34, 0, 26);
+  dress.addColorStop(0, '#e6e0d4');
+  dress.addColorStop(0.55, '#cfc8ba');
+  dress.addColorStop(1, '#a8a195');
+  ctx.fillStyle = dress;
+  ctx.beginPath();
+  ctx.moveTo(0, -36);
+  ctx.bezierCurveTo(16, -26, 20, 6, 22, 26);
+  ctx.bezierCurveTo(8, 34, -8, 34, -22, 26);
+  ctx.bezierCurveTo(-20, 6, -16, -26, 0, -36);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = 'rgba(120, 30, 36, 0.9)';
+  ctx.fillRect(-17, -4, 34, 6);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-4, -30);
+  ctx.lineTo(-2, 24);
+  ctx.stroke();
+
+  // arms forward, pale
+  ctx.strokeStyle = '#d8d2c6';
+  ctx.lineWidth = 4;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-12, -22);
+  ctx.lineTo(-7, -34);
+  ctx.moveTo(12, -22);
+  ctx.lineTo(7, -34);
+  ctx.stroke();
+
+  // the head: black hair, a sliver of face, no features from above
+  ctx.fillStyle = '#1a1416';
+  ctx.beginPath();
+  ctx.arc(0, -40, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#d9c2ac';
+  ctx.beginPath();
+  ctx.ellipse(0, -47, 3.6, 1.8, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (t.hitFlash > 0.02) {
+    ctx.globalAlpha = Math.min(0.7, t.hitFlash);
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(0, -8, 34, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+
+  // her condition, in the same language as the squad
+  const w = 54;
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+  ctx.fillRect(t.x - w / 2, t.y - 62, w, 3);
+  ctx.fillStyle = 'rgba(206, 108, 96, 0.95)';
+  ctx.fillRect(t.x - w / 2, t.y - 62, (w * t.hp) / t.maxHp, 3);
+}
+
+function drawSpiderling(ctx, t, time) {
+  ctx.save();
+  ctx.translate(t.x, t.y);
+  ctx.rotate(t.aim + Math.PI / 2);
+  ctx.strokeStyle = 'rgba(20, 16, 20, 0.9)';
+  ctx.lineWidth = 1.4;
+  for (let i = 0; i < 6; i += 1) {
+    const side = i < 3 ? -1 : 1;
+    const y = -4 + (i % 3) * 4;
+    const sway = Math.sin(time * 8 + i) * 1.8;
+    ctx.beginPath();
+    ctx.moveTo(side * 3, y);
+    ctx.lineTo(side * 10, y + 5 + sway);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#17131a';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 5, 7, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(220, 90, 80, 0.8)';
+  ctx.fillRect(-2, -6, 1.6, 1.6);
+  ctx.fillRect(0.6, -6, 1.6, 1.6);
+  ctx.restore();
 }
 
 function drawAgents(ctx, game, time) {

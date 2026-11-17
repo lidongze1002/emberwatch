@@ -2,7 +2,7 @@
 
 import { POSSESS_SECONDS, SPAWNS, TUNING, VIEW } from './config.js';
 import { buildLevel } from './level.js';
-import { createAgents, createThralls, updateUnits } from './units.js';
+import { createAgents, createThralls, spawnSpider, updateUnits } from './units.js';
 import { drawFrame, drawBars } from './render.js';
 import { drawHud } from './hud.js';
 import { drawBrief, drawResult, drawTitle, tTitleLinkAt } from './overlays.js';
@@ -168,6 +168,7 @@ export class Game {
         this.flashWhite = 0.6;
         this.say(L.hud.quiet);
         this.sound.power();
+        spawnSpider(this);
       }
     } else {
       this.pull = Math.max(0, this.pull - dt * 2);

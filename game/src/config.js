@@ -103,4 +103,8 @@ export const PROPS = [
 
 export const POSSESS_SECONDS = 8;
 
+export const SPIDER = { hp: 46, speed: 20, damage: 12, reach: 40, cooldown: 1.3, radius: 26 };
+export const SPIDERLING = { hp: 2, speed: 70, damage: 4, reach: 22, cooldown: 0.9, radius: 9 };
+export const SPIDER_SPAWN = { x: 840, y: 160 };
+
 export const THRALL = { hp: 6, speed: 40, damage: 5, reach: 26, cooldown: 1.15 };
