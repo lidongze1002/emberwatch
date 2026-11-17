@@ -1614,26 +1614,70 @@ function drawSpider(ctx, t, time, dim = 1) {
   const rs = 0.5 + 0.5 * rise;
   ctx.scale(1.5 * rs, 1.5 * rs);
 
-  // eight legs, two joints each, alternating like a gait instead of waving together
-  ctx.strokeStyle = 'rgba(24, 20, 26, 0.9)';
-  ctx.lineWidth = 2;
+  // eight legs, two joints each, alternating like a gait instead of waving together. The stage
+  // behind her is almost black, so the legs carry their own rim: without it the silhouette — the
+  // only thing that says "spider" — disappears into the boards.
+  const lightA = Math.atan2(KEY.y - t.y, KEY.x - t.x) - (t.aim + Math.PI / 2);
+  const litX = Math.cos(lightA);
+  const litY = Math.sin(lightA);
+  const legs = [];
   for (let i = 0; i < 8; i += 1) {
     const side = i < 4 ? -1 : 1;
     const k = i % 4;
     const baseY = -14 + k * 10;
     const phase = Math.sin(t.step * 3 + k * 1.7 + (side > 0 ? Math.PI : 0));
-    const kneeX = side * 30;
-    const kneeY = baseY - 10 + phase * 5;
-    const footX = side * (42 + phase * 3);
-    const footY = baseY + 14 + phase * 7;
+    legs.push({
+      side,
+      baseY,
+      kneeX: side * 27,
+      kneeY: baseY - 15 + phase * 5,
+      footX: side * (43 + phase * 3),
+      footY: baseY + 15 + phase * 7,
+    });
+  }
+  // contact: each foot puts a small dark knot on the boards, offset with the main light
+  ctx.fillStyle = 'rgba(6, 4, 6, 0.4)';
+  for (const leg of legs) {
     ctx.beginPath();
-    ctx.moveTo(side * 15, baseY);
-    ctx.lineTo(kneeX, kneeY);
-    ctx.lineTo(footX, footY);
+    ctx.ellipse(leg.footX + 1.4, leg.footY + 2, 3.2, 1.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.lineCap = 'round';
+  // thigh thicker than shin: the joint reads as a joint, not as two straight wires
+  ctx.strokeStyle = 'rgba(38, 30, 35, 0.96)';
+  ctx.lineWidth = 3.2;
+  for (const leg of legs) {
+    ctx.beginPath();
+    ctx.moveTo(leg.side * 14, leg.baseY);
+    ctx.lineTo(leg.kneeX, leg.kneeY);
     ctx.stroke();
-    ctx.fillStyle = 'rgba(24, 20, 26, 0.9)';
+  }
+  ctx.lineWidth = 1.9;
+  for (const leg of legs) {
     ctx.beginPath();
-    ctx.arc(kneeX, kneeY, 1.7, 0, Math.PI * 2);
+    ctx.moveTo(leg.kneeX, leg.kneeY);
+    ctx.lineTo(leg.footX, leg.footY);
+    ctx.stroke();
+  }
+  // the lit side of each segment: a hair of warm light where the stage lamp catches the joint
+  ctx.strokeStyle = 'rgba(232, 196, 164, 0.2)';
+  ctx.lineWidth = 0.7;
+  for (const leg of legs) {
+    ctx.beginPath();
+    ctx.moveTo(leg.side * 14 + litX * 1.2, leg.baseY + litY * 1.2);
+    ctx.lineTo(leg.kneeX + litX * 1.2, leg.kneeY + litY * 1.2);
+    ctx.lineTo(leg.footX + litX * 1.2, leg.footY + litY * 1.2);
+    ctx.stroke();
+  }
+  // knees and feet: a hard little bead, already catching light on one side
+  for (const leg of legs) {
+    ctx.fillStyle = 'rgba(24, 19, 23, 0.98)';
+    ctx.beginPath();
+    ctx.arc(leg.kneeX, leg.kneeY, 2.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(236, 198, 164, 0.34)';
+    ctx.beginPath();
+    ctx.arc(leg.kneeX + litX * 0.8, leg.kneeY + litY * 0.8, 0.7, 0, Math.PI * 2);
     ctx.fill();
   }
 
