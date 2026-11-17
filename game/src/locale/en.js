@@ -33,7 +33,7 @@ export const en = {
   brief: {
     squad: 'YOUR THREE',
     go: 'CLICK TO SEND THEM IN',
-    photo: 'SCENE PLATE · NEGATIVE NOT BACK',
+    photo: 'SCENE PLATE · TWENTY MINUTES AFTER',
     noPhoto: 'NO PHOTO ON FILE',
   },
   cases: {

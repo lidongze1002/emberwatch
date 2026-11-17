@@ -117,6 +117,143 @@ function page(ctx) {
   ctx.strokeRect(96.5, 72.5, VIEW.width - 193, VIEW.height - 145);
 }
 
+// 每案一张「情报照片」：没有美术，就用代码画一张黑白、颗粒、构图歪一点的现场照。
+// 不出现人脸；形状只够读出「这里发生过什么」。种子固定，所以每一帧都一样。
+function scenePlate(ctx, x, y, w, h, id) {
+  let seed = 0;
+  for (const ch of id) seed = (seed * 31 + ch.charCodeAt(0)) % 100000;
+  const rnd = () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed / 2147483648;
+  };
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  // the print: a cold grey ground, one warm patch where the lamp is
+  const ground = ctx.createLinearGradient(x, y, x, y + h);
+  ground.addColorStop(0, '#22221f');
+  ground.addColorStop(0.55, '#151513');
+  ground.addColorStop(1, '#0b0b0a');
+  ctx.fillStyle = ground;
+  ctx.fillRect(x, y, w, h);
+  const warm = { x: x + w * 0.7, y: y + h * 0.42 };
+  const glow = ctx.createRadialGradient(warm.x, warm.y, 2, warm.x, warm.y, w * 0.55);
+  glow.addColorStop(0, 'rgba(232, 208, 168, 0.3)');
+  glow.addColorStop(1, 'rgba(232, 208, 168, 0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = 'rgba(214, 206, 190, 0.16)';
+  ctx.lineWidth = 1;
+  if (id === 'opera') {
+    // the proscenium: two curtains and the gap between them, one footlight left on
+    ctx.fillStyle = 'rgba(150, 140, 120, 0.09)';
+    ctx.fillRect(x + w * 0.06, y + h * 0.06, w * 0.88, h * 0.6);
+    for (let i = 0; i < 9; i += 1) {
+      ctx.strokeStyle = 'rgba(20, 18, 16, 0.5)';
+      ctx.beginPath();
+      const cx2 = x + w * 0.12 + i * w * 0.08;
+      ctx.moveTo(cx2, y + h * 0.06);
+      ctx.quadraticCurveTo(cx2 + 4, y + h * 0.3, cx2 - 2, y + h * 0.66);
+      ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(246, 226, 186, 0.5)';
+    ctx.fillRect(x + w * 0.5 - 2, y + h * 0.62, 4, 3);
+    ctx.fillStyle = 'rgba(246, 226, 186, 0.12)';
+    ctx.beginPath();
+    ctx.ellipse(x + w * 0.5, y + h * 0.64, w * 0.18, h * 0.06, 0, 0, Math.PI * 2);
+    ctx.fill();
+    for (let i = 0; i < 5; i += 1) {
+      ctx.fillStyle = 'rgba(90, 84, 74, 0.22)';
+      ctx.fillRect(x + w * 0.1, y + h * (0.72 + i * 0.05), w * 0.8, 2);
+    }
+  } else if (id === 'apartment') {
+    // the corridor in one point perspective: a lit ceiling, doors on both walls, one open gap
+    ctx.fillStyle = 'rgba(120, 112, 96, 0.1)';
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + w, y);
+    ctx.lineTo(x + w * 0.62, y + h * 0.42);
+    ctx.lineTo(x + w * 0.38, y + h * 0.42);
+    ctx.closePath();
+    ctx.fill();
+    for (let i = 0; i < 4; i += 1) {
+      const t = i / 4;
+      ctx.fillStyle = `rgba(14, 13, 12, ${0.5 - t * 0.28})`;
+      const left = x + w * (0.04 + t * 0.34);
+      const right = x + w * (0.96 - t * 0.34);
+      ctx.fillRect(left, y + h * (0.34 + t * 0.04), w * 0.05, h * (0.4 - t * 0.08));
+      ctx.fillRect(right - w * 0.05, y + h * (0.34 + t * 0.04), w * 0.05, h * (0.4 - t * 0.08));
+    }
+    ctx.fillStyle = 'rgba(4, 4, 4, 0.9)';
+    ctx.fillRect(x + w * 0.38, y + h * 0.34, w * 0.24, h * 0.1);
+    ctx.fillStyle = 'rgba(226, 206, 170, 0.18)';
+    ctx.fillRect(x + w * 0.36, y + h * 0.44, w * 0.28, 2);
+  } else if (id === 'station') {
+    // the platform edge, a sign board, and one timetable cell still lit
+    ctx.fillStyle = 'rgba(150, 156, 150, 0.08)';
+    ctx.fillRect(x, y + h * 0.5, w, h * 0.5);
+    ctx.strokeStyle = 'rgba(226, 210, 170, 0.28)';
+    ctx.beginPath();
+    ctx.moveTo(x, y + h * 0.5);
+    ctx.lineTo(x + w, y + h * 0.5);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(10, 10, 9, 0.7)';
+    ctx.fillRect(x + w * 0.08, y + h * 0.2, w * 0.26, h * 0.16);
+    ctx.fillStyle = 'rgba(232, 216, 176, 0.3)';
+    ctx.fillRect(x + w * 0.1, y + h * 0.23, w * 0.2, 2);
+    ctx.fillRect(x + w * 0.1, y + h * 0.27, w * 0.14, 2);
+    ctx.fillStyle = 'rgba(240, 226, 186, 0.55)';
+    ctx.fillRect(x + w * 0.66, y + h * 0.16, w * 0.1, h * 0.05);
+    for (let i = 0; i < 6; i += 1) {
+      ctx.fillStyle = 'rgba(60, 58, 50, 0.5)';
+      ctx.fillRect(x + w * 0.3 + i * w * 0.06, y + h * 0.6, w * 0.02, h * 0.3);
+    }
+  } else if (id === 'ricefield') {
+    // paddy water, two dikes, and a pale thing standing very far away
+    ctx.fillStyle = 'rgba(120, 132, 120, 0.07)';
+    ctx.fillRect(x, y + h * 0.12, w, h * 0.5);
+    ctx.fillStyle = 'rgba(140, 132, 104, 0.22)';
+    ctx.fillRect(x + w * 0.34, y + h * 0.1, w * 0.06, h * 0.8);
+    ctx.fillRect(x, y + h * 0.44, w, h * 0.05);
+    ctx.fillStyle = 'rgba(238, 232, 220, 0.5)';
+    ctx.fillRect(x + w * 0.7, y + h * 0.24, 2, h * 0.14);
+    ctx.fillStyle = 'rgba(238, 232, 220, 0.14)';
+    ctx.beginPath();
+    ctx.ellipse(x + w * 0.7, y + h * 0.4, w * 0.06, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(240, 200, 140, 0.4)';
+    ctx.fillRect(x + w * 0.47, y + h * 0.3, 3, 3);
+  } else {
+    // the thirteenth floor: identical doors, and a circle chalked on the carpet
+    for (let i = 0; i < 5; i += 1) {
+      ctx.fillStyle = 'rgba(16, 15, 11, 0.62)';
+      ctx.fillRect(x + w * (0.06 + i * 0.2), y + h * 0.16, w * 0.11, h * 0.24);
+      ctx.fillStyle = 'rgba(232, 220, 170, 0.16)';
+      ctx.fillRect(x + w * (0.075 + i * 0.2), y + h * 0.2, w * 0.08, 2);
+    }
+    ctx.strokeStyle = 'rgba(226, 222, 210, 0.25)';
+    ctx.beginPath();
+    ctx.ellipse(x + w * 0.5, y + h * 0.7, w * 0.16, h * 0.1, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  // grain: fixed dots, so the photograph does not crawl
+  for (let i = 0; i < 260; i += 1) {
+    const gx = x + rnd() * w;
+    const gy = y + rnd() * h;
+    const a = rnd() * 0.1;
+    ctx.fillStyle = rnd() > 0.5 ? `rgba(255, 248, 232, ${a})` : `rgba(0, 0, 0, ${a + 0.05})`;
+    ctx.fillRect(gx, gy, 1, 1);
+  }
+  // vignette + a slight tilt of the print
+  const vign = ctx.createRadialGradient(x + w / 2, y + h / 2, Math.min(w, h) * 0.3, x + w / 2, y + h / 2, Math.max(w, h) * 0.72);
+  vign.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  vign.addColorStop(1, 'rgba(0, 0, 0, 0.55)');
+  ctx.fillStyle = vign;
+  ctx.fillRect(x, y, w, h);
+  ctx.restore();
+}
+
 // A photograph on a file: bone paper, a dark window, and — until the art exists — a pencil line
 // instead of a face. Never a fake portrait.
 function photoFrame(ctx, x, y, w, h, caption, number) {
@@ -467,11 +604,16 @@ export function drawBrief(ctx, game, time) {
   lines.slice(0, 6).forEach((line, i) => ctx.fillText(line, left, y + 176 + i * 22));
   ctx.restore();
 
-  // the case photograph: a black-and-white still from the scene, no faces. Until the art exists
-  // it is an empty plate with a pencilled caption, which is honest and fits the file.
+  // the case photograph: a black-and-white still from the scene, no faces. It is drawn in code —
+  // a grey print with grain and a cold lamp — rather than a fake photograph from somewhere else.
   const px = x + w - 236;
   const py = y + 112;
-  photoFrame(ctx, px, py, 192, 128, L.brief.noPhoto, null);
+  ctx.fillStyle = 'rgba(206, 198, 182, 0.9)';
+  ctx.fillRect(px - 5, py - 5, 202, 138);
+  scenePlate(ctx, px, py, 192, 128, game.case.id);
+  ctx.strokeStyle = 'rgba(120, 112, 98, 0.4)';
+  ctx.lineWidth = 0.7;
+  ctx.strokeRect(px - 4.5, py - 4.5, 201, 137);
   label(ctx, meta.place, px + 96, py + 148, 7, INK_FAINT, 0.8, 'center');
   label(ctx, L.brief.photo, px, py + 168, 6.5, AMBER, 2.6);
 

@@ -32,7 +32,7 @@ export const zh = {
   brief: {
     squad: '你带的三个人',
     go: '点击让他们进去',
-    photo: '现场照片 · 底片未到',
+    photo: '现场照片 · 案发后二十分钟',
     noPhoto: '无照片',
   },
   cases: {
