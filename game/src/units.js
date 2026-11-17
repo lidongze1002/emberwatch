@@ -422,6 +422,24 @@ export function updateUnits(game, dt) {
   for (const t of game.thralls) updateThrall(game, t, dt);
   updateBullets(game, dt);
 
+  // cloth: a hem lags behind whatever the body just did
+  for (const body of [...game.agents, ...game.thralls]) {
+    if (body.dead) continue;
+    const px = body._px ?? body.x;
+    const py = body._py ?? body.y;
+    const vx = body.x - px;
+    const vy = body.y - py;
+    if (!body.cloth) body.cloth = { x: 0, y: 0, sway: 0 };
+    const targetX = Math.max(-6, Math.min(6, -vx * 5));
+    const targetY = Math.max(-6, Math.min(6, -vy * 5));
+    const k = Math.min(1, dt * 7);
+    body.cloth.x += (targetX - body.cloth.x) * k;
+    body.cloth.y += (targetY - body.cloth.y) * k;
+    body.cloth.sway = Math.sin(body.step) * 1.2;
+    body._px = body.x;
+    body._py = body.y;
+  }
+
   // bodies have volume: nothing stands inside anything else
   const bodies = [
     ...game.agents.filter((a) => !a.down && !a.taken && !a.extracted),

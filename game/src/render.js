@@ -478,6 +478,20 @@ function drawThralls(ctx, game, time) {
     ctx.fill();
     ctx.fillStyle = 'rgba(30, 24, 20, 0.55)';
     ctx.fillRect(-1, -16, 2, 15);
+    // a tie, and two buttons catching the light
+    ctx.fillStyle = 'rgba(40, 18, 18, 0.9)';
+    ctx.beginPath();
+    ctx.moveTo(-2, -14);
+    ctx.lineTo(2, -14);
+    ctx.lineTo(1, -4);
+    ctx.lineTo(-1, -4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255, 240, 210, 0.5)';
+    ctx.beginPath();
+    ctx.arc(0, 1, 1, 0, Math.PI * 2);
+    ctx.arc(0, 6, 1, 0, Math.PI * 2);
+    ctx.fill();
 
     ctx.strokeStyle = '#807867';
     ctx.lineWidth = 6;
@@ -605,6 +619,24 @@ function drawAgents(ctx, game, time) {
     const lightAngle = Math.atan2(KEY.y - a.y, KEY.x - a.x) - (a.aim + Math.PI / 2);
     const rimX = Math.cos(lightAngle) * 9.5;
     const rimY = Math.sin(lightAngle) * 11;
+    const cloth = a.cloth || { x: 0, y: 0, sway: 0 };
+
+    // the coat hem, trailing behind the walk and fuller on the far side from the light
+    ctx.save();
+    ctx.translate(cloth.x, cloth.y + 3);
+    ctx.fillStyle = 'rgba(10, 13, 18, 0.85)';
+    ctx.beginPath();
+    ctx.ellipse(cloth.sway, 4, 17, 15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = coat;
+    ctx.beginPath();
+    ctx.ellipse(cloth.sway * 0.8, 1, 15.5, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+    ctx.beginPath();
+    ctx.ellipse(cloth.sway * 0.8, 6, 14, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
 
     ctx.fillStyle = '#12161c';
     ctx.beginPath();
@@ -623,6 +655,26 @@ function drawAgents(ctx, game, time) {
     ctx.beginPath();
     ctx.ellipse(0, -11, 12.5, 5.5, 0, 0, Math.PI * 2);
     ctx.fill();
+    // shoulder pads: two arcs, the light side brighter
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.beginPath();
+    ctx.ellipse(-9, -8, 5, 4, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(9, -8, 5, 4, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    // collar and a strap across the chest
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, -3, 7, Math.PI * 0.15, Math.PI * 0.85);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(20, 24, 30, 0.6)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-7, -8);
+    ctx.lineTo(6, 2);
+    ctx.stroke();
     ctx.fillStyle = 'rgba(255, 214, 160, 0.2)';
     ctx.beginPath();
     ctx.ellipse(rimX, rimY, 4.6, 3.4, lightAngle, 0, Math.PI * 2);
@@ -648,12 +700,29 @@ function drawAgents(ctx, game, time) {
     ctx.arc(3.5, -22, 2.4, 0, Math.PI * 2);
     ctx.fill();
 
-    // the rifle: stock, receiver, barrel, a glint
+    // the rifle: stock, receiver, magazine, optic, barrel, and the glint along the top face
     ctx.fillStyle = '#0b0f14';
     ctx.fillRect(-2.8, -18, 5.6, 9);
     ctx.fillRect(-1.6, -40, 3.2, 23);
+    ctx.save();
+    ctx.translate(-3.4, -24);
+    ctx.rotate(0.35);
+    ctx.fillRect(0, 0, 3.2, 7);
+    ctx.restore();
+    ctx.fillStyle = '#161c24';
+    ctx.fillRect(-2.2, -32, 4.4, 5);
+    ctx.fillStyle = 'rgba(140, 220, 220, 0.55)';
+    ctx.fillRect(-1.2, -31.2, 2.4, 1.6);
+    ctx.fillStyle = '#0b0f14';
+    ctx.fillRect(-2, -42, 4, 3);
     ctx.fillStyle = 'rgba(190, 205, 225, 0.45)';
-    ctx.fillRect(-0.5, -39, 1, 8);
+    ctx.fillRect(-0.5, -40, 1, 10);
+    ctx.strokeStyle = 'rgba(30, 34, 42, 0.8)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(-9, -6);
+    ctx.quadraticCurveTo(-4, -26, 2, -34);
+    ctx.stroke();
 
     // head: the crown of the head, hair over it, a sliver of forehead at the front
     ctx.fillStyle = '#c69a7d';
@@ -678,6 +747,15 @@ function drawAgents(ctx, game, time) {
       ctx.beginPath();
       ctx.roundRect(-6, -14, 12, 3.6, 1.6);
       ctx.fill();
+    }
+    // a few strands, so the crown is not a flat disc
+    ctx.strokeStyle = 'rgba(255, 235, 210, 0.12)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 3; i += 1) {
+      ctx.beginPath();
+      ctx.moveTo(-4 + i * 4, -8);
+      ctx.lineTo(-6 + i * 4, -1);
+      ctx.stroke();
     }
     ctx.restore();
 
