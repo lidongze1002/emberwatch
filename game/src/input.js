@@ -1,6 +1,4 @@
-// Pointer and keyboard, in the game's own coordinates. The canvas is letterboxed, so every
-// client position is mapped back onto the 1280 x 800 scene before anything else sees it.
-// Keys are collected whole, then handed to the game once per frame and cleared.
+// 鼠标和键盘，换算成 1280×800 的场景坐标。点就是目标，键就是指令。
 
 import { VIEW } from './config.js';
 
@@ -8,9 +6,8 @@ export class Input {
   constructor(canvas) {
     this.canvas = canvas;
     this.x = VIEW.width / 2;
-    this.y = VIEW.height * 0.95;
+    this.y = VIEW.height / 2;
     this.inside = false;
-    this.down = false;
     this.clicks = [];
     this.typed = [];
     this.held = new Set();
@@ -20,39 +17,23 @@ export class Input {
 
   attach() {
     const c = this.canvas;
-    c.addEventListener('contextmenu', (event) => event.preventDefault());
-    c.addEventListener('pointermove', (event) => this.locate(event));
-    c.addEventListener('pointerenter', (event) => {
-      this.inside = true;
-      this.locate(event);
-    });
-    c.addEventListener('pointerleave', () => {
-      this.inside = false;
-      this.down = false;
-    });
-    c.addEventListener('pointerdown', (event) => {
-      event.preventDefault();
-      this.locate(event);
-      this.down = true;
+    c.addEventListener('contextmenu', (e) => e.preventDefault());
+    c.addEventListener('pointermove', (e) => this.locate(e));
+    c.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this.locate(e);
       this.gesture();
-      this.clicks.push({ x: this.x, y: this.y, button: event.button });
-      c.setPointerCapture?.(event.pointerId);
+      this.clicks.push({ x: this.x, y: this.y, button: e.button });
     });
-    c.addEventListener('pointerup', () => {
-      this.down = false;
-    });
-    window.addEventListener('keydown', (event) => {
-      if (event.code === 'Space' || event.code.startsWith('Arrow')) event.preventDefault();
-      if (event.repeat) return;
-      this.held.add(event.code);
-      this.typed.push(event.code);
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
+      if (e.repeat) return;
+      this.held.add(e.code);
+      this.typed.push(e.code);
       this.gesture();
     });
-    window.addEventListener('keyup', (event) => this.held.delete(event.code));
-    window.addEventListener('blur', () => {
-      this.held.clear();
-      this.down = false;
-    });
+    window.addEventListener('keyup', (e) => this.held.delete(e.code));
+    window.addEventListener('blur', () => this.held.clear());
   }
 
   gesture() {
@@ -63,14 +44,10 @@ export class Input {
 
   locate(event) {
     const rect = this.canvas.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
+    if (!rect.width || !rect.height) return;
     this.x = ((event.clientX - rect.left) / rect.width) * VIEW.width;
     this.y = ((event.clientY - rect.top) / rect.height) * VIEW.height;
     this.inside = true;
-  }
-
-  isHeld(code) {
-    return this.held.has(code);
   }
 
   takeClicks() {

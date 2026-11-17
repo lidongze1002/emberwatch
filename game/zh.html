@@ -3,47 +3,29 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>烬望</title>
-<meta name="description" content="烬望：守住崖上最后一盏灯塔，让八次潮里的影子停在光里。一束光、一颗心、八次潮的守夜游戏。">
+<title>夜巡科</title>
+<meta name="description" content="夜巡科：市里处理都市怪谈的夜班科室。你只下目标，三个队员自己判断怎么走、打谁、什么时候退。第一案：歌剧院。">
 <link rel="icon" href="data:,">
 <style>
-  html, body {
-    margin: 0;
-    height: 100%;
-    overflow: hidden;
-    background: #04060b;
-  }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #05070c; }
   body {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background:
-      radial-gradient(ellipse at 50% 45%, #0a1220 0%, #04060b 62%, #010204 100%);
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at 50% 45%, #10141d 0%, #05070c 62%, #010204 100%);
     font-family: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif;
     color: #dfe6f0;
   }
   #game {
-    display: block;
-    cursor: crosshair;
-    touch-action: none;
-    box-shadow: 0 24px 90px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(120, 150, 185, 0.12);
-    background: #04060b;
+    display: block; cursor: crosshair; touch-action: none;
+    box-shadow: 0 24px 90px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(120, 150, 185, 0.1);
+    background: #05070c;
   }
-  /* Read aloud, never shown: the status line a screen reader announces. */
-  #status {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 </style>
 </head>
 <body>
 <canvas id="game" width="1280" height="800"
-  aria-label="烬望：用鼠标转动灯塔的光束，烧掉从海里爬上来的影子，守八次潮，让灯亮到天亮。"></canvas>
-<p id="status" role="status" aria-live="polite">烬望。点击开始守夜。按 C 翻开档案。</p>
+  aria-label="夜巡科：把三个队员送进闹怪谈的歌剧院。点地面派最近的人过去，你只下目标。"></canvas>
+<p id="status" role="status" aria-live="polite">夜巡科。点击接警。</p>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

@@ -3,47 +3,29 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Emberwatch</title>
-<meta name="description" content="Emberwatch: keep the last lighthouse burning while eight tides of shadow climb out of the sea. A light-sweep arcade defence.">
+<title>Night Watch</title>
+<meta name="description" content="Night Watch: command three autonomous agents into a haunted opera house. Case 01 of a municipal department that handles urban legends.">
 <link rel="icon" href="data:,">
 <style>
-  html, body {
-    margin: 0;
-    height: 100%;
-    overflow: hidden;
-    background: #04060b;
-  }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #05070c; }
   body {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background:
-      radial-gradient(ellipse at 50% 45%, #0a1220 0%, #04060b 62%, #010204 100%);
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at 50% 45%, #10141d 0%, #05070c 62%, #010204 100%);
     font-family: "Trebuchet MS", "Segoe UI", sans-serif;
     color: #dfe6f0;
   }
   #game {
-    display: block;
-    cursor: crosshair;
-    touch-action: none;
-    box-shadow: 0 24px 90px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(120, 150, 185, 0.12);
-    background: #04060b;
+    display: block; cursor: crosshair; touch-action: none;
+    box-shadow: 0 24px 90px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(120, 150, 185, 0.1);
+    background: #05070c;
   }
-  /* Read aloud, never shown: the status line a screen reader announces. */
-  #status {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 </style>
 </head>
 <body>
 <canvas id="game" width="1280" height="800"
-  aria-label="Emberwatch: aim the lighthouse beam with the mouse, burn the shadows climbing out of the sea, and keep the lamp lit for eight waves."></canvas>
-<p id="status" role="status" aria-live="polite">Emberwatch. Click to take the watch. Press C for the record.</p>
+  aria-label="Night Watch: send three agents into an opera house where an urban legend is singing. Click a place to send the nearest agent."></canvas>
+<p id="status" role="status" aria-live="polite">Night Watch. Click to take the call.</p>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
