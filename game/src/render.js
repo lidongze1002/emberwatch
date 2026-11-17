@@ -4,8 +4,39 @@
 import { PALETTE, SEATS, SPAWNS, TUNING, VIEW, WALLS, ZONES } from './config.js';
 import { L } from './text.js';
 
-const CAM = { scale: 1.1, x: 640, y: 400 };
+// The lens: a long lens on the floor, not the whole house. 1.4× puts a body at ~40 px and the
+// camera rides the squad centroid, clamped so the matte never shows past the walls.
+const CAM = { scale: 1.4, x: 640, y: 420 };
+const BOUNDS = { x0: 56, y0: 56, x1: 1224, y1: 744 };
 const KEY = { x: 840, y: 180 };
+let camClock = -1;
+
+function followSquad(game, time) {
+  const halfW = VIEW.width / 2 / CAM.scale;
+  const halfH = VIEW.height / 2 / CAM.scale;
+  let cx = CAM.x;
+  let cy = CAM.y;
+  let n = 0;
+  let sx = 0;
+  let sy = 0;
+  for (const a of game.agents) {
+    if (a.extracted || a.taken) continue;
+    sx += a.x;
+    sy += a.y;
+    n += 1;
+  }
+  if (n) {
+    cx = sx / n;
+    cy = sy / n;
+  }
+  const dt = camClock < 0 ? 0.016 : Math.min(0.08, Math.max(0, time - camClock));
+  camClock = time;
+  const k = 1 - Math.exp(-dt * 5);
+  CAM.x += (cx - CAM.x) * k;
+  CAM.y += (cy - CAM.y) * k;
+  CAM.x = Math.min(BOUNDS.x1 - halfW, Math.max(BOUNDS.x0 + halfW, CAM.x));
+  CAM.y = Math.min(BOUNDS.y1 - halfH, Math.max(BOUNDS.y0 + halfH, CAM.y));
+}
 
 // Supersampling: the world is drawn at 2× into an offscreen plate and then resampled down, so
 // every edge, rim and fold gets a real antialiased edge. The interface stays at 1× and crisp.
@@ -116,6 +147,8 @@ function castShadow(ctx, x, y, rx, ry, alpha = 0.5) {
 
 export function drawWorld(ctx, game, time) {
   ctx.clearRect(0, 0, VIEW.width, VIEW.height);
+  followSquad(game, time);
+  if (typeof window !== 'undefined' && window.__nwCam) window.__nwCam(CAM);
   ctx.save();
   ctx.translate(VIEW.width / 2, VIEW.height / 2);
   ctx.scale(CAM.scale, CAM.scale);
@@ -617,164 +650,297 @@ function drawAgents(ctx, game, time) {
     const coat = a.role === 'veteran' ? '#2f3743' : a.role === 'rookie' ? '#263d47' : '#3a3226';
     const coatLight = a.role === 'veteran' ? '#4b5566' : a.role === 'rookie' ? '#3d6070' : '#5c4e38';
     // the rim belongs to the light, not to the sprite: find the key light in local space
-    const lightAngle = Math.atan2(KEY.y - a.y, KEY.x - a.x) - (a.aim + Math.PI / 2);
+    const lightAngle = Math.atan2(KEY.y - a.y, KEY.x - a.x) - (a.facing + Math.PI / 2);
     const rimX = Math.cos(lightAngle) * 9.5;
     const rimY = Math.sin(lightAngle) * 11;
     const cloth = a.cloth || { x: 0, y: 0, sway: 0 };
+    const litX = Math.cos(lightAngle);
+    const litY = Math.sin(lightAngle);
+    const coatGrad = ctx.createLinearGradient(litX * 12, litY * 12, -litX * 14, -litY * 14);
+    coatGrad.addColorStop(0, coatLight);
+    coatGrad.addColorStop(0.5, coat);
+    coatGrad.addColorStop(1, '#0d1016');
 
-    // the coat hem, trailing behind the walk and fuller on the far side from the light
+    // legs, seen from above: two thin shins under the hem, boots at the ends. One foot is
+    // forward, the other back — never two legs in parallel, which is a front view.
+    const gait = Math.sin(a.step);
+    const moving = Math.hypot(a.vx, a.vy) > 10;
+    const stride = moving ? 5.8 : 0;
+    const boot = [
+      { x: -5.2, y: 10.4 - gait * stride, a: -0.06 },
+      { x: 5.2, y: 10.4 + gait * stride, a: 0.06 },
+    ];
+    for (const b of boot) {
+      ctx.strokeStyle = '#171c23';
+      ctx.lineWidth = 4.4;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(b.x * 0.9, 6.4);
+      ctx.lineTo(b.x, b.y - 3);
+      ctx.stroke();
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.rotate(b.a);
+      // the boot from above: a leather shell, a toe, a heel
+      ctx.fillStyle = '#0a0d12';
+      ctx.beginPath();
+      ctx.roundRect(-2.9, -4.6, 5.8, 9.4, 2.7);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(150, 168, 190, 0.16)';
+      ctx.beginPath();
+      ctx.roundRect(-2.2, -4, 4.4, 4.2, 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.beginPath();
+      ctx.roundRect(-2.4, 2.6, 4.8, 1.8, 0.9);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // the coat hem, trailing behind the walk: a short bell, not a pillow
     ctx.save();
-    ctx.translate(cloth.x, cloth.y + 3);
-    ctx.fillStyle = 'rgba(10, 13, 18, 0.85)';
+    ctx.translate(cloth.x * 0.5, cloth.y * 0.5);
+    ctx.fillStyle = '#0c0f14';
     ctx.beginPath();
-    ctx.ellipse(cloth.sway, 4, 17, 15, 0, 0, Math.PI * 2);
+    ctx.moveTo(-9.4, 2);
+    ctx.quadraticCurveTo(-11.4, 8, -8.4, 11.4);
+    ctx.quadraticCurveTo(0, 13.6, 8.4, 11.4);
+    ctx.quadraticCurveTo(11.4, 8, 9.4, 2);
+    ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = coat;
+    ctx.fillStyle = coatGrad;
     ctx.beginPath();
-    ctx.ellipse(cloth.sway * 0.8, 1, 15.5, 14, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
-    ctx.beginPath();
-    ctx.ellipse(cloth.sway * 0.8, 6, 14, 9, 0, 0, Math.PI * 2);
+    ctx.moveTo(-8.8, 0);
+    ctx.quadraticCurveTo(-10.6, 7.4, -7.8, 10.2);
+    ctx.quadraticCurveTo(0, 12, 7.8, 10.2);
+    ctx.quadraticCurveTo(10.6, 7.4, 8.8, 0);
+    ctx.closePath();
     ctx.fill();
     ctx.restore();
 
-    // from above the legs are mostly under the coat: what you see is a boot, forward or back
-    if (Math.hypot(a.vx, a.vy) > 10) {
-      ctx.fillStyle = '#0f1319';
-      ctx.beginPath();
-      ctx.ellipse(-6, -19 + swing * 1.1, 3.8, 5.2, 0.08, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(6, -19 - swing * 1.1, 3.8, 5.2, -0.08, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // coat: shoulders, a collar, a warm rim from the stage side
-    ctx.fillStyle = coat;
+    // shoulders and back: 22 px across at the shoulder line, tapering to the hips
+    ctx.fillStyle = coatGrad;
     ctx.beginPath();
-    ctx.ellipse(0, -2, 19, 15, 0, 0, Math.PI * 2);
+    ctx.moveTo(-10.4, -3.2);
+    ctx.quadraticCurveTo(-12.2, 0.8, -9.4, 3.4);
+    ctx.quadraticCurveTo(-8.4, 9, -7.6, 10.6);
+    ctx.quadraticCurveTo(0, 12.2, 7.6, 10.6);
+    ctx.quadraticCurveTo(8.4, 9, 9.4, 3.4);
+    ctx.quadraticCurveTo(12.2, 0.8, 10.4, -3.2);
+    ctx.quadraticCurveTo(0, -6.8, -10.4, -3.2);
+    ctx.closePath();
     ctx.fill();
-    // the coat narrows to the waist under the shoulders
-    ctx.beginPath();
-    ctx.ellipse(0, 8, 13, 10, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // shoulder pads: two domes, the light side brighter
     ctx.fillStyle = coatLight;
     ctx.beginPath();
-    ctx.ellipse(0, -11, 12.5, 5.5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // shoulder pads: two arcs, the light side brighter
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-    ctx.beginPath();
-    ctx.ellipse(-9, -8, 5, 4, -0.3, 0, Math.PI * 2);
+    ctx.ellipse(-7.4, -1.4, 4.6, 4.9, -0.22, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(9, -8, 5, 4, 0.3, 0, Math.PI * 2);
+    ctx.ellipse(7.4, -1.4, 4.6, 4.9, 0.22, 0, Math.PI * 2);
     ctx.fill();
-    // collar and a strap across the chest
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(0, -3, 7, Math.PI * 0.15, Math.PI * 0.85);
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(20, 24, 30, 0.6)';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(-7, -8);
-    ctx.lineTo(6, 2);
-    ctx.stroke();
-    ctx.fillStyle = 'rgba(255, 214, 160, 0.2)';
-    ctx.beginPath();
-    ctx.ellipse(rimX, rimY, 4.6, 3.4, lightAngle, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(18, 22, 28, 0.55)';
-    ctx.fillRect(-10, -9, 20, 3);
-
-    // the upper body twists toward the target; the weapon has two carries
-    ctx.save();
-    ctx.rotate(shortAngle(a.aim - a.facing));
-    ctx.save();
-    if (a.pose === 'carry') {
-      ctx.translate(0, 6);
-      ctx.rotate(0.55);
-    } else {
-      ctx.translate(0, a.recoil * 3);
-    }
-    ctx.strokeStyle = coatLight;
-    ctx.lineWidth = 6.5;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(-12, -7);
-    ctx.lineTo(-4.5, -21);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(12, -7);
-    ctx.lineTo(4.5, -21);
-    ctx.stroke();
-    // hands
-    ctx.fillStyle = '#b98f74';
-    ctx.beginPath();
-    ctx.arc(-4.5, -22, 2.6, 0, Math.PI * 2);
-    ctx.arc(4.5, -22, 2.6, 0, Math.PI * 2);
-    ctx.fill();
-
-    // the rifle: stock, receiver, magazine, optic, barrel, and the glint along the top face
-    ctx.fillStyle = '#0b0f14';
-    ctx.fillRect(-2.8, -18, 5.6, 9);
-    ctx.fillRect(-1.6, -40, 3.2, 23);
-    ctx.save();
-    ctx.translate(-3.4, -24);
-    ctx.rotate(0.35);
-    ctx.fillRect(0, 0, 3.2, 7);
-    ctx.restore();
-    ctx.fillStyle = '#161c24';
-    ctx.fillRect(-2.2, -32, 4.4, 5);
-    ctx.fillStyle = 'rgba(140, 220, 220, 0.55)';
-    ctx.fillRect(-1.2, -31.2, 2.4, 1.6);
-    ctx.fillStyle = '#0b0f14';
-    ctx.fillRect(-2, -42, 4, 3);
-    ctx.fillStyle = 'rgba(190, 205, 225, 0.45)';
-    ctx.fillRect(-0.5, -40, 1, 10);
-    ctx.strokeStyle = 'rgba(30, 34, 42, 0.8)';
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(-9, -6);
-    ctx.quadraticCurveTo(-4, -26, 2, -34);
-    ctx.stroke();
-    ctx.restore();
-
-    // head: the crown of the head, hair over it, a sliver of forehead at the front
-    ctx.fillStyle = '#c69a7d';
-    ctx.beginPath();
-    ctx.arc(0, -4, 6.2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = a.role === 'lamp' ? '#191d24' : a.role === 'rookie' ? '#221b18' : '#33363a';
-    ctx.beginPath();
-    ctx.arc(0, -4, 6.2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#b98f74';
-    ctx.beginPath();
-    ctx.ellipse(0, -8.6, 3.2, 1.7, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // the veteran wears a cap: a dark disc with a brim toward the light
-    if (a.role === 'veteran') {
-      ctx.fillStyle = '#12161c';
-      ctx.beginPath();
-      ctx.arc(0, -4, 6.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#1b2028';
-      ctx.beginPath();
-      ctx.roundRect(-5, -11.5, 10, 3, 1.4);
-      ctx.fill();
-    }
-    // a few strands, so the crown is not a flat disc
-    ctx.strokeStyle = 'rgba(255, 235, 210, 0.12)';
+    // the seam down the spine
+    ctx.strokeStyle = 'rgba(8, 10, 14, 0.45)';
     ctx.lineWidth = 1;
-    for (let i = 0; i < 3; i += 1) {
+    ctx.beginPath();
+    ctx.moveTo(0, 1.5);
+    ctx.lineTo(0, 10);
+    ctx.stroke();
+    // collar and a strap across the chest
+    ctx.fillStyle = 'rgba(10, 13, 18, 0.6)';
+    ctx.beginPath();
+    ctx.ellipse(0, -4.4, 5.4, 2.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(20, 24, 30, 0.5)';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(-7.2, -4);
+    ctx.lineTo(6.4, 1.6);
+    ctx.stroke();
+    // a warm rim from the stage side, at the edge of the shoulder
+    ctx.fillStyle = 'rgba(255, 214, 160, 0.14)';
+    ctx.beginPath();
+    ctx.ellipse(rimX * 0.72, rimY * 0.62 - 1.5, 4.6, 3, lightAngle, 0, Math.PI * 2);
+    ctx.fill();
+
+    // the upper body turns toward the target, but only so far: hips face the walk, chest and
+    // weapon face the work. The arms are two joints, not one noodle.
+    ctx.save();
+    ctx.rotate(Math.max(-0.6, Math.min(0.6, shortAngle(a.aim - a.facing) * 0.8)));
+    const carry = a.pose === 'carry' ? -0.42 : 0;
+    const recoil = a.pose === 'carry' ? 0 : a.recoil * 2.4;
+    const ca = Math.cos(carry);
+    const sa = Math.sin(carry);
+    // a point on the weapon, mapped back into the body's frame so the hands sit on it
+    const wp = (x, y) => ({
+      x: x * ca - (y - 4 - recoil) * sa,
+      y: 4 + recoil + x * sa + (y - 4 - recoil) * ca,
+    });
+    const grip = wp(3.2, -9.6);
+    const support = wp(2.4, -18.4);
+    const shoulderR = { x: 8.4, y: -1.6 };
+    const shoulderL = { x: -8.2, y: -1.2 };
+    const elbowR = { x: 11.6, y: -3.4 };
+    const elbowL = { x: -6.4, y: -8.8 };
+
+    const sleeve = (from, to, width) => {
+      ctx.strokeStyle = coatLight;
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(-4 + i * 4, -8);
-      ctx.lineTo(-6 + i * 4, -1);
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
       ctx.stroke();
+      // the underside of the sleeve falls away from the stage light
+      ctx.strokeStyle = 'rgba(7, 10, 14, 0.4)';
+      ctx.lineWidth = width * 0.42;
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y + width * 0.3);
+      ctx.lineTo(to.x, to.y + width * 0.3);
+      ctx.stroke();
+    };
+    sleeve(shoulderR, elbowR, 5.8);
+    sleeve(elbowR, grip, 4.2);
+    sleeve(shoulderL, elbowL, 5.8);
+    sleeve(elbowL, support, 4.2);
+    // hands: leather gloves, working in the dark
+    for (const h of [grip, support]) {
+      ctx.fillStyle = '#6f5746';
+      ctx.beginPath();
+      ctx.arc(h.x, h.y, 2.7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255, 228, 192, 0.24)';
+      ctx.beginPath();
+      ctx.arc(h.x + 0.5, h.y - 0.7, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // the rifle: butt at the shoulder, 26 px to the muzzle, all top faces
+    ctx.save();
+    ctx.translate(0, 4 + recoil);
+    ctx.rotate(carry);
+    ctx.translate(0, -4);
+    const gunX = 3.2;
+    // butt stock
+    ctx.fillStyle = '#241c15';
+    ctx.beginPath();
+    ctx.roundRect(gunX - 1.9, -3.4, 3.8, 4.6, 1.2);
+    ctx.fill();
+    // receiver
+    ctx.fillStyle = '#121720';
+    ctx.beginPath();
+    ctx.roundRect(gunX - 2.2, -12.8, 4.4, 9.8, 1);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(196, 212, 234, 0.2)';
+    ctx.fillRect(gunX - 1.7, -12.2, 0.9, 8.4);
+    // magazine, angled out of the receiver
+    ctx.save();
+    ctx.translate(gunX - 1.4, -11.2);
+    ctx.rotate(0.4);
+    ctx.fillStyle = '#0e131a';
+    ctx.beginPath();
+    ctx.roundRect(-1.4, 0, 2.8, 6.2, 0.8);
+    ctx.fill();
+    ctx.restore();
+    // optic on the flat top, with a cold lens
+    ctx.fillStyle = '#1a2129';
+    ctx.beginPath();
+    ctx.roundRect(gunX - 1.2, -14.6, 2.4, 4.4, 0.8);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(150, 220, 224, 0.5)';
+    ctx.fillRect(gunX - 0.8, -14.2, 1.6, 1.2);
+    // barrel and muzzle
+    ctx.fillStyle = '#0d1218';
+    ctx.beginPath();
+    ctx.roundRect(gunX - 1, -24.4, 2, 11.8, 0.7);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.roundRect(gunX - 1.3, -25.6, 2.6, 2.2, 0.6);
+    ctx.fill();
+    // one glint along the top of the barrel: the only specular on the weapon
+    ctx.fillStyle = 'rgba(206, 220, 238, 0.42)';
+    ctx.fillRect(gunX - 0.4, -23.6, 0.7, 9.4);
+    // sling, sagging under the receiver
+    ctx.strokeStyle = 'rgba(24, 28, 34, 0.9)';
+    ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    ctx.moveTo(gunX - 0.6, -4.6);
+    ctx.quadraticCurveTo(gunX - 5.4, -10.6, gunX - 0.4, -17.4);
+    ctx.stroke();
+    ctx.restore();
+
+    // head: a skull under hair, 11 px across and a touch longer than wide. From straight above
+    // there is no face — only the crown, a hairline at the front, and the light on one side.
+    const hair = a.role === 'veteran' ? '#2f2922' : a.role === 'rookie' ? '#2c251d' : '#272319';
+    // collar shadow: it sits on the body, it does not float
+    ctx.fillStyle = 'rgba(6, 8, 12, 0.32)';
+    ctx.beginPath();
+    ctx.ellipse(1.2, -1.4, 6.2, 4.6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    const crownGrad = ctx.createRadialGradient(rimX * 0.46 - 0.8, rimY * 0.4 - 4.4, 0.8, 0, -3.4, 6.2);
+    crownGrad.addColorStop(0, 'rgba(255, 238, 208, 0.38)');
+    crownGrad.addColorStop(0.42, 'rgba(255, 238, 208, 0.02)');
+    crownGrad.addColorStop(1, 'rgba(0, 0, 0, 0.42)');
+    ctx.fillStyle = hair;
+    ctx.beginPath();
+    ctx.ellipse(0, -3.4, 5.2, 5.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = crownGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, -3.4, 5.2, 5.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // hairline: the crown stops a little short of the brow
+    ctx.strokeStyle = 'rgba(12, 10, 8, 0.45)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(0, -3.9, 4.1, 4.3, 0, Math.PI * 0.18, Math.PI * 0.82);
+    ctx.stroke();
+
+    if (a.role === 'veteran') {
+      // a peaked cap: the crown, the band, then the visor toward the front
+      ctx.fillStyle = '#191e25';
+      ctx.beginPath();
+      ctx.ellipse(0, -3.4, 5.5, 5.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = crownGrad;
+      ctx.beginPath();
+      ctx.ellipse(0, -3.4, 5.5, 5.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#20262e';
+      ctx.beginPath();
+      ctx.roundRect(-5.1, -8.9, 10.2, 2.9, 1.4);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255, 232, 200, 0.18)';
+      ctx.fillRect(-4.3, -8.5, 8.6, 0.8);
+    } else if (a.role === 'rookie') {
+      // a knit cap: a soft crown and a rolled band at the back
+      ctx.fillStyle = '#28343c';
+      ctx.beginPath();
+      ctx.ellipse(0, -3.5, 5.3, 5.3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = crownGrad;
+      ctx.beginPath();
+      ctx.ellipse(0, -3.5, 5.3, 5.3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(12, 18, 22, 0.7)';
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.arc(0, -3.5, 4.4, Math.PI * 0.1, Math.PI * 0.9);
+      ctx.stroke();
+    } else {
+      // a hood, wet with the cold: cloth around the skull
+      ctx.fillStyle = '#1e221b';
+      ctx.beginPath();
+      ctx.ellipse(0, -3.4, 5.2, 5.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(104, 112, 94, 0.8)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(0, -3.4, 5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = crownGrad;
+      ctx.beginPath();
+      ctx.ellipse(0, -3.6, 4.2, 4.2, 0, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.restore();
     ctx.restore();

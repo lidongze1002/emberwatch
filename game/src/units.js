@@ -172,15 +172,15 @@ function fire(game, a, target) {
   const spread = (Math.random() - 0.5) * a.spread * 2;
   const angle = a.aim + spread;
   game.bullets.push({
-    x: a.x + Math.cos(angle) * 16,
-    y: a.y + Math.sin(angle) * 16,
+    x: a.x + Math.cos(angle) * 26,
+    y: a.y + Math.sin(angle) * 26,
     vx: Math.cos(angle) * TUNING.bulletSpeed,
     vy: Math.sin(angle) * TUNING.bulletSpeed,
     life: 0.9,
     damage: a.damage,
     team: 'agent',
   });
-  game.muzzle.push({ x: a.x + Math.cos(angle) * 18, y: a.y + Math.sin(angle) * 18, life: 0.06 });
+  game.muzzle.push({ x: a.x + Math.cos(angle) * 28, y: a.y + Math.sin(angle) * 28, life: 0.06 });
   game.sound.shot(a.role, a.x, a.y);
 }
 
