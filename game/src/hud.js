@@ -80,7 +80,7 @@ function fileRow(ctx, agent, x, y, w) {
   photo(ctx, agent, x, y, 30, 38);
   label(ctx, agent.id.replace('a', '0'), x + 40, y + 11, 8, INK_FAINT, 1);
   label(ctx, meta.name, x + 66, y + 12, 13, down ? INK_SOFT : INK, 1.5, 'left', fonts.display);
-  label(ctx, meta.line, x + 40, y + 24, 8.5, INK_FAINT, 0);
+  label(ctx, meta.line, x + 40, y + 24, 8.5, INK_SOFT, 0);
   condition(ctx, agent, x + 40, y + 30, 92);
   label(ctx, `${Math.max(0, Math.ceil(agent.hp))}`, x + 138, y + 33, 8, INK_SOFT, 0.5);
   const stateText = agent.taken ? L.state.charmed : down ? L.state.down : L.state[agent.state] || '';
@@ -107,7 +107,6 @@ export function drawHud(ctx, game, time) {
   // ---- the file header -------------------------------------------------
   label(ctx, L.title.eyebrow, left, 72, 8, INK_FAINT, 3.2);
   label(ctx, `${L.brief.caseNo}`, left, 92, 15, INK, 1.6, 'left', fonts.display);
-  const caseNoW = ctx.measureText(`${L.brief.caseNo}`).width;
   label(ctx, L.brief.place, left + 96, 92, 9, INK_SOFT, 1.6);
   label(ctx, `${timecode(game.clock)}   ·   ${L.hud.team} ${game.agents.filter((a) => !a.taken && !a.extracted).length}/3`, left, 108, 8, INK_FAINT, 1.8);
   rule(ctx, left, 116, left + 320, 116, AMBER_FAINT);

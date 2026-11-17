@@ -781,8 +781,6 @@ function drawAgents(ctx, game, time) {
     const coatLight = a.role === 'veteran' ? '#4b5566' : a.role === 'rookie' ? '#3d6070' : '#5c4e38';
     // the rim belongs to the light, not to the sprite: find the key light in local space
     const lightAngle = Math.atan2(KEY.y - a.y, KEY.x - a.x) - (a.facing + Math.PI / 2);
-    const rimX = Math.cos(lightAngle) * 9.5;
-    const rimY = Math.sin(lightAngle) * 11;
     const cloth = a.cloth || { x: 0, y: 0, sway: 0 };
     const litX = Math.cos(lightAngle);
     const litY = Math.sin(lightAngle);
@@ -1070,7 +1068,7 @@ function drawAgents(ctx, game, time) {
     ctx.translate(0, -1.2);
     ctx.rotate(headTurn);
     ctx.translate(0, 1.2);
-    const hair = a.role === 'veteran' ? '#2f2922' : a.role === 'rookie' ? '#2c251d' : '#272319';
+    const hair = a.role === 'veteran' ? '#37302a' : a.role === 'rookie' ? '#332c24' : '#2e291f';
     // the head rests on the collar and drops its own small shadow away from the light.
     // Flat crown + a hairline of rim on the lit edge reads better than a shaded ball at 11 px.
     ctx.fillStyle = 'rgba(6, 8, 12, 0.2)';
@@ -1105,7 +1103,7 @@ function drawAgents(ctx, game, time) {
       ctx.fillRect(-4.3, -8.5, 8.6, 0.8);
     } else if (a.role === 'rookie') {
       // a knit cap: a soft crown and a rolled band at the back
-      ctx.fillStyle = '#28343c';
+      ctx.fillStyle = '#33444f';
       ctx.beginPath();
       ctx.ellipse(0, -3.5, 5.3, 5.3, 0, 0, Math.PI * 2);
       ctx.fill();
