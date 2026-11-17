@@ -64,6 +64,9 @@ export function spawnBoss(game) {
       feed: 0,
       path: null,
       pathAt: 0,
+      appear: 0,
+      withdraw: 0,
+      remember: null,
     });
     game.thralls.push(t);
     game.shake = 6;
@@ -525,6 +528,14 @@ function updateAgentInner(game, a, dt) {
     }
   }
 
+  // idle / hold: pick up a downed mate before anything else
+  const mate = nearestDowned(game, a);
+  if (mate && a.order.kind === 'hold') {
+    a.order = { kind: 'revive', mate };
+    a.state = 'moving';
+    return;
+  }
+
   // idle / hold: defend, look for someone to pick up, or fall back when hurt
   let target = null;
   if (a.order.kind === 'focus' && a.order.target && !a.order.target.dead) {
@@ -564,17 +575,9 @@ function updateAgentInner(game, a, dt) {
     return;
   }
 
-  const mate = nearestDowned(game, a);
-  if (mate) {
-    a.order = { kind: 'revive', mate };
-    a.state = 'moving';
-    return;
-  }
-
   a.state = 'idle';
   a.path = null;
 }
-
 // 移开目光：不是「不吃伤害」，是不再让枪口对着那个方向
 function updateAgent(game, a, dt) {
   if (a.down || a.extracted || a.taken) return;
@@ -629,12 +632,38 @@ function hurtAgent(game, target, damage, t) {
     target.revive = 0;
     target.charmed = false;
     game.log(`${target.role} is down.`);
-    if (t) t.feed = HACHI.feed;
+    if (t) {
+      t.feed = HACHI.feed;
+      if (t.kind === 'hachi') t.withdraw = 10;
+    }
   }
 }
 
 function updateHachi(game, t, dt) {
+  t.appear = Math.max(0, (t.appear || 0) - dt);
   if (t.dormant) return;
+  // 抓到一个就退开：她不是要打一场，是要让队伍知道她来过。退开也给了救人的时间。
+  if (t.withdraw > 0) {
+    t.withdraw = Math.max(0, t.withdraw - dt);
+    t.hitFlash = Math.max(0, t.hitFlash - dt * 3);
+    let cx = 0;
+    let cy = 0;
+    let n = 0;
+    for (const a of game.agents) {
+      if (a.down || a.taken || a.extracted) continue;
+      cx += a.x;
+      cy += a.y;
+      n += 1;
+    }
+    if (n) {
+      cx /= n;
+      cy /= n;
+      const ang = Math.atan2(t.y - cy, t.x - cx);
+      stepPath(game, t, t.x + Math.cos(ang) * 260, t.y + Math.sin(ang) * 260, dt, Math.max(38, t.speed * 0.7));
+      t.aim = ang;
+    }
+    return;
+  }
   if (t.stun > 0) {
     t.stun = Math.max(0, t.stun - dt);
     return;

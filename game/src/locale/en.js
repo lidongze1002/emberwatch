@@ -139,6 +139,8 @@ export const en = {
     answered: (n) => `${n} WENT TO THE DOOR`,
     grabbed: 'THEY ANSWERED',
     refused: 'NOBODY ANSWERS',
+    cutOff: 'SHE IS ALREADY AT THE NEXT DOOR',
+    remembers: (n) => `SHE REMEMBERS DOOR ${n}`,
     // 第三案
     stampGate: 'TIMETABLE',
     gates: { west: 'WEST', east: 'EAST', south: 'SOUTH' },

@@ -30,6 +30,8 @@ export function initRules(game) {
     r.dismissed = 0;
     r.wp = 0;
     r.wpAt = 0;
+    r.manifestCd = 7;
+    r.knocks = 0;
     spawnBoss(game);
   }
   if (c.rule.kind === 'timetable') {
@@ -96,6 +98,7 @@ export function updateRules(game, dt) {
 
   if (c.rule.kind === 'knock') {
     if (r.dismissCd > 0) r.dismissCd = Math.max(0, r.dismissCd - dt);
+    if (r.manifestCd > 0) r.manifestCd = Math.max(0, r.manifestCd - dt);
     const dawn = game.clock >= r.dawn;
     if (dawn && !r.dawned) {
       r.dawned = true;
@@ -104,6 +107,7 @@ export function updateRules(game, dt) {
       game.say(L.hud.dawnBreak);
       for (const t of game.thralls) if (t.kind === 'hachi') t.dormant = true;
     }
+    if (!dawn) maybeManifest(game);
     if (!dawn && !r.knock && game.clock >= r.nextKnock) {
       startKnock(game);
     }
@@ -255,25 +259,103 @@ export function updateRules(game, dt) {
 
 // ---- 第二案：应门 ---------------------------------------------------------
 
+// 她从不「跑」过来。她只在你没看的时候，从下一扇门里出来，站在你要走的那条路上。
+function maybeManifest(game) {
+  const r = game.rule;
+  const c = game.case;
+  if (r.manifestCd > 0) return;
+  const hachi = game.thralls.find((t) => t.kind === 'hachi' && !t.dead);
+  if (!hachi || hachi.dormant || hachi.feed > 0 || hachi.stun > 0) return;
+  const alive = game.agents.filter((a) => !a.down && !a.taken && !a.extracted);
+  if (alive.length < 2) return;
+  // 天快亮了，她就不出去拦了：这一夜的最后一段留给楼梯
+  if (game.clock > r.dawn - 16) return;
+  if (r.knock) return;
+  // 有人在看她，她就不动
+  for (const a of alive) if (lineClear(a.x, a.y, hachi.x, hachi.y, 4)) return;
+  let cx = 0;
+  let cy = 0;
+  for (const a of alive) {
+    cx += a.x;
+    cy += a.y;
+  }
+  cx /= alive.length;
+  cy /= alive.length;
+  // 队伍正在往哪走：下一个环上的点
+  const wp = c.rule.loop[(r.wp || 0) % c.rule.loop.length];
+  const hx = wp.x - cx;
+  const hy = wp.y - cy;
+  const hl = Math.hypot(hx, hy) || 1;
+  const spots = [];
+  for (const cut of c.rule.cuts) spots.push(cut);
+  for (const d of c.doors) spots.push(doorStand(d));
+  let best = null;
+  let bestScore = -Infinity;
+  for (const s of spots) {
+    const d = Math.hypot(s.x - cx, s.y - cy);
+    if (d < 200 || d > 430) continue;
+    if (solid(s.x, s.y, 20)) continue;
+    // 不站在楼梯口：那不是拦路，是把门堵死
+    if (Math.hypot(s.x - 158, s.y - 669) < 220) continue;
+    let seen = false;
+    for (const a of alive) if (lineClear(a.x, a.y, s.x, s.y, 4)) seen = true;
+    if (seen) continue;
+    // 在队伍前面（顺着下一个路点）+ 落在走廊收窄处更好
+    const ahead = ((s.x - cx) * hx + (s.y - cy) * hy) / (d * hl);
+    const cut = c.rule.cuts.some((p) => Math.hypot(p.x - s.x, p.y - s.y) < 40);
+    const score = ahead * 60 + (cut ? 40 : 0) - Math.abs(d - 300) * 0.08;
+    if (score > bestScore) {
+      bestScore = score;
+      best = s;
+    }
+  }
+  if (!best || bestScore < 10) return;
+  hachi.x = best.x;
+  hachi.y = best.y;
+  hachi.path = null;
+  hachi.appear = 0.9;
+  hachi.aim = Math.atan2(cy - best.y, cx - best.x);
+  r.manifestCd = c.rule.manifest;
+  game.sound.knock();
+  game.say(L.hud.cutOff);
+  game.log('she is already at the next door.');
+}
+
 function startKnock(game) {
   const r = game.rule;
   const doors = game.case.doors;
+  const hachi = game.thralls.find((t) => t.kind === 'hachi' && !t.dead);
   let best = 0;
   let bestScore = Infinity;
   const alive = game.agents.filter((a) => !a.down && !a.taken && !a.extracted);
   if (!alive.length) return;
-  for (let i = 0; i < doors.length; i += 1) {
-    const d = doors[i];
-    let near = Infinity;
-    for (const a of alive) near = Math.min(near, Math.hypot(a.x - d.x, a.y - d.y));
-    // 不敲就在脚边的门，也不敲太远的门
-    const score = near < 120 ? near + 900 : Math.abs(near - 260);
-    if (score < bestScore) {
-      bestScore = score;
-      best = i;
+  // 她记住了应门的那一扇：每隔一次，还去敲那一扇。
+  const remembered = hachi && hachi.remember !== undefined ? hachi.remember : null;
+  if (remembered !== null && r.knocks % 2 === 1) {
+    best = remembered;
+  } else {
+    for (let i = 0; i < doors.length; i += 1) {
+      const d = doors[i];
+      let near = Infinity;
+      for (const a of alive) near = Math.min(near, Math.hypot(a.x - d.x, a.y - d.y));
+      // 不敲就在脚边的门，也不敲太远的门
+      const score = near < 120 ? near + 900 : Math.abs(near - 260);
+      if (score < bestScore) {
+        bestScore = score;
+        best = i;
+      }
     }
   }
+  r.knocks += 1;
   r.knock = { door: best, warn: r.warn, live: r.warn + 4.2, answered: 0 };
+  // 敲的是「她记住的那扇」时，她也站在门后，等有人来应。
+  if (hachi && remembered === best && !hachi.dormant) {
+    const stand = doorStand(doors[best]);
+    hachi.x = stand.x;
+    hachi.y = stand.y;
+    hachi.path = null;
+    hachi.appear = 0.7;
+  }
   game.sound.knock();
   game.say(L.hud.knock);
   game.log('a door is being knocked on.');
@@ -320,6 +402,7 @@ function updateKnock(game, dt) {
         hachi.y = stand.y;
         hachi.path = null;
         hachi.feed = 0.4;
+        hachi.remember = k.door;
         // 每一次应门，她都被叫得更近一点：这不是数值，是规则的代价
         hachi.grabs = (hachi.grabs || 0) + 1;
         hachi.speed = Math.min(72, HACHI.speed + hachi.grabs * 6);
@@ -694,6 +777,10 @@ export function readout(game) {
   }
   if (c.rule.kind === 'knock') {
     if (r.knock) return { stamp: L.hud.stampKnock, line: L.hud.knockAt(r.knock.door + 1), live: true };
+    const hachi = game.thralls.find((t) => t.kind === 'hachi');
+    if (hachi && hachi.remember !== null && hachi.remember !== undefined) {
+      return { stamp: L.hud.stampNight, line: L.hud.remembers(hachi.remember + 1), live: true };
+    }
     return { stamp: L.hud.stampNight, line: L.hud.dawnIn(Math.max(0, Math.ceil(r.dawn - game.clock))), live: false };
   }
   if (c.rule.kind === 'timetable') {
@@ -796,6 +883,16 @@ export function directRules(game) {
           a.order = { kind: 'focus', target: best };
           a.path = null;
         }
+      }
+      return;
+    }
+    // 地上还有人：先救，再撤。没人会把他留在礼堂里。
+    const downed = game.agents.find((a) => a.down && !a.taken && !a.extracted);
+    if (downed) {
+      for (const a of game.free()) {
+        if (a.order.kind === 'revive') continue;
+        a.order = { kind: 'revive', mate: downed };
+        a.path = null;
       }
       return;
     }

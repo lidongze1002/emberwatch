@@ -1665,8 +1665,19 @@ function drawSpider(ctx, t, time) {
 // 以及比人宽一圈的裙摆。正面没有脸，只有头发。
 function drawHachi(ctx, t, time) {
   ctx.save();
-  ctx.globalAlpha = t.dormant ? 0.32 : 1;
+  const appear = t.appear || 0;
+  ctx.globalAlpha = t.dormant ? 0.32 : appear > 0 ? Math.max(0.15, 1 - appear / 0.9) : 1;
   ctx.translate(t.x, t.y);
+  if (appear > 0) {
+    // 从门后出来的一瞬：脚下一圈更深的黑，像门缝里漏出来的
+    const door = ctx.createRadialGradient(0, 0, 4, 0, 0, 52);
+    door.addColorStop(0, `rgba(4, 5, 8, ${0.55 * (appear / 0.9)})`);
+    door.addColorStop(1, 'rgba(4, 5, 8, 0)');
+    ctx.fillStyle = door;
+    ctx.beginPath();
+    ctx.ellipse(0, 6, 46, 26, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
   const sh = ctx.createRadialGradient(10, 22, 4, 10, 22, 58);
   sh.addColorStop(0, 'rgba(0, 0, 0, 0.62)');
   sh.addColorStop(0.6, 'rgba(0, 0, 0, 0.28)');

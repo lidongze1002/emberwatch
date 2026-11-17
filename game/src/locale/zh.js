@@ -136,6 +136,8 @@ export const zh = {
     answered: (n) => `${n} 个人走向了那扇门`,
     grabbed: '他们应了门',
     refused: '没人应门',
+    cutOff: '她已经站在前面的门口',
+    remembers: (n) => `她记住了 ${n} 号门`,
     stampGate: '时刻表',
     gates: { west: '西', east: '东', south: '南' },
     nextGate: (g, s) => `${g} 门 · 还有 ${s} 秒`,
