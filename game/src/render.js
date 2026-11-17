@@ -1114,6 +1114,43 @@ function drawStage(ctx, game, time) {
     ctx.fill();
   }
 
+  // 台口地板下的暗门：她是从这里被唱醒的。电闸拉下之后，板缝里那一线光会亮一点。
+  const trap = game.case.spawns.stageMark;
+  if (trap) {
+    const tw = 104;
+    const th = 68;
+    ctx.fillStyle = 'rgba(8, 6, 5, 0.32)';
+    ctx.fillRect(trap.x - tw / 2, trap.y - th / 2, tw, th);
+    ctx.strokeStyle = 'rgba(201, 162, 90, 0.12)';
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(trap.x - tw / 2 + 0.5, trap.y - th / 2 + 0.5, tw - 1, th - 1);
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.32)';
+    ctx.lineWidth = 1;
+    for (let i = -tw / 2 + 18; i < tw / 2; i += 17) {
+      ctx.beginPath();
+      ctx.moveTo(trap.x + i, trap.y - th / 2 + 3);
+      ctx.lineTo(trap.x + i, trap.y + th / 2 - 3);
+      ctx.stroke();
+    }
+    // 合页
+    ctx.fillStyle = 'rgba(160, 132, 88, 0.36)';
+    ctx.fillRect(trap.x - tw / 2 + 4, trap.y - th / 2 + 6, 10, 3);
+    ctx.fillRect(trap.x - tw / 2 + 4, trap.y + th / 2 - 9, 10, 3);
+    // 缝里的光
+    const under = game.power ? 0.07 : 0.2;
+    ctx.fillStyle = `rgba(255, 196, 132, ${under})`;
+    ctx.fillRect(trap.x - tw / 2 + 6, trap.y + th / 2 - 2, tw - 12, 1.8);
+    // 拉绳：两条挂在台侧的麻绳
+    ctx.strokeStyle = 'rgba(186, 168, 128, 0.2)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(trap.x + tw / 2 + 12, trap.y - 26);
+    ctx.quadraticCurveTo(trap.x + tw / 2 + 20, trap.y, trap.x + tw / 2 + 14, trap.y + 22);
+    ctx.moveTo(trap.x + tw / 2 + 20, trap.y - 24);
+    ctx.quadraticCurveTo(trap.x + tw / 2 + 27, trap.y + 2, trap.x + tw / 2 + 21, trap.y + 20);
+    ctx.stroke();
+  }
+
   // the aria: a slow wash over the boards while the power is on
   if (game.power) {
     const pulse = 0.5 + Math.sin(time * 1.3) * 0.14;
