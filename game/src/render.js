@@ -18,6 +18,14 @@ export function screenToWorld(sx, sy) {
   };
 }
 
+// The other way round, for markers that live in screen space (a knock at the edge of the frame).
+export function worldToScreen(wx, wy) {
+  return {
+    x: (wx - CAM.x) * CAM.scale + VIEW.width / 2,
+    y: (wy - CAM.y) * CAM.scale + VIEW.height / 2,
+  };
+}
+
 function followSquad(game, time) {
   const base = game.case.cam.scale;
   BOUNDS = game.case.bounds;

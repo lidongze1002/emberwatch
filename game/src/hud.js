@@ -4,6 +4,7 @@
 import { VIEW } from './config.js';
 import { L, fonts } from './text.js';
 import { objectives, readout } from './rules.js';
+import { worldToScreen } from './render.js';
 
 const INK = 'rgba(233, 227, 214, 0.92)';
 const INK_SOFT = 'rgba(206, 200, 186, 0.62)';
@@ -166,6 +167,36 @@ export function drawHud(ctx, game, time) {
     label(ctx, timecode(entry.t), logX, y, 7, INK_FAINT, 0.4);
     label(ctx, clampText(ctx, game.logText(entry), 250, `7.5px ${fonts.ui}`), logX + 48, y, 7.5, 'rgba(200, 194, 180, 0.6)', 0.2, 'left', fonts.ui);
   });
+
+  // ---- a knock off frame: an arrow at the edge of the play area, with the door number ----
+  if (game.rule && game.rule.knock && game.case.doors) {
+    const d = game.case.doors[game.rule.knock.door];
+    if (d) {
+      const s = worldToScreen(d.x, d.y);
+      const padX = 60;
+      const padTop = 130;
+      const padBottom = 150;
+      const off = s.x < padX || s.x > VIEW.width - padX || s.y < padTop || s.y > VIEW.height - padBottom;
+      if (off) {
+        const a = Math.atan2(s.y - VIEW.height / 2, s.x - VIEW.width / 2);
+        const cx = VIEW.width / 2 + Math.cos(a) * 292;
+        const cy = VIEW.height / 2 + Math.sin(a) * 236;
+        const blink = 0.55 + Math.sin(time * 5) * 0.25;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(a);
+        ctx.fillStyle = `rgba(186, 70, 60, ${blink})`;
+        ctx.beginPath();
+        ctx.moveTo(11, 0);
+        ctx.lineTo(-7, 7);
+        ctx.lineTo(-7, -7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+        label(ctx, L.hud.knockAt(game.rule.knock.door + 1), cx + Math.cos(a) * 34, cy + Math.sin(a) * 26 + 3, 7.5, `rgba(196, 84, 72, ${blink})`, 1.2, 'center');
+      }
+    }
+  }
 
   // ---- the unit file, bottom left -------------------------------------
   const fileX = left;
