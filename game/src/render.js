@@ -337,6 +337,31 @@ function drawOperaSurface(ctx, time) {
   }
 }
 
+// 走廊地毯：一张 16 px 的织纹（经线、纬线、一点旧色），生成一次后平铺；再压一条被踩亮的中间。
+let carpet = null;
+let carpetPattern = null;
+function carpetTile() {
+  if (carpet) return carpet;
+  const c = document.createElement('canvas');
+  c.width = 16;
+  c.height = 16;
+  const g = c.getContext('2d');
+  g.fillStyle = '#3a1719';
+  g.fillRect(0, 0, 16, 16);
+  for (let i = 0; i < 16; i += 2) {
+    g.fillStyle = 'rgba(150, 70, 68, 0.12)';
+    g.fillRect(i, 0, 1, 16);
+    g.fillStyle = 'rgba(0, 0, 0, 0.16)';
+    g.fillRect(0, i + 1, 16, 1);
+  }
+  for (let i = 0; i < 20; i += 1) {
+    g.fillStyle = `rgba(${90 + Math.random() * 60}, ${30 + Math.random() * 30}, ${30 + Math.random() * 26}, 0.14)`;
+    g.fillRect(Math.random() * 16, Math.random() * 16, 1, 1);
+  }
+  carpet = c;
+  return c;
+}
+
 function drawCorridorSurface(ctx, time) {
   // old stone tile, one size, seams on a 64 grid
   for (let y = 40; y < 760; y += 64) {
@@ -351,17 +376,41 @@ function drawCorridorSurface(ctx, time) {
       ctx.fillRect(x + 62, y, 2, 63);
     }
   }
-  // the runner: two long strips of worn red carpet down the corridors
+  // the runner: worn red carpet down the corridors, with a weave, a lit middle and tassels
+  if (!carpetPattern) carpetPattern = ctx.createPattern(carpetTile(), 'repeat');
   const runner = (x, y, w, h) => {
-    ctx.fillStyle = 'rgba(66, 24, 26, 0.72)';
+    const horiz = w > h;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+    ctx.fillStyle = carpetPattern;
     ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = 'rgba(150, 108, 70, 0.3)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x + 4, y + 4, w - 8, h - 8);
-    for (let i = 0; i < w; i += 10) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-      ctx.fillRect(x + i, y + 5, 1, h - 10);
+    const wear = horiz
+      ? ctx.createLinearGradient(0, y, 0, y + h)
+      : ctx.createLinearGradient(x, 0, x + w, 0);
+    wear.addColorStop(0, 'rgba(0, 0, 0, 0.32)');
+    wear.addColorStop(0.5, 'rgba(168, 108, 86, 0.12)');
+    wear.addColorStop(1, 'rgba(0, 0, 0, 0.32)');
+    ctx.fillStyle = wear;
+    ctx.fillRect(x, y, w, h);
+    // the binding down both edges, and the fringe at the two ends
+    ctx.strokeStyle = 'rgba(168, 118, 74, 0.32)';
+    ctx.lineWidth = 1.4;
+    ctx.strokeRect(x + 3.2, y + 3.2, w - 6.4, h - 6.4);
+    ctx.fillStyle = 'rgba(190, 150, 104, 0.2)';
+    if (horiz) {
+      for (let i = 6; i < h - 4; i += 4) {
+        ctx.fillRect(x - 2, y + i, 2, 1.4);
+        ctx.fillRect(x + w, y + i, 2, 1.4);
+      }
+    } else {
+      for (let i = 6; i < w - 4; i += 4) {
+        ctx.fillRect(x + i, y - 2, 1.4, 2);
+        ctx.fillRect(x + i, y + h, 1.4, 2);
+      }
     }
+    ctx.restore();
   };
   runner(74, 152, 1132, 56);
   runner(74, 590, 1132, 56);
