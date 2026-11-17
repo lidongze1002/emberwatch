@@ -431,6 +431,13 @@
 
 ## 备注
 - `render.js` 里有一行 `window.__nwCam?.(CAM)` 的调试钩子，只给 tools 下的截图脚本用，未设置回调时无副作用。
-- 帧时：本轮期间机器整体从 16.7 ms 漂到 17.7–17.9 ms；用 `git stash` 回退到上一个提交复测仍是 17.8 ms，确认是机器负载，不是本轮改动。
-- 评审用截图：`tools/nw-zoom.mjs`（三人群像）、`nw-head.mjs`（8× 头部）、`nw-tv.mjs`（6× 电视头）。
+- 帧时：16.7 ms 是这台机器的垂直同步值；浏览器不在前台时会抖到 33（p95），median 仍是 16.7。评审时以 median 为准。
+- 验收脚本（都在仓库外的 `tools/`，用 `node <名字>` 跑）：
+  - `nw-cases.mjs` 五案连跑 + 局外回归（5/5 won、3/3 撤离、招人）
+  - `nw-perf.mjs` 帧时与最终画面（同时写 `nw/15-cinema.jpg`）
+  - `nw-flow.mjs` 只用真鼠标／键盘走完整条流程
+  - `nw-save.mjs` 存档跨刷新、`nw-duty.mjs` 换班、`nw-bench.mjs` 待命费
+  - `nw-death-meta.mjs` 阵亡与抚恤、`nw-possess.mjs` 接管、`nw-end.mjs` 五案全结
+  - `nw-meta.mjs` 值班室／招聘／简报截图，`nw-shots.mjs` 四张参赛图，`nw-boss.mjs`／`nw-hachi-shot.mjs` 2× 特写
+- 四张参赛图：`screenshots/01-cover.jpg`（标题）、`02-opera.jpg`（第一案交火）、`03-paddy.jpg`（第四案田埂）、`04-desk.jpg`（值班室）。其余过程图在 `screenshots/gallery/`。
 
