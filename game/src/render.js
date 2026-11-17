@@ -1681,65 +1681,140 @@ function drawSpider(ctx, t, time, dim = 1) {
     ctx.fill();
   }
 
-  // the dress: a long pale shape, a red sash, a high collar
-  const dress = ctx.createLinearGradient(0, -34, 0, 26);
+  // the dress: broad shoulders under the head, a kimono collar crossing at the nape, and a hem
+  // that falls wider than the shoulders. A shape that tapers at both ends reads as a moth; the
+  // blunt shoulder line is what makes it a person with something crawling out from under her.
+  const dress = ctx.createLinearGradient(0, -34, 0, 30);
   dress.addColorStop(0, '#e6e0d4');
   dress.addColorStop(0.55, '#cfc8ba');
   dress.addColorStop(1, '#a8a195');
   ctx.fillStyle = dress;
   ctx.beginPath();
-  ctx.moveTo(0, -36);
-  ctx.bezierCurveTo(16, -26, 20, 6, 22, 26);
-  ctx.bezierCurveTo(8, 34, -8, 34, -22, 26);
-  ctx.bezierCurveTo(-20, 6, -16, -26, 0, -36);
+  ctx.moveTo(-12, -30);
+  ctx.bezierCurveTo(-16, -23, -19, -8, -21, 8);
+  ctx.lineTo(-21, 26);
+  ctx.bezierCurveTo(-10, 32, 10, 32, 21, 26);
+  ctx.lineTo(21, 8);
+  ctx.bezierCurveTo(19, -8, 16, -23, 12, -30);
+  ctx.bezierCurveTo(6, -33, -6, -33, -12, -30);
   ctx.closePath();
   ctx.fill();
+  // kimono sleeves: two pale wings hanging off the shoulders, so the top of the figure is not a
+  // bare teardrop. The cuff fold is the only dark line on them.
+  for (const side of [-1, 1]) {
+    ctx.save();
+    ctx.translate(side * 11, -23);
+    const sleeve = ctx.createLinearGradient(0, -4, side * 10, 15);
+    sleeve.addColorStop(0, '#eae4d8');
+    sleeve.addColorStop(1, '#b4ada0');
+    ctx.fillStyle = sleeve;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(side * 10, 1, side * 11, 10);
+    ctx.quadraticCurveTo(side * 9, 17, side * 2.5, 16);
+    ctx.quadraticCurveTo(-side * 2, 9, 0, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(76, 66, 62, 0.4)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(side * 1.6, 2);
+    ctx.quadraticCurveTo(side * 7, 7, side * 5.4, 14);
+    ctx.stroke();
+    ctx.restore();
+  }
+  ctx.lineCap = 'round';
+  // the collar: two dark edges crossing at the nape, with a pale inner band on the lit side
+  ctx.strokeStyle = 'rgba(74, 62, 60, 0.75)';
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(-10, -29.5);
+  ctx.lineTo(0, -23.5);
+  ctx.lineTo(10, -29.5);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(236, 230, 214, 0.6)';
+  ctx.lineWidth = 0.9;
+  ctx.beginPath();
+  ctx.moveTo(-8.2, -31.6);
+  ctx.lineTo(0, -26.4);
+  ctx.lineTo(8.2, -31.6);
+  ctx.stroke();
   ctx.fillStyle = 'rgba(120, 30, 36, 0.9)';
-  ctx.fillRect(-17, -4, 34, 6);
-  // the obi knot, and the folds of the skirt falling from it
+  ctx.fillRect(-17, -2, 34, 5.5);
+  // the folds of the skirt falling from the obi
+  ctx.strokeStyle = 'rgba(96, 90, 82, 0.42)';
+  ctx.lineWidth = 0.9;
+  for (let i = -2; i <= 2; i += 1) {
+    ctx.beginPath();
+    ctx.moveTo(i * 7, 1);
+    ctx.quadraticCurveTo(i * 9, 12, i * 6.4, 25);
+    ctx.stroke();
+  }
+  // the obi knot at the back, over the folds
   ctx.fillStyle = 'rgba(132, 34, 40, 1)';
   ctx.beginPath();
   ctx.ellipse(0, 8, 5.5, 4.5, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(96, 90, 82, 0.55)';
-  ctx.lineWidth = 1;
-  for (let i = -2; i <= 2; i += 1) {
-    ctx.beginPath();
-    ctx.moveTo(i * 7, -18);
-    ctx.quadraticCurveTo(i * 9, 4, i * 6, 24);
-    ctx.stroke();
-  }
-  // long black hair down the back of the dress
-  ctx.fillStyle = 'rgba(22, 17, 20, 0.92)';
+  ctx.fillStyle = 'rgba(158, 58, 60, 0.8)';
   ctx.beginPath();
-  ctx.ellipse(0, 16, 8, 17, 0, 0, Math.PI * 2);
+  ctx.ellipse(-1.4, 7.2, 3.2, 2.2, -0.4, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
-  ctx.lineWidth = 1;
+  // long black hair: from the crown to the obi. One tapered mass with a single sheen, no interior
+  // lines — at this size a few dark locks read as eyes on the back of the dress.
+  ctx.fillStyle = 'rgba(22, 17, 20, 0.94)';
   ctx.beginPath();
-  ctx.moveTo(-4, -30);
-  ctx.lineTo(-2, 24);
+  ctx.moveTo(-7, -33.5);
+  ctx.bezierCurveTo(-7.6, -23, -5.6, -12, -3, -4.6);
+  ctx.quadraticCurveTo(0, -3.2, 3, -4.6);
+  ctx.bezierCurveTo(5.6, -12, 7.6, -23, 7, -33.5);
+  ctx.closePath();
+  ctx.fill();
+  // a single strand of light down the lit side of the hair
+  ctx.strokeStyle = 'rgba(198, 178, 168, 0.16)';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(-5.4, -31);
+  ctx.bezierCurveTo(-5.4, -22, -4, -12, -2.2, -6);
   ctx.stroke();
 
-  // arms forward, pale
+  // arms forward, pale, hands at the ends
   ctx.strokeStyle = '#d8d2c6';
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 3.6;
   ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(-12, -22);
-  ctx.lineTo(-7, -34);
-  ctx.moveTo(12, -22);
-  ctx.lineTo(7, -34);
+  ctx.moveTo(-12.6, -26);
+  ctx.lineTo(-9.6, -34);
+  ctx.moveTo(12.6, -26);
+  ctx.lineTo(9.6, -34);
   ctx.stroke();
+  ctx.fillStyle = '#e4d8c8';
+  ctx.beginPath();
+  ctx.ellipse(-9.2, -35.4, 1.9, 1.4, 0.5, 0, Math.PI * 2);
+  ctx.ellipse(9.2, -35.4, 1.9, 1.4, -0.5, 0, Math.PI * 2);
+  ctx.fill();
 
-  // the head: black hair, a sliver of face, no features from above
+  // the head: black hair, a sliver of face, no features from above. She stands in front of an
+  // unlit backdrop, so the crown needs its own rim or the head is a hole in the dress.
   ctx.fillStyle = '#1a1416';
   ctx.beginPath();
   ctx.arc(0, -40, 8, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = '#d9c2ac';
+  const headA = Math.atan2(KEY.y - t.y, KEY.x - t.x) - (t.aim + Math.PI / 2);
+  ctx.strokeStyle = 'rgba(226, 190, 156, 0.38)';
+  ctx.lineWidth = 1.1;
   ctx.beginPath();
-  ctx.ellipse(0, -47, 3.6, 1.8, 0, 0, Math.PI * 2);
+  ctx.arc(0, -40, 7.5, headA - 1.1, headA + 1.1);
+  ctx.stroke();
+  // the parting, a hair's width of light
+  ctx.strokeStyle = 'rgba(150, 132, 126, 0.26)';
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(-1.2, -47.4);
+  ctx.lineTo(-0.4, -34.6);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(214, 182, 152, 0.82)';
+  ctx.beginPath();
+  ctx.ellipse(0, -46.6, 2.7, 1.2, 0, 0, Math.PI * 2);
   ctx.fill();
 
   if (t.hitFlash > 0.02) {
