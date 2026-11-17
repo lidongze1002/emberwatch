@@ -193,6 +193,43 @@ export function dismissCandidates(roster) {
   roster.candidates = [];
 }
 
+// 存一下：值班室不该因为刷新就忘掉这一夜。读回来的东西形状不对就当没有。
+const SAVE_KEY = 'nw.roster.v1';
+
+export function saveRoster(roster) {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(roster));
+  } catch {
+    /* private mode, no storage: the watch simply does not persist */
+  }
+}
+
+export function loadRoster() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const r = JSON.parse(raw);
+    if (!r || typeof r.cash !== 'number' || !Array.isArray(r.members) || !Array.isArray(r.ledger)) return null;
+    if (!r.active || typeof r.active !== 'object') r.active = {};
+    if (!Array.isArray(r.memorial)) r.memorial = [];
+    if (!Array.isArray(r.candidates)) r.candidates = [];
+    if (!r.closed || typeof r.closed !== 'object') r.closed = {};
+    const maxId = r.members.reduce((mx, m) => Math.max(mx, Number(String(m.id).replace(/\D/g, '')) || 0), 0);
+    seq = Math.max(seq, maxId + 1);
+    return r;
+  } catch {
+    return null;
+  }
+}
+
+export function clearRoster() {
+  try {
+    localStorage.removeItem(SAVE_KEY);
+  } catch {
+    /* nothing to clear */
+  }
+}
+
 // 负现金不解雇，只是下一案只报半价；这里把这一条读出来给界面用。
 export function budgetNote(roster) {
   return roster.cash < 0 ? 'half' : null;

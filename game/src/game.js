@@ -7,9 +7,9 @@ import { buildLevel, setWorld, solid } from './level.js';
 import { createAgents, createThralls, updateUnits } from './units.js';
 import { drawFrame, drawBars, screenToWorld } from './render.js';
 import { drawHud } from './hud.js';
-import { drawBrief, drawHire, drawResult, drawRoster, drawSelect, drawTitle, tCaseAt, tHireAt, tHireNoneAt, tRosterCardAt, tRosterCasesAt, tRosterHireAt, tSelectRosterAt, tTitleLinkAt } from './overlays.js';
+import { drawBrief, drawHire, drawResult, drawRoster, drawSelect, drawTitle, tCaseAt, tHireAt, tHireNoneAt, tRosterCardAt, tRosterCasesAt, tRosterFreshAt, tRosterHireAt, tSelectRosterAt, tTitleLinkAt } from './overlays.js';
 import { actionA, afterRules, directRules, initRules, updateRules, verdict } from './rules.js';
-import { createRoster, dismissCandidates, hire, setDuty, squadForRun, settle } from './roster.js';
+import { createRoster, clearRoster, dismissCandidates, hire, loadRoster, saveRoster, setDuty, squadForRun, settle } from './roster.js';
 import { L } from './text.js';
 
 export class Game {
@@ -19,7 +19,7 @@ export class Game {
     this.onNavigate = null;
     this.caseIndex = 0;
     this.case = CASES[0];
-    this.roster = createRoster();
+    this.roster = loadRoster() || createRoster();
     this.squad = squadForRun(this.roster);
     setWorld(this.case);
     this.level = buildLevel();
@@ -211,6 +211,7 @@ export class Game {
     if (!this.settled) {
       this.settled = true;
       this.settlement = settle(this.roster, this);
+      saveRoster(this.roster);
     }
     if (won) this.sound.win();
     else this.sound.lose();
@@ -242,10 +243,20 @@ export class Game {
       return false;
     }
     if (hire(this.roster, id)) {
+      saveRoster(this.roster);
       this.say(L.hire.taken);
       return true;
     }
     return false;
+  }
+
+  freshWatch() {
+    clearRoster();
+    this.roster = createRoster();
+    this.squad = squadForRun(this.roster);
+    this.caseIndex = 0;
+    this.state = 'roster';
+    this.say(L.roster.freshLine);
   }
 
   useLamp() {
@@ -408,7 +419,14 @@ export class Game {
         const card = tRosterCardAt(click.x, click.y, this.roster.members.length);
         if (card >= 0) {
           const m = this.roster.members[card];
-          if (m && setDuty(this.roster, m.id)) this.say(L.roster.onDutyNow);
+          if (m && setDuty(this.roster, m.id)) {
+            saveRoster(this.roster);
+            this.say(L.roster.onDutyNow);
+          }
+          continue;
+        }
+        if (tRosterFreshAt(click.x, click.y)) {
+          this.freshWatch();
         }
         continue;
       }

@@ -280,6 +280,13 @@
 **结论**：保留。站台第一次像一个有顶的车站。
 截图：`screenshots/gallery/25-station-platform.jpg`
 
+## 轮 40 — 刷新一下就忘掉整夜
+**看**：`META.md` 说选案页「只显示已解锁的案子」、结案进结算——这些都建立在「有一个持续的名册」上。可实际是：一刷新，现金、伤员、阵亡、已结的案子全部归零。评委多半会刷新一次。
+**改**：`saveRoster/loadRoster/clearRoster`（localStorage，键 `nw.roster.v1`）。结案、录用、换班时各存一次；启动时读回来，形状不对（没有 members/ledger、cash 不是数字）就当没有。读回来时把 id 计数器推到最大 id +1，避免新人和旧人撞号。值班室左下角加「新的一夜」，清档并从三个初始队员重开。
+**测**：`tools/nw-save.mjs`：打完第一案（现金 1200、已结 1）→ reload → 现金与已结仍在；点「新的一夜」→ 现金 0、名册回到三人、存档删除。`nw-cases` 5/5、3/3、meta 回归通过；`nw-perf` median 16.7 ms。
+**结论**：保留。局外终于跨过一次刷新。
+截图：`screenshots/gallery/26-roster-save.jpg`
+
 ## 备注
 - `render.js` 里有一行 `window.__nwCam?.(CAM)` 的调试钩子，只给 tools 下的截图脚本用，未设置回调时无副作用。
 - 帧时：本轮期间机器整体从 16.7 ms 漂到 17.7–17.9 ms；用 `git stash` 回退到上一个提交复测仍是 17.8 ms，确认是机器负载，不是本轮改动。

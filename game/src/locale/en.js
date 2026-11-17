@@ -120,6 +120,8 @@ export const en = {
     substitute: 'NIGHT TEMP',
     memorial: 'KILLED IN THE LINE',
     kia: (n) => `${n} · NOT BACK`,
+    fresh: 'NEW WATCH',
+    freshLine: 'a fresh page in the roster',
     allClosed: 'ALL FILES CLOSED',
     allClosedLine: 'Section 7 finished the watch.',
   },

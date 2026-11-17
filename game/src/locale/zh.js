@@ -119,6 +119,8 @@ export const zh = {
     substitute: '值夜临时工',
     memorial: '阵亡名单',
     kia: (n) => `${n} · 未归`,
+    fresh: '新的一夜',
+    freshLine: '名册换了新的一页。',
     allClosed: '全案结清',
     allClosedLine: '第七组这一班岗值完了。',
   },
