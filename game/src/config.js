@@ -1,6 +1,4 @@
-// 夜巡科 · 第一案：歌剧院
-// 值班记录 / 美术与数值。规则：电闸没拉下时，礼堂里一直在唱；在里面待满三秒的人就不再听指令，
-// 自己走上台。去后台把电闸拉下来。
+// 夜巡科 · 数值与调色。楼层怎么长的不在这里，在 cases.js；这里只放「一个人多快、一只怪多疼」。
 
 export const VIEW = { width: 1280, height: 800 };
 
@@ -39,73 +37,10 @@ export const AGENTS = {
   lamp: { hp: 16, speed: 104, range: 360, damage: 5, fireRate: 0.46, spread: 0.04, colour: '#ffd9a0' },
 };
 
-// The house: a shallow U of rooms. Numbers are the top-left of solid blocks.
-export const WALLS = [
-  [56, 56, 1168, 18],
-  [56, 726, 1168, 18],
-  [56, 56, 18, 688],
-  [1206, 56, 18, 688],
-  [470, 288, 310, 18],
-  [864, 288, 342, 18],
-  [464, 288, 18, 278],
-  [464, 650, 18, 76],
-  [464, 56, 18, 94],
-  [464, 236, 18, 52],
-  [56, 288, 144, 18],
-  [286, 288, 178, 18],
-  [700, 420, 22, 22],
-  [980, 560, 22, 22],
-];
-
-export const ZONES = {
-  house: { x: 482, y: 306, w: 724, h: 420 },
-  stage: { x: 482, y: 74, w: 724, h: 214 },
-  foyer: { x: 74, y: 306, w: 390, h: 420 },
-  backstage: { x: 74, y: 74, w: 390, h: 214 },
-};
-
-export const SEATS = (() => {
-  const rows = [];
-  for (let r = 0; r < 6; r += 1) {
-    for (let c = 0; c < 11; c += 1) {
-      const x = 520 + c * 58;
-      const y = 360 + r * 54;
-      if (x > 690 && x < 760) continue;
-      if (x > 960 && x < 1030) continue;
-      rows.push({ x, y, w: 26, h: 30 });
-    }
-  }
-  return rows;
-})();
-
-export const SPAWNS = {
-  agents: [
-    { role: 'veteran', x: 132, y: 640 },
-    { role: 'rookie', x: 176, y: 672 },
-    { role: 'lamp', x: 96, y: 682 },
-  ],
-  thralls: [
-    { x: 735, y: 470 },
-    { x: 995, y: 420 },
-    { x: 1160, y: 690 },
-    { x: 820, y: 690 },
-  ],
-  switchboard: { x: 150, y: 150 },
-  exit: { x: 106, y: 470 },
-  stageMark: { x: 840, y: 180 },
-};
-
-// Things a body cannot walk through but light and bullets pass over: seat rows and the booth.
-export const PROPS = [
-  ...SEATS.map((s) => [s.x - 2, s.y - 2, s.w + 4, s.h + 4]),
-  [280, 356, 108, 56],
-];
-
 export const POSSESS_SECONDS = 8;
 
 export const SPIDER = { hp: 80, speed: 18, damage: 14, reach: 48, cooldown: 1.3, radius: 40 };
 export const SPIDERLING = { hp: 2, speed: 70, damage: 4, reach: 22, cooldown: 0.9, radius: 9 };
-export const SPIDER_SPAWN = { x: 840, y: 160 };
 
 export const THRALL = {
   hp: 6,
@@ -115,3 +50,21 @@ export const THRALL = {
   cooldown: 1.15,
   special: { range: 116, damage: 4, stun: 1.1, cooldown: 3.6 },
 };
+
+// 第二案：不可杀的八尺様。子弹只让她顿一下。
+export const HACHI = {
+  hp: 999,
+  speed: 38,
+  damage: 16,
+  reach: 46,
+  cooldown: 1.5,
+  radius: 26,
+  stunOnHit: 0.25,
+  feed: 1.5,
+};
+
+// 第四案：不可杀的くねくね。数值只有「看多久会疯」。
+export const KUNE = { radius: 20, rate: 1, bossRate: 1.6 };
+
+// 第五案：复制品。用的是同一套骨架，血更薄。
+export const MIRROR = { hp: 16, speed: 96, damage: 5, range: 260, fireRate: 1.15, radius: 12, spread: 0.1 };

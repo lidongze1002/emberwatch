@@ -1,17 +1,27 @@
-// 俯拍的歌剧院，按电影的样子打光：一条主光从台口下来，两处补光（吊灯、出口），其余交给暗部。
-// 木头有漆面、座椅是绒布、幕布有褶、空气里有灰。人在光里只有轮廓和一点脸。
+// 俯拍的五层楼，按电影的样子打光：一条主光从各案的主方向下来，两处补光，其余交给暗部。
+// 木头有漆面、水田有水光、后室的墙纸有接缝。人在光里只有轮廓和一点脸。
 
-import { PALETTE, SEATS, SPAWNS, TUNING, VIEW, WALLS, ZONES } from './config.js';
+import { PALETTE, TUNING, VIEW } from './config.js';
 import { L } from './text.js';
 
 // The lens: a long lens on the floor, not the whole house. 1.4× puts a body at ~40 px and the
 // camera rides the squad centroid, clamped so the matte never shows past the walls.
 const CAM = { scale: 1.4, x: 640, y: 420 };
-const BOUNDS = { x0: 56, y0: 56, x1: 1224, y1: 744 };
-const KEY = { x: 840, y: 180 };
+let BOUNDS = { x0: 56, y0: 56, x1: 1224, y1: 744 };
+let KEY = { x: 840, y: 180 };
 let camClock = -1;
 
+export function screenToWorld(sx, sy) {
+  return {
+    x: CAM.x + (sx - VIEW.width / 2) / CAM.scale,
+    y: CAM.y + (sy - VIEW.height / 2) / CAM.scale,
+  };
+}
+
 function followSquad(game, time) {
+  CAM.scale = game.case.cam.scale;
+  BOUNDS = game.case.bounds;
+  KEY = game.case.key;
   const halfW = VIEW.width / 2 / CAM.scale;
   const halfH = VIEW.height / 2 / CAM.scale;
   let cx = CAM.x;
@@ -189,11 +199,10 @@ export function drawWorld(ctx, game, time) {
   ctx.translate(Math.sin(time * 71) * shake, Math.cos(time * 53) * shake);
 
   drawFloor(ctx, game, time);
-  drawCarpet(ctx);
-  drawStage(ctx, game, time);
-  drawSeats(ctx);
+  drawDecor(ctx, game, time);
   drawProps(ctx, game, time);
   drawWalls(ctx, game);
+  drawDoors(ctx, game, time);
 
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
@@ -205,7 +214,8 @@ export function drawWorld(ctx, game, time) {
   drawAgents(ctx, game, time);
   drawSpatter(ctx, game);
   drawDebris(ctx, game);
-  if (!game.power) {
+  drawWorldMarks(ctx, game, time);
+  if (game.case.rule.kind === 'power' && !game.power) {
     ctx.fillStyle = 'rgba(4, 7, 12, 0.34)';
     ctx.fillRect(40, 40, VIEW.width - 80, VIEW.height - 80);
   }
@@ -214,15 +224,69 @@ export function drawWorld(ctx, game, time) {
   drawPost(ctx, game, time);
 }
 
+// ---- the floor of each floor ---------------------------------------------
+
 function drawFloor(ctx, game, time) {
+  const c = game.case;
+  const [top, mid, bottom] = c.palette.floor;
   const base = ctx.createLinearGradient(0, 0, 0, VIEW.height);
-  base.addColorStop(0, '#06080c');
-  base.addColorStop(0.5, '#080a0f');
-  base.addColorStop(1, '#04060a');
+  base.addColorStop(0, top);
+  base.addColorStop(0.5, mid);
+  base.addColorStop(1, bottom);
   ctx.fillStyle = base;
   ctx.fillRect(-80, -80, VIEW.width + 160, VIEW.height + 160);
 
-  // the boards: grain, then varnish, then seams, then the shadow they sit in
+  if (c.decor === 'opera') drawOperaSurface(ctx, time);
+  else if (c.decor === 'corridor') drawCorridorSurface(ctx, time);
+  else if (c.decor === 'station') drawStationSurface(ctx, time);
+  else if (c.decor === 'rice') drawRiceSurface(ctx, time);
+  else drawBackroomsSurface(ctx, time);
+
+  // contact darkening along every wall foot
+  for (const [x, y, w, h] of c.walls) {
+    const down = ctx.createLinearGradient(0, y + h, 0, y + h + 12);
+    down.addColorStop(0, 'rgba(0, 0, 0, 0.5)');
+    down.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = down;
+    ctx.fillRect(x - 2, y + h, w + 4, 12);
+  }
+
+  // the light that is in the room: one key, one fill at the way out
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const warm = c.decor === 'opera' || c.decor === 'corridor';
+  const keyTint = warm ? '255, 198, 132' : c.decor === 'station' ? '150, 210, 220' : c.decor === 'rice' ? '170, 200, 220' : '236, 216, 140';
+  const key = ctx.createRadialGradient(c.key.x, c.key.y, 20, c.key.x, c.key.y + 40, 580);
+  key.addColorStop(0, `rgba(${keyTint}, 0.15)`);
+  key.addColorStop(0.45, `rgba(${keyTint}, 0.055)`);
+  key.addColorStop(1, `rgba(${keyTint}, 0)`);
+  ctx.fillStyle = key;
+  ctx.fillRect(0, 0, VIEW.width, VIEW.height);
+
+  const exit = c.spawns.exit;
+  if (exit) {
+    const glow = ctx.createRadialGradient(exit.x, exit.y, 6, exit.x, exit.y, 180);
+    glow.addColorStop(0, 'rgba(255, 196, 130, 0.16)');
+    glow.addColorStop(1, 'rgba(255, 160, 90, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(exit.x, exit.y, 180, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // dust in the beam
+  if (c.decor !== 'rice') {
+    for (let i = 0; i < 34; i += 1) {
+      const x = 120 + ((i * 137) % 1040) + Math.sin(time * 0.5 + i) * 10;
+      const y = 120 + ((i * 71) % 600) + Math.cos(time * 0.4 + i) * 8;
+      ctx.fillStyle = `rgba(255, 222, 176, ${0.03 + (i % 4) * 0.01})`;
+      ctx.fillRect(x, y, 1.4, 1.4);
+    }
+  }
+}
+
+function drawOperaSurface(ctx, time) {
   ctx.save();
   ctx.globalAlpha = 0.92;
   ctx.fillStyle = ctx.createPattern(woodTile(), 'repeat');
@@ -240,50 +304,562 @@ function drawFloor(ctx, game, time) {
     ctx.fillStyle = 'rgba(190, 205, 225, 0.05)';
     ctx.fillRect(40, y, VIEW.width - 80, 1);
   }
-  // contact darkening along every wall foot
-  ctx.save();
-  for (const [x, y, w, h] of WALLS) {
-    const down = ctx.createLinearGradient(0, y + h, 0, y + h + 12);
-    down.addColorStop(0, 'rgba(0, 0, 0, 0.5)');
-    down.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = down;
-    ctx.fillRect(x - 2, y + h, w + 4, 12);
+}
+
+function drawCorridorSurface(ctx, time) {
+  // old stone tile, one size, seams on a 64 grid
+  for (let y = 40; y < 760; y += 64) {
+    for (let x = 40; x < 1240; x += 64) {
+      const v = ((x * 7 + y * 13) % 17) / 17;
+      ctx.fillStyle = `rgba(${42 + v * 16}, ${40 + v * 14}, ${36 + v * 12}, 1)`;
+      ctx.fillRect(x, y, 63, 63);
+      ctx.fillStyle = 'rgba(255, 240, 220, 0.02)';
+      ctx.fillRect(x, y, 63, 1);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.fillRect(x, y + 62, 63, 2);
+      ctx.fillRect(x + 62, y, 2, 63);
+    }
   }
-  ctx.restore();
+  // the runner: two long strips of worn red carpet down the corridors
+  const runner = (x, y, w, h) => {
+    ctx.fillStyle = 'rgba(66, 24, 26, 0.72)';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = 'rgba(150, 108, 70, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 4, y + 4, w - 8, h - 8);
+    for (let i = 0; i < w; i += 10) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+      ctx.fillRect(x + i, y + 5, 1, h - 10);
+    }
+  };
+  runner(74, 152, 1132, 56);
+  runner(74, 590, 1132, 56);
+  runner(174, 74, 56, 652);
+  runner(1060, 74, 56, 652);
+  // water stains on the ceiling tiles
+  for (let i = 0; i < 9; i += 1) {
+    const x = 120 + ((i * 211) % 1000);
+    const y = 120 + ((i * 157) % 560);
+    ctx.fillStyle = 'rgba(30, 22, 14, 0.25)';
+    ctx.beginPath();
+    ctx.ellipse(x, y, 26 + (i % 4) * 9, 14 + (i % 3) * 8, i, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
 
-  // the light that is in the room: stage key, chandelier fill, exit fill
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  const key = ctx.createRadialGradient(840, 180, 20, 840, 220, 560);
-  key.addColorStop(0, 'rgba(255, 198, 132, 0.16)');
-  key.addColorStop(0.45, 'rgba(255, 160, 90, 0.06)');
-  key.addColorStop(1, 'rgba(255, 140, 70, 0)');
-  ctx.fillStyle = key;
-  ctx.fillRect(300, -40, 900, 700);
+function drawStationSurface(ctx, time) {
+  // platform tiles: cool, wet, a 48 grid, with the tactile line at the track edge
+  for (let y = 200; y < 740; y += 48) {
+    for (let x = 40; x < 1240; x += 48) {
+      const v = ((x * 3 + y * 11) % 13) / 13;
+      ctx.fillStyle = `rgba(${30 + v * 12}, ${36 + v * 14}, ${38 + v * 14}, 1)`;
+      ctx.fillRect(x, y, 47, 47);
+      ctx.fillStyle = 'rgba(180, 220, 220, 0.05)';
+      ctx.fillRect(x, y, 47, 1);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.fillRect(x, y + 46, 47, 2);
+    }
+  }
+  const line = ctx.createLinearGradient(0, 186, 0, 210);
+  line.addColorStop(0, 'rgba(196, 172, 96, 0.34)');
+  line.addColorStop(1, 'rgba(196, 172, 96, 0)');
+  ctx.fillStyle = line;
+  ctx.fillRect(74, 186, 1132, 24);
+  ctx.fillStyle = 'rgba(210, 188, 110, 0.5)';
+  ctx.fillRect(74, 200, 1132, 3);
+  // puddles
+  for (let i = 0; i < 7; i += 1) {
+    const x = 160 + ((i * 263) % 940);
+    const y = 300 + ((i * 131) % 380);
+    ctx.fillStyle = 'rgba(120, 170, 175, 0.06)';
+    ctx.beginPath();
+    ctx.ellipse(x, y, 30 + (i % 3) * 14, 12 + (i % 2) * 7, 0.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
 
-  const chand = ctx.createRadialGradient(850, 470, 10, 850, 470, 230);
-  chand.addColorStop(0, 'rgba(255, 214, 160, 0.1)');
-  chand.addColorStop(1, 'rgba(255, 180, 100, 0)');
-  ctx.fillStyle = chand;
-  ctx.beginPath();
-  ctx.arc(850, 470, 230, 0, Math.PI * 2);
-  ctx.fill();
+function drawRiceSurface(ctx, time) {
+  // wet earth, then grass, then the paddies themselves (water is drawn in drawDecor)
+  ctx.fillStyle = 'rgba(18, 22, 18, 0.9)';
+  ctx.fillRect(40, 40, VIEW.width - 80, VIEW.height - 80);
+  for (let i = 0; i < 700; i += 1) {
+    const x = 40 + ((i * 97) % 1160);
+    const y = 40 + ((i * 173) % 660);
+    const h = 2 + (i % 4);
+    ctx.strokeStyle = i % 3 ? 'rgba(58, 72, 46, 0.4)' : 'rgba(84, 96, 60, 0.28)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + Math.sin(time * 0.6 + i) * 1.2, y - h);
+    ctx.stroke();
+  }
+}
 
-  const exit = ctx.createRadialGradient(SPAWNS.exit.x, SPAWNS.exit.y, 6, SPAWNS.exit.x, SPAWNS.exit.y, 190);
-  exit.addColorStop(0, 'rgba(255, 196, 130, 0.2)');
-  exit.addColorStop(1, 'rgba(255, 160, 90, 0)');
-  ctx.fillStyle = exit;
-  ctx.beginPath();
-  ctx.arc(SPAWNS.exit.x, SPAWNS.exit.y, 190, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-
-  // dust in the beam
-  for (let i = 0; i < 40; i += 1) {
-    const x = 520 + ((i * 137) % 640) + Math.sin(time * 0.5 + i) * 10;
-    const y = 220 + ((i * 71) % 420) + Math.cos(time * 0.4 + i) * 8;
-    ctx.fillStyle = `rgba(255, 222, 176, ${0.04 + (i % 4) * 0.012})`;
+function drawBackroomsSurface(ctx, time) {
+  // damp mustard carpet: noise, seams every 80 px, and the stains that never dry
+  for (let y = 40; y < 760; y += 80) {
+    for (let x = 40; x < 1240; x += 80) {
+      const v = ((x * 5 + y * 3) % 19) / 19;
+      ctx.fillStyle = `rgba(${46 + v * 18}, ${42 + v * 16}, ${26 + v * 10}, 1)`;
+      ctx.fillRect(x, y, 79, 79);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.fillRect(x, y + 78, 79, 2);
+    }
+  }
+  for (let i = 0; i < 1200; i += 1) {
+    const x = 40 + ((i * 131) % 1160);
+    const y = 40 + ((i * 67) % 660);
+    ctx.fillStyle = i % 4 ? 'rgba(20, 18, 10, 0.25)' : 'rgba(120, 108, 60, 0.12)';
     ctx.fillRect(x, y, 1.4, 1.4);
+  }
+  for (let i = 0; i < 8; i += 1) {
+    const x = 220 + ((i * 197) % 860);
+    const y = 160 + ((i * 149) % 500);
+    const g = ctx.createRadialGradient(x, y, 6, x, y, 54);
+    g.addColorStop(0, 'rgba(30, 26, 12, 0.4)');
+    g.addColorStop(1, 'rgba(30, 26, 12, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, 54, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// ---- 每一层自己的东西 -----------------------------------------------------
+
+function drawApartment(ctx, game, time) {
+  const c = game.case;
+  // 走廊顶灯：一个个暖黄的光池，间距比人走得快
+  for (let y = 140; y < 720; y += 210) {
+    for (const x of [180, 640, 1100]) {
+      const flick = 0.8 + Math.sin(time * 3.1 + x + y) * 0.06;
+      const g = ctx.createRadialGradient(x, y, 4, x, y, 150);
+      g.addColorStop(0, `rgba(255, 214, 158, ${0.09 * flick})`);
+      g.addColorStop(0.6, `rgba(255, 196, 130, ${0.035 * flick})`);
+      g.addColorStop(1, 'rgba(255, 180, 110, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, 150, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  // 楼梯间：一扇门，门后是唯一不在这栋楼里的地方
+  const zone = c.zones.stair;
+  const lit = game.clock >= game.rule.dawn;
+  ctx.fillStyle = lit ? 'rgba(255, 208, 150, 0.22)' : 'rgba(8, 10, 12, 0.85)';
+  ctx.fillRect(zone.x + 10, zone.y + 10, zone.w - 20, zone.h - 20);
+  ctx.strokeStyle = lit ? 'rgba(255, 214, 160, 0.75)' : 'rgba(201, 162, 90, 0.4)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(zone.x + 10.5, zone.y + 10.5, zone.w - 21, zone.h - 21);
+  ctx.fillStyle = lit ? 'rgba(255, 226, 180, 0.9)' : 'rgba(180, 176, 164, 0.4)';
+  ctx.fillRect(zone.x + 16, zone.y + 14, 44, 2);
+  ctx.fillRect(zone.x + 16, zone.y + 20, 28, 1.4);
+  ctx.save();
+  ctx.translate(zone.x + zone.w - 26, zone.y + 30);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = lit ? 'rgba(255, 236, 200, 0.7)' : 'rgba(150, 146, 136, 0.35)';
+  ctx.font = `8px ${L.fonts.mono}`;
+  ctx.letterSpacing = '2px';
+  ctx.fillText('STAIRS', 0, 0);
+  ctx.restore();
+  // 墙上的门牌号
+  for (let i = 0; i < c.doors.length; i += 1) {
+    const d = c.doors[i];
+    ctx.fillStyle = 'rgba(186, 180, 168, 0.28)';
+    ctx.font = `7px ${L.fonts.mono}`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`${i + 1}`, d.x + 22, d.y + 26);
+  }
+}
+
+function drawStation(ctx, game, time) {
+  const c = game.case;
+  const r = game.rule;
+  // 轨道：站台与车之间的一条黑
+  ctx.fillStyle = 'rgba(2, 4, 5, 0.9)';
+  ctx.fillRect(74, 186, 1132, 18);
+  ctx.fillStyle = 'rgba(120, 150, 155, 0.18)';
+  ctx.fillRect(74, 190, 1132, 1);
+  ctx.fillRect(74, 200, 1132, 1);
+
+  // 站牌：三盏灯，只有这一班亮
+  const bx = 610;
+  const by = 236;
+  ctx.fillStyle = 'rgba(8, 11, 12, 0.92)';
+  ctx.fillRect(bx, by, 140, 44);
+  ctx.strokeStyle = 'rgba(150, 200, 190, 0.3)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(bx + 0.5, by + 0.5, 139, 43);
+  const names = ['south', 'west', 'east'];
+  names.forEach((name, i) => {
+    const gx = bx + 24 + i * 46;
+    const live = r.open === name && r.admitted < 1;
+    ctx.fillStyle = live ? 'rgba(214, 240, 228, 0.95)' : 'rgba(90, 110, 110, 0.4)';
+    ctx.beginPath();
+    ctx.arc(gx, by + 20, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = live ? 'rgba(214, 240, 228, 0.8)' : 'rgba(120, 140, 140, 0.4)';
+    ctx.font = `7px ${L.fonts.mono}`;
+    ctx.textAlign = 'center';
+    ctx.fillText(L.hud.gates[name], gx, by + 36);
+  });
+  // 站台钟：秒针在走，没人看
+  const cx = 350;
+  const cy = 240;
+  ctx.strokeStyle = 'rgba(160, 200, 195, 0.32)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 15, 0, Math.PI * 2);
+  ctx.stroke();
+  const ang = -Math.PI / 2 + (game.clock % 60) / 60 * Math.PI * 2;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + Math.cos(ang) * 11, cy + Math.sin(ang) * 11);
+  ctx.stroke();
+}
+
+function drawPaddies(ctx, game, time) {
+  const c = game.case;
+  for (const [x, y, w, h] of c.soft) {
+    // 泥埂
+    ctx.fillStyle = 'rgba(30, 26, 18, 0.9)';
+    ctx.fillRect(x - 3, y - 3, w + 6, h + 6);
+    // 水面
+    const g = ctx.createLinearGradient(x, y, x + w * 0.4, y + h);
+    g.addColorStop(0, '#15282c');
+    g.addColorStop(0.5, '#0f1f22');
+    g.addColorStop(1, '#091315');
+    ctx.fillStyle = g;
+    ctx.fillRect(x, y, w, h);
+    // 月亮和天光：一条被水揉碎的亮带
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 9; i += 1) {
+      const yy = y + 18 + i * ((h - 30) / 9);
+      const wob = Math.sin(time * 0.7 + i * 1.7 + x) * 14;
+      ctx.fillStyle = `rgba(190, 220, 230, ${0.06 + (i % 3) * 0.02})`;
+      ctx.fillRect(x + 16 + wob, yy, w * 0.6, 2.2);
+    }
+    // 水面上的稻行：一团团更暗的绿
+    for (let i = 0; i < 26; i += 1) {
+      const px = x + 8 + ((i * 73) % (w - 16));
+      const py = y + 8 + ((i * 41) % (h - 16));
+      ctx.fillStyle = 'rgba(54, 76, 50, 0.16)';
+      ctx.beginPath();
+      ctx.ellipse(px, py, 3.4, 7, 0.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // 稻：沿水边一圈短竖线
+    for (let i = 0; i < w; i += 14) {
+      const gy = y + 10 + Math.sin(time * 0.5 + i) * 1.2;
+      ctx.strokeStyle = i % 3 ? 'rgba(74, 88, 50, 0.55)' : 'rgba(96, 108, 58, 0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x + i + 4, gy);
+      ctx.lineTo(x + i + 2 + Math.sin(time + i) * 2, gy - 7);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x + i + 4, y + h - 10);
+      ctx.lineTo(x + i + 5 + Math.sin(time + i) * 2, y + h - 17);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // 农舍：木地板、门、门里那盏灯
+  const zone = c.zones.gate;
+  ctx.fillStyle = 'rgba(34, 26, 18, 0.95)';
+  ctx.fillRect(zone.x, zone.y, zone.w, zone.h);
+  for (let i = 0; i < zone.w; i += 22) {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+    ctx.fillRect(zone.x + i, zone.y, 1.4, zone.h);
+  }
+  ctx.fillStyle = 'rgba(255, 200, 130, 0.12)';
+  ctx.fillRect(zone.x, zone.y, zone.w, zone.h);
+  ctx.strokeStyle = 'rgba(201, 162, 90, 0.45)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(zone.x + 0.5, zone.y + 0.5, zone.w - 1, zone.h - 1);
+  const lamp = ctx.createRadialGradient(zone.x + zone.w / 2, zone.y + zone.h - 14, 4, zone.x + zone.w / 2, zone.y + zone.h - 14, 120);
+  lamp.addColorStop(0, 'rgba(255, 206, 140, 0.2)');
+  lamp.addColorStop(1, 'rgba(255, 180, 110, 0)');
+  ctx.fillStyle = lamp;
+  ctx.beginPath();
+  ctx.arc(zone.x + zone.w / 2, zone.y + zone.h - 14, 120, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255, 226, 180, 0.85)';
+  ctx.fillRect(zone.x + zone.w / 2 - 8, zone.y + zone.h - 18, 16, 2);
+}
+
+function drawBackroomsDecor(ctx, game, time) {
+  const c = game.case;
+  // 日光灯管：每隔一段一根，会闪
+  const tubes = [
+    [180, 130], [420, 130], [760, 130], [1010, 130],
+    [150, 380], [1100, 380], [400, 640], [900, 640],
+  ];
+  for (const [x, y] of tubes) {
+    const flick = Math.sin(time * 9 + x) > 0.96 ? 0.35 : 1;
+    const g = ctx.createLinearGradient(x - 52, 0, x + 52, 0);
+    g.addColorStop(0, 'rgba(232, 216, 140, 0)');
+    g.addColorStop(0.5, `rgba(240, 226, 160, ${0.1 * flick})`);
+    g.addColorStop(1, 'rgba(232, 216, 140, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x - 52, y - 26, 104, 52);
+    ctx.fillStyle = `rgba(246, 238, 200, ${0.35 * flick})`;
+    ctx.fillRect(x - 44, y - 2, 88, 4);
+    ctx.fillStyle = 'rgba(90, 86, 56, 0.8)';
+    ctx.fillRect(x - 46, y - 4, 92, 1);
+  }
+  // 地毯上的 13
+  ctx.save();
+  ctx.globalAlpha = 0.12;
+  ctx.fillStyle = '#f0e2b0';
+  ctx.font = `96px ${L.fonts.display}`;
+  ctx.textAlign = 'center';
+  ctx.fillText('13', 640, 690);
+  ctx.restore();
+  // 楼梯间
+  const zone = c.zones.stair;
+  const open = game.rule.gateOpen;
+  ctx.fillStyle = open ? 'rgba(255, 214, 156, 0.3)' : 'rgba(10, 10, 8, 0.9)';
+  ctx.fillRect(zone.x + 8, zone.y + 8, zone.w - 16, zone.h - 16);
+  ctx.strokeStyle = open ? 'rgba(255, 226, 180, 0.8)' : 'rgba(120, 112, 84, 0.4)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(zone.x + 8.5, zone.y + 8.5, zone.w - 17, zone.h - 17);
+  ctx.fillStyle = open ? 'rgba(255, 240, 206, 0.9)' : 'rgba(160, 150, 110, 0.35)';
+  ctx.font = `8px ${L.fonts.mono}`;
+  ctx.textAlign = 'center';
+  ctx.letterSpacing = '2px';
+  ctx.fillText('STAIRS', zone.x + zone.w / 2, zone.y + 34);
+}
+
+// ---- 门：公寓的门、车站的卷帘、十三楼的门牌 ------------------------------
+
+function drawDoors(ctx, game, time) {
+  const c = game.case;
+  const r = game.rule;
+  if (c.decor === 'corridor') {
+    for (let i = 0; i < c.doors.length; i += 1) {
+      const d = c.doors[i];
+      const knock = r.knock && r.knock.door === i;
+      const w = d.face === 'n' || d.face === 's' ? 54 : 24;
+      const h = d.face === 'n' || d.face === 's' ? 24 : 54;
+      const x = d.x - w / 2;
+      const y = d.y - h / 2;
+      ctx.fillStyle = 'rgba(12, 10, 8, 0.85)';
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = knock ? 'rgba(214, 96, 80, 0.9)' : 'rgba(201, 162, 90, 0.34)';
+      ctx.lineWidth = knock ? 2 : 1.2;
+      ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      ctx.fillStyle = 'rgba(201, 162, 90, 0.5)';
+      const hx = d.face === 'n' || d.face === 's' ? d.x + 18 : d.x;
+      const hy = d.face === 'n' || d.face === 's' ? d.y : d.y + 18;
+      ctx.beginPath();
+      ctx.arc(hx, hy, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+      if (knock) {
+        const pulse = (time * 1.6) % 1;
+        for (let k = 0; k < 3; k += 1) {
+          const t = Math.max(0, pulse - k * 0.28);
+          if (t <= 0) continue;
+          ctx.strokeStyle = `rgba(214, 96, 80, ${(1 - t) * 0.75})`;
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          ctx.arc(d.x, d.y, 12 + t * 46, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  if (c.decor === 'station') {
+    // 活着的那个门斗：里面是暖的，外面是冷的
+    for (const [name, zone] of Object.entries(c.zones)) {
+      if (name === 'platform') continue;
+      const live = r.open === name && r.admitted < 1;
+      if (!live) continue;
+      const cx = zone.x + zone.w / 2;
+      const cy = zone.y + zone.h / 2;
+      const g = ctx.createRadialGradient(cx, cy, 8, cx, cy, Math.max(zone.w, zone.h) * 0.9);
+      g.addColorStop(0, 'rgba(255, 226, 180, 0.16)');
+      g.addColorStop(1, 'rgba(255, 200, 140, 0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(zone.x, zone.y, zone.w, zone.h);
+      ctx.strokeStyle = 'rgba(255, 226, 180, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 8]);
+      ctx.strokeRect(zone.x + 6.5, zone.y + 6.5, zone.w - 13, zone.h - 13);
+      ctx.setLineDash([]);
+    }
+    for (const [name, rect] of Object.entries(c.rule.shutters)) {
+      const [x, y, w, h] = rect;
+      const live = r.open === name && r.admitted < 1;
+      if (live) {
+        // 门开了：里面是白的，什么都看不见
+        const g = ctx.createLinearGradient(x, y, x + w, y + h);
+        g.addColorStop(0, 'rgba(226, 236, 230, 0.12)');
+        g.addColorStop(0.5, 'rgba(236, 244, 238, 0.38)');
+        g.addColorStop(1, 'rgba(226, 236, 230, 0.1)');
+        ctx.fillStyle = g;
+        ctx.fillRect(x, y, w, h);
+        continue;
+      }
+      // 卷帘：一条条横板
+      ctx.fillStyle = 'rgba(26, 30, 30, 0.98)';
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = 'rgba(130, 150, 148, 0.22)';
+      ctx.lineWidth = 1;
+      if (w > h) {
+        for (let i = 6; i < h; i += 9) {
+          ctx.beginPath();
+          ctx.moveTo(x, y + i);
+          ctx.lineTo(x + w, y + i);
+          ctx.stroke();
+        }
+      } else {
+        for (let i = 6; i < w; i += 9) {
+          ctx.beginPath();
+          ctx.moveTo(x + i, y);
+          ctx.lineTo(x + i, y + h);
+          ctx.stroke();
+        }
+      }
+      ctx.fillStyle = r.admitted >= 1 && r.open === name ? 'rgba(206, 96, 86, 0.7)' : 'rgba(160, 200, 195, 0.25)';
+      ctx.fillRect(x + w / 2 - 10, y + (w > h ? 7 : h / 2 - 10), 20, 2);
+    }
+  }
+
+  if (c.decor === 'backrooms') {
+    // 门牌要走近才看得清：远看只是一块灰
+    let near = Infinity;
+    for (const a of game.agents) {
+      if (a.extracted || a.taken) continue;
+      near = Math.min(near, 1e9);
+    }
+    for (let i = 0; i < c.doors.length; i += 1) {
+      const d = c.doors[i];
+      const depth = 26;
+      const w = d.nx === 0 ? 58 : depth;
+      const h = d.nx === 0 ? depth : 58;
+      const x = d.nx === 0 ? d.x - 29 : d.nx > 0 ? d.x : d.x - depth;
+      const y = d.ny === 0 ? d.y - 29 : d.ny > 0 ? d.y : d.y - depth;
+      ctx.fillStyle = 'rgba(6, 6, 4, 0.92)';
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = 'rgba(240, 226, 160, 0.18)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      // 只有有人走到近处，牌才读得出来
+      let read = false;
+      for (const a of game.agents) {
+        if (a.extracted || a.taken) continue;
+        if (Math.hypot(a.x - d.x, a.y - d.y) < c.rule.readRange) {
+          read = true;
+          break;
+        }
+      }
+      const plate = c.rule.plates && c.rule.plates[i];
+      ctx.fillStyle = read ? 'rgba(238, 224, 164, 0.92)' : 'rgba(150, 140, 100, 0.2)';
+      ctx.fillRect(d.x - 9, d.y - 5, 18, 10);
+      if (read) {
+        ctx.fillStyle = 'rgba(24, 22, 12, 0.95)';
+        ctx.font = `8px ${L.fonts.mono}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(`${plate}`, d.x, d.y + 3);
+      }
+    }
+  }
+}
+
+// 世界里的读数：敲门的门、注视条、移开目光
+function drawWorldMarks(ctx, game, time) {
+  const r = game.rule;
+  if (r.kind === 'gaze') {
+    const at = game.case.rule.lamp;
+    if (!r.lit) {
+      const pulse = 0.45 + Math.sin(time * 2.4) * 0.2;
+      ctx.strokeStyle = `rgba(214, 198, 160, ${pulse})`;
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([5, 7]);
+      ctx.beginPath();
+      ctx.arc(at.x, at.y, 34, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255, 226, 180, 0.7)';
+      ctx.fillRect(at.x - 2, at.y - 2, 4, 4);
+    } else {
+      const g = ctx.createRadialGradient(at.x, at.y, 4, at.x, at.y, 90);
+      g.addColorStop(0, 'rgba(255, 214, 150, 0.18)');
+      g.addColorStop(1, 'rgba(255, 190, 110, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(at.x, at.y, 90, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    for (const a of game.agents) {
+      if (a.down || a.taken || a.extracted) continue;
+      if (a.gaze > 0.02) {
+        const pct = Math.min(1, a.gaze / game.case.rule.limit);
+        ctx.strokeStyle = pct > 0.66 ? 'rgba(206, 108, 96, 0.9)' : 'rgba(214, 198, 160, 0.55)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, 24, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+        ctx.stroke();
+      }
+      if (a.aversion > 0) {
+        ctx.strokeStyle = 'rgba(168, 196, 182, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, 27, 0.4, 2.6);
+        ctx.stroke();
+      }
+    }
+  }
+  if (r.kind === 'knock' && r.knock) {
+    const d = game.case.doors[r.knock.door];
+    if (r.knock.warn > 0) {
+      // 提示期：地上一条红线，指向那扇门
+      const pulse = 0.4 + Math.sin(time * 12) * 0.25;
+      ctx.strokeStyle = `rgba(206, 96, 86, ${pulse})`;
+      ctx.lineWidth = 1.4;
+      ctx.setLineDash([6, 8]);
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, 34, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+  if (r.kind === 'timetable') {
+    // 站台尽头的一列灯，下一班的方向
+    const gate = game.case.rule.gates[r.open];
+    const gx = 640;
+    const gy = 214;
+    ctx.strokeStyle = 'rgba(160, 226, 210, 0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(gx - 30, gy);
+    ctx.lineTo(gx + 30, gy);
+    ctx.stroke();
+    const ang = Math.atan2(gate.y - gy, gate.x - gx);
+    ctx.beginPath();
+    ctx.moveTo(gx + Math.cos(ang) * 26, gy + Math.sin(ang) * 26);
+    ctx.lineTo(gx + Math.cos(ang) * 34, gy + Math.sin(ang) * 34);
+    ctx.stroke();
+  }
+}
+
+function drawDecor(ctx, game, time) {
+  const c = game.case;
+  if (c.decor === 'opera') {
+    drawCarpet(ctx);
+    drawStage(ctx, game, time);
+    drawSeats(ctx, c.seats || []);
+  } else if (c.decor === 'corridor') {
+    drawApartment(ctx, game, time);
+  } else if (c.decor === 'station') {
+    drawStation(ctx, game, time);
+  } else if (c.decor === 'rice') {
+    drawPaddies(ctx, game, time);
+  } else {
+    drawBackroomsDecor(ctx, game, time);
   }
 }
 
@@ -298,7 +874,6 @@ function drawCarpet(ctx) {
     ctx.strokeStyle = 'rgba(201, 162, 90, 0.2)';
     ctx.lineWidth = 1;
     ctx.strokeRect(x + 3, y + 3, w - 6, h - 6);
-    // weave
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.14)';
     for (let i = 0; i < h; i += 8) {
       ctx.beginPath();
@@ -313,7 +888,8 @@ function drawCarpet(ctx) {
 }
 
 function drawStage(ctx, game, time) {
-  const stage = ZONES.stage;
+  const stage = game.case.zones.stage;
+  const cx = stage.x + stage.w / 2;
   const floor = ctx.createLinearGradient(0, stage.y - 18, 0, stage.y + stage.h + 18);
   floor.addColorStop(0, '#2a1c16');
   floor.addColorStop(0.5, '#1a1210');
@@ -356,7 +932,7 @@ function drawStage(ctx, game, time) {
     const pulse = 0.5 + Math.sin(time * 1.3) * 0.14;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const aria = ctx.createRadialGradient(840, 170, 20, 840, 200, 320);
+    const aria = ctx.createRadialGradient(cx, 170, 20, cx, 200, 320);
     aria.addColorStop(0, `rgba(255, 200, 140, ${0.14 * pulse})`);
     aria.addColorStop(1, 'rgba(255, 170, 100, 0)');
     ctx.fillStyle = aria;
@@ -365,8 +941,8 @@ function drawStage(ctx, game, time) {
   }
 }
 
-function drawSeats(ctx) {
-  for (const s of SEATS) {
+function drawSeats(ctx, seats) {
+  for (const s of seats) {
     // contact shadow under the row
     ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
     ctx.fillRect(s.x - 2, s.y + s.h - 2, s.w + 6, 5);
@@ -395,8 +971,74 @@ function drawSeats(ctx) {
   }
 }
 
+// A piece of furniture from straight above: a top face, a lit edge, a shadow pocket at its foot.
+function propBlock(ctx, x, y, w, h, top = 'rgba(34, 38, 44, 1)', base = 'rgba(16, 19, 24, 1)') {
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
+  ctx.fillRect(x + 3, y + 5, w + 3, h + 3);
+  const g = ctx.createLinearGradient(x, y, x, y + h);
+  g.addColorStop(0, top);
+  g.addColorStop(1, base);
+  ctx.fillStyle = g;
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = 'rgba(220, 230, 240, 0.16)';
+  ctx.fillRect(x, y, w, 1.3);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+  ctx.fillRect(x, y + h - 2, w, 2);
+}
+
 function drawProps(ctx, game, time) {
-  const exit = SPAWNS.exit;
+  const c = game.case;
+  for (const [x, y, w, h] of c.props) {
+    // 歌剧院的座椅与售票亭由 drawSeats / drawOperaProps 自己画，不能再压一层深色方块
+    if (c.decor === 'opera') continue;
+    if (c.decor === 'rice') {
+      // 石灯：一个方座，一盏小灯
+      propBlock(ctx, x, y, w, h, '#3a3c32', '#191b16');
+      const g = ctx.createRadialGradient(x + w / 2, y + h / 2, 1, x + w / 2, y + h / 2, 34);
+      g.addColorStop(0, `rgba(255, 208, 150, ${0.3 + Math.sin(time * 2 + x) * 0.04})`);
+      g.addColorStop(1, 'rgba(255, 180, 110, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x + w / 2, y + h / 2, 34, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255, 226, 180, 0.9)';
+      ctx.fillRect(x + w / 2 - 2, y + h / 2 - 2, 4, 4);
+    } else if (c.decor === 'station' && w > 600) {
+      // 停着的列车：车顶、车窗的一条冷光
+      propBlock(ctx, x, y, w, h, '#2a3134', '#0b0f11');
+      ctx.fillStyle = 'rgba(150, 200, 205, 0.16)';
+      ctx.fillRect(x + 20, y + 12, w - 40, 10);
+      for (let i = x + 24; i < x + w - 30; i += 76) {
+        ctx.fillStyle = 'rgba(196, 226, 226, 0.28)';
+        ctx.fillRect(i, y + 14, 44, 7);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.fillRect(i + 44, y + 14, 3, 7);
+      }
+      ctx.fillStyle = 'rgba(210, 180, 110, 0.4)';
+      ctx.fillRect(x + 10, y + h - 12, w - 20, 2);
+    } else if (c.decor === 'station') {
+      // 长椅与小卖亭
+      propBlock(ctx, x, y, w, h, '#39322a', '#15120e');
+      for (let i = 0; i < w; i += 16) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fillRect(x + i, y + 3, 1.4, h - 6);
+      }
+      ctx.fillStyle = 'rgba(220, 190, 140, 0.2)';
+      ctx.fillRect(x, y, w, 1);
+    } else {
+      propBlock(ctx, x, y, w, h, '#22262e', '#0c0f14');
+      ctx.strokeStyle = 'rgba(190, 205, 225, 0.1)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 2.5, y + 2.5, w - 5, h - 5);
+    }
+  }
+
+  if (c.decor === 'opera') drawOperaProps(ctx, game);
+  if (c.decor === 'corridor') drawApartmentProps(ctx, game);
+}
+
+function drawOperaProps(ctx, game) {
+  const exit = game.case.spawns.exit;
   ctx.strokeStyle = 'rgba(201, 162, 90, 0.75)';
   ctx.lineWidth = 2;
   ctx.strokeRect(exit.x - 18, exit.y - 28, 36, 56);
@@ -425,7 +1067,7 @@ function drawProps(ctx, game, time) {
   ctx.fillRect(320, 380, 14, 2);
 
   // switchboard
-  const sw = SPAWNS.switchboard;
+  const sw = game.case.spawns.switchboard;
   ctx.fillStyle = '#10151c';
   ctx.fillRect(sw.x - 26, sw.y - 18, 52, 36);
   ctx.strokeStyle = '#2c3644';
@@ -449,22 +1091,91 @@ function drawProps(ctx, game, time) {
   for (let i = 0; i < 3; i += 1) ctx.fillRect(sw.x - 18, sw.y - 8 + i * 8, 22, 2);
 }
 
+function drawApartmentProps(ctx, game) {
+  // 电梯：两扇铜门，中间一道缝
+  ctx.fillStyle = '#0d0f12';
+  ctx.fillRect(590, 502, 100, 26);
+  ctx.fillStyle = 'rgba(201, 162, 90, 0.22)';
+  ctx.fillRect(590, 502, 100, 1.5);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+  ctx.fillRect(639, 502, 2, 26);
+  ctx.fillStyle = 'rgba(201, 162, 90, 0.4)';
+  ctx.fillRect(596, 508, 2, 2);
+  ctx.fillRect(682, 508, 2, 2);
+}
+
 function drawWalls(ctx, game) {
-  for (const [x, y, w, h] of WALLS) {
+  const c = game.case;
+  for (const [x, y, w, h] of c.walls) {
+    const big = w > 76 && h > 76;
     const g = ctx.createLinearGradient(0, y, 0, y + h);
-    g.addColorStop(0, '#22262f');
+    g.addColorStop(0, c.palette.wall);
     g.addColorStop(0.25, '#181c24');
-    g.addColorStop(1, '#0d1016');
+    g.addColorStop(1, '#0b0e13');
     ctx.fillStyle = g;
     ctx.fillRect(x, y, w, h);
+    if (big) {
+      // 一块楼板，不是一个洞：顶面、女儿墙、分格缝，几处屋顶设备
+      ctx.fillStyle = 'rgba(120, 134, 150, 0.045)';
+      ctx.fillRect(x + 3, y + 3, w - 6, h - 6);
+      ctx.strokeStyle = 'rgba(200, 216, 232, 0.12)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 4.5, y + 4.5, w - 9, h - 9);
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+      for (let i = 44; i < w - 20; i += 44) {
+        ctx.beginPath();
+        ctx.moveTo(x + i, y + 6);
+        ctx.lineTo(x + i, y + h - 6);
+        ctx.stroke();
+      }
+      for (let i = 40; i < h - 18; i += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x + 6, y + i);
+        ctx.lineTo(x + w - 6, y + i);
+        ctx.stroke();
+      }
+      // 屋顶的两处设备：一截风管、一个水箱
+      ctx.fillStyle = 'rgba(160, 176, 190, 0.09)';
+      ctx.fillRect(x + w * 0.62, y + h * 0.3, 54, 22);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.fillRect(x + w * 0.62, y + h * 0.3 + 19, 54, 3);
+      ctx.fillStyle = 'rgba(150, 166, 178, 0.08)';
+      ctx.beginPath();
+      ctx.arc(x + w * 0.26, y + h * 0.62, 17, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(200, 216, 232, 0.1)';
+      ctx.beginPath();
+      ctx.arc(x + w * 0.26, y + h * 0.62, 17, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     ctx.fillStyle = 'rgba(190, 205, 225, 0.22)';
     ctx.fillRect(x, y, w, 1.5);
     ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
     ctx.fillRect(x, y + h - 2, w, 2);
-    // a brass chair rail along long walls
-    if (w > 120) {
+    if (c.decor === 'backrooms') {
+      // 后室的墙纸：竖接缝，湿斑
+      ctx.fillStyle = 'rgba(224, 206, 130, 0.07)';
+      for (let i = 8; i < w; i += 26) ctx.fillRect(x + i, y + 2, 1, h - 4);
+      ctx.fillStyle = 'rgba(30, 26, 12, 0.3)';
+      ctx.fillRect(x, y + h * 0.4, w, 1);
+    } else if (c.decor === 'station') {
+      ctx.fillStyle = 'rgba(160, 200, 200, 0.12)';
+      ctx.fillRect(x, y + h * 0.5, w, 1);
+    } else if (c.decor === 'corridor') {
+      // 走廊下半墙的护墙板
+      ctx.fillStyle = 'rgba(120, 96, 66, 0.16)';
+      ctx.fillRect(x, y + h * 0.62, w, h * 0.36);
+    } else if (w > 120) {
       ctx.fillStyle = 'rgba(201, 162, 90, 0.16)';
       ctx.fillRect(x, y + h * 0.55, w, 1);
+    }
+    if (c.decor !== 'corridor' && c.decor !== 'backrooms') {
+      // 女儿墙的投影落在地板上
+      const shade = ctx.createLinearGradient(0, y + h, 0, y + h + 10);
+      shade.addColorStop(0, 'rgba(0, 0, 0, 0.4)');
+      shade.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = shade;
+      ctx.fillRect(x, y + h, w, 10);
     }
   }
 }
@@ -511,6 +1222,15 @@ function drawThralls(ctx, game, time) {
       drawSpiderling(ctx, t, time);
       continue;
     }
+    if (t.kind === 'hachi') {
+      drawHachi(ctx, t, time);
+      continue;
+    }
+    if (t.kind === 'kune') {
+      drawKune(ctx, t, time);
+      continue;
+    }
+    if (t.kind === 'mirror') continue;
     ctx.save();
     ctx.translate(t.x, t.y);
 
@@ -846,12 +1566,25 @@ function drawSpider(ctx, t, time) {
   ctx.fill();
 
   if (t.hitFlash > 0.02) {
-    ctx.globalAlpha = Math.min(0.7, t.hitFlash);
-    ctx.fillStyle = '#fff';
+    // 受击不是一块白饼：一层软晕，边缘吃掉
+    const hit = ctx.createRadialGradient(0, -8, 4, 0, -8, 40);
+    hit.addColorStop(0, `rgba(255, 250, 240, ${0.5 * t.hitFlash})`);
+    hit.addColorStop(0.5, `rgba(255, 228, 210, ${0.16 * t.hitFlash})`);
+    hit.addColorStop(1, 'rgba(255, 220, 200, 0)');
+    ctx.fillStyle = hit;
     ctx.beginPath();
-    ctx.arc(0, -8, 34, 0, Math.PI * 2);
+    ctx.arc(0, -8, 40, 0, Math.PI * 2);
     ctx.fill();
-    ctx.globalAlpha = 1;
+    // 裙面上被打出的裂纹
+    ctx.strokeStyle = `rgba(90, 30, 30, ${0.5 * t.hitFlash})`;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 3; i += 1) {
+      const a = i * 2.1 + 0.4;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * 6, -12 + Math.sin(a) * 6);
+      ctx.lineTo(Math.cos(a) * 20, -12 + Math.sin(a) * 22);
+      ctx.stroke();
+    }
   }
   ctx.restore();
 
@@ -863,8 +1596,193 @@ function drawSpider(ctx, t, time) {
   ctx.fillRect(t.x - w / 2, t.y - 62, (w * t.hp) / t.maxHp, 3);
 }
 
-function drawSpiderling(ctx, t, time) {
+// 八尺様：白裙、黑长发从头盖到腰、赤脚。她比人高，但俯视看不到个子——只能靠更长更软的投影，
+// 以及比人宽一圈的裙摆。正面没有脸，只有头发。
+function drawHachi(ctx, t, time) {
   ctx.save();
+  ctx.globalAlpha = t.dormant ? 0.32 : 1;
+  ctx.translate(t.x, t.y);
+  const sh = ctx.createRadialGradient(10, 22, 4, 10, 22, 58);
+  sh.addColorStop(0, 'rgba(0, 0, 0, 0.62)');
+  sh.addColorStop(0.6, 'rgba(0, 0, 0, 0.28)');
+  sh.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = sh;
+  ctx.beginPath();
+  ctx.ellipse(10, 24, 34, 22, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.rotate(t.aim + Math.PI / 2);
+  const sway = Math.sin(time * 1.2 + t.step) * 1.4;
+  // 裙摆：比肩宽，前短后长
+  const dress = ctx.createLinearGradient(0, -22, 0, 30);
+  dress.addColorStop(0, '#efe9dc');
+  dress.addColorStop(0.55, '#d8d2c4');
+  dress.addColorStop(1, '#a9a396');
+  ctx.fillStyle = dress;
+  ctx.beginPath();
+  ctx.moveTo(0, -20);
+  ctx.bezierCurveTo(16, -14, 21 + sway, 10, 23, 26);
+  ctx.bezierCurveTo(10, 32, -10, 32, -23, 26);
+  ctx.bezierCurveTo(-21 + sway, 10, -16, -14, 0, -20);
+  ctx.closePath();
+  ctx.fill();
+  // 一条被主光压出来的暗边，让她从地上立起来
+  ctx.strokeStyle = 'rgba(16, 14, 16, 0.5)';
+  ctx.lineWidth = 1.1;
+  ctx.stroke();
+  // 裙褶
+  ctx.strokeStyle = 'rgba(120, 114, 104, 0.4)';
+  ctx.lineWidth = 0.9;
+  for (let i = -2; i <= 2; i += 1) {
+    ctx.beginPath();
+    ctx.moveTo(i * 6, -12);
+    ctx.quadraticCurveTo(i * 8 + sway, 6, i * 7, 26);
+    ctx.stroke();
+  }
+  // 长发：从头顶盖到腰，但收窄，别把整条白裙吃掉
+  const hair = ctx.createLinearGradient(0, -30, 0, 24);
+  hair.addColorStop(0, '#141013');
+  hair.addColorStop(1, '#2a2026');
+  ctx.fillStyle = hair;
+  ctx.beginPath();
+  ctx.moveTo(0, -30);
+  ctx.bezierCurveTo(8, -22, 8.5, 4, 6.5, 22);
+  ctx.bezierCurveTo(0, 25, -6, 24, -6.5, 22);
+  ctx.bezierCurveTo(-8.5, 4, -8, -22, 0, -30);
+  ctx.closePath();
+  ctx.fill();
+  // 头顶：只有颅顶和一条被头发压住的高光
+  ctx.fillStyle = '#191317';
+  ctx.beginPath();
+  ctx.ellipse(0, -24, 9.4, 9.8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 236, 210, 0.16)';
+  ctx.lineWidth = 0.9;
+  ctx.beginPath();
+  ctx.ellipse(0, -24, 8.4, 8.8, 0, -2.2, 0.5);
+  ctx.stroke();
+  // 前伸的两只手，苍白
+  ctx.strokeStyle = '#d7cfc0';
+  ctx.lineWidth = 3.2;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-9, -12);
+  ctx.lineTo(-13, -24 + Math.sin(time * 1.6) * 1.6);
+  ctx.moveTo(9, -12);
+  ctx.lineTo(13, -24 - Math.sin(time * 1.6) * 1.6);
+  ctx.stroke();
+  // 赤脚：裙摆下露出的两个脚趾
+  ctx.fillStyle = '#cbbfae';
+  ctx.beginPath();
+  ctx.ellipse(-6, 29, 3.1, 4.2, 0.1, 0, Math.PI * 2);
+  ctx.ellipse(6, 29, 3.1, 4.2, -0.1, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (t.feed > 0) {
+    // 她俯下身看那个倒下的人
+    ctx.strokeStyle = `rgba(206, 96, 86, ${0.25 + Math.sin(time * 8) * 0.15})`;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(0, 2, 30, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  if (t.hitFlash > 0.02) {
+    ctx.globalAlpha *= Math.min(1, t.hitFlash);
+    ctx.fillStyle = 'rgba(220, 236, 240, 0.5)';
+    ctx.beginPath();
+    ctx.arc(0, -4, 26, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// くねくね：田里一根会弯的、半透明的白。不可杀，越看动得越快。
+function drawKune(ctx, t, time) {
+  const s = t.size || 1;
+  ctx.save();
+  ctx.translate(t.x, t.y);
+  ctx.globalAlpha = 0.9;
+  const sh = ctx.createRadialGradient(4, 7, 2, 4, 7, 22 * s);
+  sh.addColorStop(0, 'rgba(0, 0, 0, 0.45)');
+  sh.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = sh;
+  ctx.beginPath();
+  ctx.ellipse(4, 7, 16 * s, 10 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const agit = (t.agitation || 0) * 1.4;
+  const phase = t.sway || 0;
+  // 一根弯来弯去的白：从水里立起来的一条细长身子，越往上越细，头上一个小结
+  ctx.strokeStyle = 'rgba(234, 238, 228, 0.62)';
+  ctx.lineCap = 'round';
+  ctx.lineWidth = 5.2 * s;
+  ctx.beginPath();
+  for (let i = 0; i <= 8; i += 1) {
+    const k = i / 8;
+    const bx = Math.sin(phase * (1 + agit) + k * 0.9) * 7 * s * (1 - k * 0.5);
+    const by = 6 * s - k * 30 * s;
+    if (i === 0) ctx.moveTo(bx, by);
+    else ctx.lineTo(bx, by);
+  }
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(248, 250, 242, 0.5)';
+  ctx.lineWidth = 2 * s;
+  ctx.beginPath();
+  for (let i = 0; i <= 8; i += 1) {
+    const k = i / 8;
+    const bx = Math.sin(phase * (1 + agit) + k * 0.9) * 7 * s * (1 - k * 0.5) + 1;
+    const by = 6 * s - k * 30 * s;
+    if (i === 0) ctx.moveTo(bx, by);
+    else ctx.lineTo(bx, by);
+  }
+  ctx.stroke();
+  // 顶上的小结
+  ctx.fillStyle = 'rgba(240, 244, 234, 0.8)';
+  ctx.beginPath();
+  ctx.ellipse(Math.sin(phase * (1 + agit)) * 3.6 * s, -25 * s, 4.4 * s, 3.4 * s, 0.4, 0, Math.PI * 2);
+  ctx.fill();
+  // 水纹：它脚下一圈一圈
+  ctx.strokeStyle = `rgba(170, 200, 200, ${0.14 + agit * 0.08})`;
+  ctx.lineWidth = 0.9;
+  for (let i = 1; i <= 3; i += 1) {
+    ctx.beginPath();
+    ctx.ellipse(0, 7 * s, (10 + i * 7) * s, (4 + i * 3) * s, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  // 四条细肢，挥
+  ctx.strokeStyle = 'rgba(232, 236, 226, 0.5)';
+  ctx.lineWidth = 1.5 * s;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 4; i += 1) {
+    const a = phase * 0.7 + i * 1.7;
+    const reach = (16 + Math.sin(phase * 3 + i) * 5) * s * (1 + agit * 0.15);
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * 4 * s, Math.sin(a) * 4 * s);
+    ctx.quadraticCurveTo(
+      Math.cos(a + 0.5) * reach * 0.6,
+      Math.sin(a + 0.5) * reach * 0.6,
+      Math.cos(a + Math.sin(phase + i) * 0.5) * reach,
+      Math.sin(a + Math.sin(phase + i) * 0.5) * reach,
+    );
+    ctx.stroke();
+  }
+  // 被看的时候，它周围有一层很淡的白
+  if (agit > 0.05) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(0, 0, 2, 0, 0, 44 * s);
+    g.addColorStop(0, `rgba(226, 236, 226, ${0.1 + agit * 0.08})`);
+    g.addColorStop(1, 'rgba(226, 236, 226, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, 44 * s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawSpiderling(ctx, t, time) {  ctx.save();
   ctx.translate(t.x, t.y);
   ctx.rotate(t.aim + Math.PI / 2);
   ctx.strokeStyle = 'rgba(20, 16, 20, 0.9)';
@@ -922,8 +1840,11 @@ function drawDebris(ctx, game) {
   }
 }
 
-function drawAgents(ctx, game, time) {  for (const a of game.agents) {
+function drawAgents(ctx, game, time) {
+  const mirrors = game.thralls.filter((t) => t.kind === 'mirror' && !t.dead);
+  for (const a of [...game.agents, ...mirrors]) {
     if (a.taken || a.extracted) continue;
+    const mirror = a.kind === 'mirror';
     const down = a.down;
     ctx.save();
     ctx.translate(a.x, a.y);
@@ -973,8 +1894,13 @@ function drawAgents(ctx, game, time) {  for (const a of game.agents) {
     ctx.rotate(Math.max(-0.4, Math.min(0.4, lean)) * 0.07);
     const shortAngle = (v) => Math.atan2(Math.sin(v), Math.cos(v));
     const swing = Math.sin(a.step) * 4.4;
-    const coat = a.role === 'veteran' ? '#2f3743' : a.role === 'rookie' ? '#263d47' : '#3a3226';
-    const coatLight = a.role === 'veteran' ? '#4b5566' : a.role === 'rookie' ? '#3d6070' : '#5c4e38';
+    let coat = a.role === 'veteran' ? '#2f3743' : a.role === 'rookie' ? '#263d47' : '#3a3226';
+    let coatLight = a.role === 'veteran' ? '#4b5566' : a.role === 'rookie' ? '#3d6070' : '#5c4e38';
+    if (mirror) {
+      // 重复品：外套反着穿，里衬朝外，没有灯
+      coat = a.role === 'veteran' ? '#43323c' : a.role === 'rookie' ? '#3d3038' : '#463a30';
+      coatLight = a.role === 'veteran' ? '#8d7c84' : a.role === 'rookie' ? '#8a7d86' : '#8d8168';
+    }
     // the rim belongs to the light, not to the sprite: find the key light in local space
     const lightAngle = Math.atan2(KEY.y - a.y, KEY.x - a.x) - (a.facing + Math.PI / 2);
     const cloth = a.cloth || { x: 0, y: 0, sway: 0 };
@@ -1111,8 +2037,8 @@ function drawAgents(ctx, game, time) {  for (const a of game.agents) {
     ctx.stroke();
     // the rim belongs to the light: a hairline along the lit half of the coat, fading to nothing
     const rimGrad = ctx.createLinearGradient(litX * 13, litY * 13, -litX * 10, -litY * 10);
-    rimGrad.addColorStop(0, 'rgba(255, 220, 172, 0.4)');
-    rimGrad.addColorStop(0.38, 'rgba(255, 220, 172, 0.06)');
+    rimGrad.addColorStop(0, mirror ? 'rgba(190, 210, 214, 0.16)' : 'rgba(255, 220, 172, 0.4)');
+    rimGrad.addColorStop(0.38, mirror ? 'rgba(190, 210, 214, 0.04)' : 'rgba(255, 220, 172, 0.06)');
     rimGrad.addColorStop(1, 'rgba(255, 220, 172, 0)');
     ctx.strokeStyle = rimGrad;
     ctx.lineWidth = 1.15;
@@ -1353,6 +2279,12 @@ function drawAgents(ctx, game, time) {  for (const a of game.agents) {
       ctx.arc(a.x, a.y, 26, 0, Math.PI * 2);
       ctx.fill();
     }
+    if (mirror && a.hitFlash > 0.02) {
+      ctx.fillStyle = `rgba(210, 226, 230, ${a.hitFlash * 0.35})`;
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, 24, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 }
 
@@ -1374,7 +2306,7 @@ function drawBullets(ctx, game) {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   for (const b of game.bullets) {
-    ctx.strokeStyle = 'rgba(255, 232, 180, 0.9)';
+    ctx.strokeStyle = b.team === 'enemy' ? 'rgba(180, 226, 236, 0.85)' : 'rgba(255, 232, 180, 0.9)';
     ctx.lineWidth = 1.8;
     ctx.beginPath();
     ctx.moveTo(b.x, b.y);
@@ -1424,26 +2356,51 @@ export function drawBars(ctx) {
 
 // The print: a grade, a vignette, grain, and 2.2:1 bars.
 function drawPost(ctx, game, time) {
-  // teal in the shadows, amber in the light
+  // 每一案一张不同的印片：歌剧院暖、公寓土黄、车站青、稻田冷、后室芥末
+  const decor = game.case.decor;
+  const tint = {
+    opera: ['40, 90, 120', '120, 70, 30'],
+    corridor: ['60, 66, 44', '110, 74, 34'],
+    station: ['36, 92, 96', '30, 60, 70'],
+    rice: ['30, 74, 96', '40, 74, 52'],
+    backrooms: ['96, 88, 30', '110, 92, 30'],
+  }[decor] || ['40, 90, 120', '120, 70, 30'];
   ctx.save();
   ctx.globalCompositeOperation = 'soft-light';
   const grade = ctx.createLinearGradient(0, 0, VIEW.width, VIEW.height);
-  grade.addColorStop(0, 'rgba(40, 90, 120, 0.35)');
-  grade.addColorStop(0.55, 'rgba(20, 30, 45, 0.1)');
-  grade.addColorStop(1, 'rgba(120, 70, 30, 0.35)');
+  grade.addColorStop(0, `rgba(${tint[0]}, 0.35)`);
+  grade.addColorStop(0.55, `rgba(${tint[0]}, 0.1)`);
+  grade.addColorStop(1, `rgba(${tint[1]}, 0.35)`);
   ctx.fillStyle = grade;
   ctx.fillRect(0, 0, VIEW.width, VIEW.height);
   ctx.restore();
 
-  // the house holds its breath while she is up: a red wash and a slow pulse
-  const spider = game.thralls && game.thralls.find((t) => t.kind === 'spider' && !t.dead);
-  if (spider) {
-    const pulse = 0.5 + Math.sin(time * 1.4) * 0.2;
-    const red = ctx.createRadialGradient(spider.x, spider.y, 40, spider.x, spider.y, 420);
-    red.addColorStop(0, `rgba(120, 18, 16, ${0.16 * pulse})`);
-    red.addColorStop(1, 'rgba(90, 10, 10, 0)');
-    ctx.fillStyle = red;
+  // 每一案都有自己的那一圈颜色：她站在台上、她比门高、田里那个东西、还有走廊里的你
+  const boss = game.thralls && game.thralls.find((t) => !t.dead && (t.kind === 'spider' || t.kind === 'hachi' || (t.kind === 'kune' && t.size > 1.4)));
+  const mirror = game.thralls && game.thralls.find((t) => !t.dead && t.kind === 'mirror');
+  const pulse = 0.5 + Math.sin(time * 1.4) * 0.2;
+  if (boss) {
+    const [r0, g0, b0] = boss.kind === 'spider' ? [120, 18, 16] : boss.kind === 'hachi' ? [26, 34, 48] : [120, 130, 120];
+    const wash = ctx.createRadialGradient(boss.x, boss.y, 40, boss.x, boss.y, 430);
+    wash.addColorStop(0, `rgba(${r0}, ${g0}, ${b0}, ${(boss.kind === 'spider' ? 0.16 : 0.2) * pulse})`);
+    wash.addColorStop(1, `rgba(${r0}, ${g0}, ${b0}, 0)`);
+    ctx.fillStyle = wash;
     ctx.fillRect(0, 0, VIEW.width, VIEW.height);
+  }
+  if (mirror) {
+    const edge = ctx.createLinearGradient(0, 0, VIEW.width, VIEW.height);
+    edge.addColorStop(0, 'rgba(150, 170, 180, 0.05)');
+    edge.addColorStop(1, 'rgba(150, 170, 180, 0.02)');
+    ctx.fillStyle = edge;
+    ctx.fillRect(0, 0, VIEW.width, VIEW.height);
+  }
+  // 第二案：天亮的那一刻，画面从蓝转暖
+  if (game.case.decor === 'corridor') {
+    const dawn = Math.max(0, Math.min(1, (game.clock - (game.case.rule.dawn - 2)) / 6));
+    if (dawn > 0) {
+      ctx.fillStyle = `rgba(255, 220, 170, ${dawn * 0.06})`;
+      ctx.fillRect(0, 0, VIEW.width, VIEW.height);
+    }
   }
 
   const vig = ctx.createRadialGradient(640, 400, 260, 640, 420, 880);

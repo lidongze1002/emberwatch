@@ -157,6 +157,34 @@ export class Sound {
     this.burst(0.5, 2600, 0.06, 'highpass');
   }
 
+  // 第二案：门后再敲三下
+  knock() {
+    for (let i = 0; i < 3; i += 1) {
+      this.tone(96, 0.16, 'sine', 0.1, 58, i * 0.17);
+      this.burst(0.09, 420, 0.05, 'lowpass', 0);
+    }
+  }
+
+  dismiss() {
+    this.tone(180, 0.18, 'triangle', 0.04, 120);
+  }
+
+  // 第四案：移开目光，一声很轻的呼气
+  avert() {
+    this.burst(0.28, 900, 0.03, 'highpass');
+  }
+
+  // 第三案：卷帘门
+  door() {
+    this.burst(0.5, 260, 0.12);
+    this.tone(70, 0.4, 'sawtooth', 0.05, 48);
+  }
+
+  // 第二案：天亮
+  dawn() {
+    [262, 330, 392].forEach((n, i) => this.tone(n, 1.6, 'sine', 0.03, null, i * 0.2));
+  }
+
   begin() {
     this.tone(164, 1.2, 'sawtooth', 0.03);
     this.tone(220, 1.2, 'sine', 0.04, null, 0.05);

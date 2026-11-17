@@ -1,26 +1,18 @@
-// The people on the floor: three agents who decide for themselves, the things in the seats, and
-// the rounds in the air. The player gives objectives; every step, target and retreat here is the
-// agent's own call.
+// 场上的人：三个自己拿主意的队员，和这一案里的东西。玩家只下目标；每一步、每个目标、
+// 每次后退，都是队员自己判断的。案子不同，这里的「东西」不同，但骨架是同一套。
 
-import { AGENTS, SPIDER, SPIDERLING, SPIDER_SPAWN, SPAWNS, THRALL, TUNING, ZONES } from './config.js';
+import { AGENTS, HACHI, KUNE, MIRROR, SPIDER, SPIDERLING, THRALL, TUNING } from './config.js';
 import { findPath, lineClear, solid, walkClear } from './level.js';
 
-const inZone = (zone, x, y) => x > zone.x && x < zone.x + zone.w && y > zone.y && y < zone.y + zone.h;
+const inZone = (zone, x, y) => !!zone && x > zone.x && x < zone.x + zone.w && y > zone.y && y < zone.y + zone.h;
 
-export function spawnSpider(game) {
-  if (game.thralls.some((t) => t.kind === 'spider' && !t.dead)) return;
-  game.thralls.push({
-    id: 'spider',
-    kind: 'spider',
-    x: SPIDER_SPAWN.x,
-    y: SPIDER_SPAWN.y,
-    hp: SPIDER.hp,
-    maxHp: SPIDER.hp,
-    speed: SPIDER.speed,
-    reach: SPIDER.reach,
-    damage: SPIDER.damage,
-    cooldownMax: SPIDER.cooldown,
-    radius: SPIDER.radius,
+function baseBody(x, y, extra) {
+  return {
+    x,
+    y,
+    hp: 1,
+    maxHp: 1,
+    speed: 20,
     cooldown: 0,
     hitFlash: 0,
     dead: false,
@@ -28,41 +20,124 @@ export function spawnSpider(game) {
     wander: 0,
     wanderClock: 0,
     stun: 0,
-    step: 0,
+    step: Math.random() * 6,
     cloth: { x: 0, y: 0, sway: 0 },
-  });
-  game.shake = 8;
+    ...extra,
+  };
 }
 
-function spawnSpiderlings(game, x, y) {
-  for (let i = 0; i < 3; i += 1) {
-    const a = (i / 3) * Math.PI * 2 + 0.4;
-    game.thralls.push({
-      id: `sp${i}`,
-      kind: 'spiderling',
-      x: x + Math.cos(a) * 26,
-      y: y + Math.sin(a) * 26,
-      hp: SPIDERLING.hp,
-      maxHp: SPIDERLING.hp,
-      speed: SPIDERLING.speed,
-      reach: SPIDERLING.reach,
-      damage: SPIDERLING.damage,
-      cooldownMax: SPIDERLING.cooldown,
-      radius: SPIDERLING.radius,
-      cooldown: 0,
-      hitFlash: 0,
-      dead: false,
-      aim: a,
-      wander: a,
-      wanderClock: 0,
-      stun: 0,
-      step: Math.random() * 6,
-      cloth: { x: 0, y: 0, sway: 0 },
+// ---- spawns ---------------------------------------------------------------
+
+export function spawnBoss(game) {
+  const boss = game.case.boss;
+  if (!boss) return null;
+  if (boss.kind === 'spider') {
+    if (game.thralls.some((t) => t.kind === 'spider' && !t.dead)) return null;
+    const t = baseBody(boss.x, boss.y, {
+      id: 'spider',
+      kind: 'spider',
+      hp: SPIDER.hp,
+      maxHp: SPIDER.hp,
+      speed: SPIDER.speed,
+      reach: SPIDER.reach,
+      damage: SPIDER.damage,
+      cooldownMax: SPIDER.cooldown,
+      radius: SPIDER.radius,
     });
+    game.thralls.push(t);
+    game.shake = 8;
+    return t;
+  }
+  if (boss.kind === 'hachi') {
+    if (game.thralls.some((t) => t.kind === 'hachi' && !t.dead)) return null;
+    const t = baseBody(boss.x, boss.y, {
+      id: 'hachi',
+      kind: 'hachi',
+      hp: 1,
+      maxHp: 1,
+      speed: HACHI.speed,
+      reach: HACHI.reach,
+      damage: HACHI.damage,
+      cooldownMax: HACHI.cooldown,
+      radius: HACHI.radius,
+      armor: true,
+      feed: 0,
+      path: null,
+      pathAt: 0,
+    });
+    game.thralls.push(t);
+    game.shake = 6;
+    return t;
+  }
+  if (boss.kind === 'kunekune') {
+    const t = kune(boss.x, boss.y, boss.size || 1.9, 'big');
+    game.thralls.push(t);
+    return t;
+  }
+  return null;
+}
+
+function kune(x, y, size, id) {
+  return baseBody(x, y, {
+    id: `kune-${id}`,
+    kind: 'kune',
+    hp: 1,
+    maxHp: 1,
+    radius: 20 * size,
+    size,
+    rate: size > 1.4 ? KUNE.bossRate : KUNE.rate,
+    noTarget: true,
+    invulnerable: true,
+    sway: Math.random() * 6.28,
+    aim: Math.PI / 2,
+  });
+}
+
+export function spawnGazers(game) {
+  for (const g of game.case.gazers || []) {
+    game.thralls.push(kune(g.x, g.y, g.size || 1, game.thralls.length));
   }
 }
-export function createAgents() {
-  return SPAWNS.agents.map((spot, i) => {
+
+export function spawnMirrors(game) {
+  const boss = game.case.boss;
+  if (!boss || boss.kind !== 'mirror') return;
+  const spots = [
+    { x: 400, y: 660 }, { x: 320, y: 420 }, { x: 240, y: 220 },
+  ];
+  const roles = ['veteran', 'rookie', 'lamp'];
+  for (let i = 0; i < (boss.count || 3); i += 1) {
+    const s = spots[i % spots.length];
+    const spec = AGENTS[roles[i % 3]];
+    game.thralls.push(baseBody(s.x, s.y, {
+      id: `mirror-${i}`,
+      kind: 'mirror',
+      role: roles[i % 3],
+      hp: MIRROR.hp,
+      maxHp: MIRROR.hp,
+      speed: MIRROR.speed,
+      damage: MIRROR.damage,
+      range: MIRROR.range,
+      fireRate: MIRROR.fireRate,
+      spread: MIRROR.spread,
+      radius: MIRROR.radius,
+      colour: spec.colour,
+      path: null,
+      pathAt: 0,
+      mirror: true,
+      facing: Math.PI / 2,
+      vx: 0,
+      vy: 0,
+      recoil: 0,
+      pose: 'ready',
+      flash: 0,
+      cooldown: 0.6 + Math.random(),
+    }));
+  }
+}
+
+export function createAgents(game) {
+  return game.case.spawns.agents.map((spot, i) => {
     const spec = AGENTS[spot.role];
     return {
       id: `a${i}`,
@@ -97,27 +172,25 @@ export function createAgents() {
       taken: false,
       flash: 0,
       step: Math.random() * 10,
+      gaze: 0,
+      aversion: 0,
+      avertAngle: -Math.PI / 2,
+      answered: null,
     };
   });
 }
 
-export function createThralls() {
-  return SPAWNS.thralls.map((spot, i) => ({
+export function createThralls(game) {
+  return (game.case.spawns.thralls || []).map((spot, i) => baseBody(spot.x, spot.y, {
     id: `t${i}`,
     kind: 'thrall',
-    x: spot.x,
-    y: spot.y,
     hp: THRALL.hp,
     maxHp: THRALL.hp,
     speed: THRALL.speed,
-    cooldown: 0,
-    hitFlash: 0,
-    dead: false,
-    aim: Math.PI / 2,
-    wander: Math.random() * Math.PI * 2,
-    wanderClock: 0,
-    stun: 0,
-    step: Math.random() * 10,
+    reach: THRALL.reach,
+    damage: THRALL.damage,
+    cooldownMax: THRALL.cooldown,
+    radius: 12,
   }));
 }
 
@@ -127,9 +200,23 @@ function nearestThrall(game, a, maxDist) {
   let best = null;
   let bestDist = maxDist;
   for (const t of game.thralls) {
-    if (t.dead) continue;
+    if (t.dead || t.noTarget || t.invulnerable) continue;
     const d = Math.hypot(t.x - a.x, t.y - a.y);
     if (d < bestDist && lineClear(a.x, a.y, t.x, t.y, 4)) {
+      best = t;
+      bestDist = d;
+    }
+  }
+  return best;
+}
+
+function nearestKune(game, a) {
+  let best = null;
+  let bestDist = Infinity;
+  for (const t of game.thralls) {
+    if (t.dead || t.kind !== 'kune') continue;
+    const d = Math.hypot(t.x - a.x, t.y - a.y);
+    if (d < bestDist) {
       best = t;
       bestDist = d;
     }
@@ -161,9 +248,11 @@ function turnToward(from, to, maxStep) {
 function walkTo(game, a, x, y, dt) {
   const now = game.clock;
   const r = TUNING.agentRadius;
-  if (!a.path || now - a.pathAt > 0.6) {
+  const goalMoved = !a.goal || Math.hypot(a.goal.x - x, a.goal.y - y) > 22;
+  if (!a.path || goalMoved || now - a.pathAt > 1.4) {
     a.path = findPath(game.level, a.x, a.y, x, y);
     a.pathAt = now;
+    a.goal = { x, y };
   }
   const step = a.path && a.path[0];
   if (!step) {
@@ -172,14 +261,30 @@ function walkTo(game, a, x, y, dt) {
   }
   // a waypoint the body cannot walk to is a waypoint to throw away and re-path from
   if (!walkClear(a.x, a.y, step.x, step.y, r)) {
-    a.path = findPath(game.level, a.x, a.y, a.order.kind === 'goto' ? a.order.x : step.x, a.order.kind === 'goto' ? a.order.y : step.y);
-    a.pathAt = now;
+    a.path.shift();
+    a.pathAt = now + 0.1;
+    a.vx *= 0.25;
+    a.vy *= 0.25;
+    if (!a.path.length) a.path = findPath(game.level, a.x, a.y, x, y);
     return false;
   }
   const dx = step.x - a.x;
   const dy = step.y - a.y;
   const dist = Math.hypot(dx, dy);
-  if (dist < 8) {
+  // 三个人会抢同一个路点。挤在同一个点前 0.6 秒还没进去，就说明那里站了人：放弃这个点。
+  if (dist < 34) {
+    a.wayT = (a.wayT || 0) + dt;
+    if (a.wayT > 0.6) {
+      a.wayT = 0;
+      a.path.shift();
+      a.pathAt = now + 0.05;
+      return false;
+    }
+  } else {
+    a.wayT = 0;
+  }
+  const arrival = a.path.length <= 1 ? 12 : 8;
+  if (dist < arrival) {
     a.path.shift();
     if (!a.path.length) {
       a.vx *= 0.55;
@@ -219,7 +324,7 @@ function walkTo(game, a, x, y, dt) {
 }
 
 function fire(game, a, target) {
-  if (a.cooldown > 0) return;
+  if (a.cooldown > 0 || a.aversion > 0) return;
   const dist = Math.hypot(target.x - a.x, target.y - a.y);
   if (dist > a.range || !lineClear(a.x, a.y, target.x, target.y, 4)) return;
   a.cooldown = a.fireRate;
@@ -240,7 +345,7 @@ function fire(game, a, target) {
   game.sound.shot(a.role, a.x, a.y);
 }
 
-function updateAgent(game, a, dt) {
+function updateAgentInner(game, a, dt) {
   if (a.down || a.extracted || a.taken) return;
   a.cooldown = Math.max(0, a.cooldown - dt);
   a.flash = Math.max(0, a.flash - dt * 4);
@@ -252,7 +357,7 @@ function updateAgent(game, a, dt) {
   a.pose = a.state === 'fighting' || a.order.kind === 'focus' ? 'ready' : 'carry';
   // with nothing to shoot, the weapon — and the torch on it — follows the walk, not the last target
   const engaged = a.state === 'fighting' || a.order.kind === 'focus';
-  if (!engaged) a.aim = turnToward(a.aim, a.facing, dt * 7);
+  if (!engaged && a.aversion <= 0) a.aim = turnToward(a.aim, a.facing, dt * 7);
 
   // you are in this one: hands on, no orders
   if (game.possessed === a) {
@@ -280,29 +385,31 @@ function updateAgent(game, a, dt) {
     return;
   }
 
-  // the legend: three seconds of aria and the agent belongs to the house
-  if (inZone(ZONES.house, a.x, a.y) && game.power) {
+  // 第一案的规则：电闸没拉，礼堂在唱，三秒后这个人就不听你的了
+  const charmZone = game.case.zones.house;
+  if (game.case.rule.kind === 'power' && inZone(charmZone, a.x, a.y) && game.power) {
     a.charm += dt;
     if (a.charm >= TUNING.charmSeconds) a.charmed = true;
   } else if (!a.charmed) {
     a.charm = Math.max(0, a.charm - dt * 2);
   }
-  if (!game.power) {
+  if (game.case.rule.kind === 'power' && !game.power) {
     a.charmed = false;
     a.charm = 0;
   }
 
   if (a.charmed) {
     a.state = 'charmed';
-    const reached = walkTo(game, a, SPAWNS.stageMark.x, SPAWNS.stageMark.y, dt);
-    if (reached || Math.hypot(a.x - SPAWNS.stageMark.x, a.y - SPAWNS.stageMark.y) < 30) {
+    const mark = game.case.spawns.stageMark || game.case.spawns.exit;
+    const reached = walkTo(game, a, mark.x, mark.y, dt);
+    if (reached || Math.hypot(a.x - mark.x, a.y - mark.y) < 30) {
       a.taken = true;
-      game.log(`${L_NAME(a)} walked onto the stage.`);
+      game.log(`${a.role} walked onto the stage.`);
     }
     return;
   }
 
-  // objectives first: the switchboard, the exit, a point you clicked
+  // objectives first: a door, the switchboard, the exit, a point you clicked
   if (a.order.kind === 'goto') {
     a.state = 'moving';
     const target = nearestThrall(game, a, 190);
@@ -328,7 +435,7 @@ function updateAgent(game, a, dt) {
           mate.down = false;
           mate.revive = 0;
           mate.hp = Math.max(2, Math.round(mate.maxHp * 0.35));
-          game.log(`${L_NAME(mate)} is back on their feet.`);
+          game.log(`${mate.role} is back on their feet.`);
           a.order = { kind: 'hold' };
         }
       }
@@ -346,7 +453,8 @@ function updateAgent(game, a, dt) {
 
   if (a.hp < a.maxHp * 0.3 && !target) {
     a.state = 'retreat';
-    walkTo(game, a, SPAWNS.exit.x, SPAWNS.exit.y, dt);
+    const exit = game.case.spawns.exit;
+    walkTo(game, a, exit.x, exit.y, dt);
     return;
   }
 
@@ -381,18 +489,170 @@ function updateAgent(game, a, dt) {
     return;
   }
 
-  a.state = a.order.kind === 'focus' ? 'idle' : 'idle';
+  a.state = 'idle';
   a.path = null;
 }
 
-function L_NAME(a) {
-  return a.role;
+// 移开目光：不是「不吃伤害」，是不再让枪口对着那个方向
+function updateAgent(game, a, dt) {
+  if (a.down || a.extracted || a.taken) return;
+  a.aversion = Math.max(0, a.aversion - dt);
+  updateAgentInner(game, a, dt);
+  if (a.aversion > 0 && !a.down) {
+    a.aim = turnToward(a.aim, a.avertAngle, dt * 10);
+    if (!a.order || a.order.kind !== 'focus') a.pose = 'carry';
+  }
 }
 
-// ---- thralls --------------------------------------------------------------
+// ---- the things in the dark ----------------------------------------------
+
+function stepPath(game, t, x, y, dt, speed) {
+  if (!t.path || game.clock - t.pathAt > 0.9) {
+    t.path = findPath(game.level, t.x, t.y, x, y);
+    t.pathAt = game.clock;
+  }
+  const wp = t.path && t.path[0];
+  if (!wp) return;
+  const dx = wp.x - t.x;
+  const dy = wp.y - t.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 10) {
+    t.path.shift();
+    return;
+  }
+  const nx = t.x + (dx / dist) * speed * dt;
+  const ny = t.y + (dy / dist) * speed * dt;
+  if (!solid(nx, ny, 10)) {
+    t.x = nx;
+    t.y = ny;
+  } else if (!solid(nx, t.y, 10)) {
+    t.x = nx;
+  } else if (!solid(t.x, ny, 10)) {
+    t.y = ny;
+  } else {
+    t.path = null;
+  }
+  t.aim = Math.atan2(dy, dx);
+  t.step += speed * dt * 0.06;
+}
+
+function hurtAgent(game, target, damage, t) {
+  target.hp -= damage;
+  target.flash = 1;
+  game.shake = 6;
+  game.sound.hurt();
+  if (target.hp <= 0) {
+    target.hp = 0;
+    target.down = true;
+    target.revive = 0;
+    target.charmed = false;
+    game.log(`${target.role} is down.`);
+    if (t) t.feed = HACHI.feed;
+  }
+}
+
+function updateHachi(game, t, dt) {
+  if (t.stun > 0) {
+    t.stun = Math.max(0, t.stun - dt);
+    return;
+  }
+  if (t.feed > 0) {
+    t.feed = Math.max(0, t.feed - dt);
+    t.step += dt * 0.5;
+    return;
+  }
+  t.cooldown = Math.max(0, t.cooldown - dt);
+  t.hitFlash = Math.max(0, t.hitFlash - dt * 3);
+  let target = null;
+  let best = Infinity;
+  for (const a of game.agents) {
+    if (a.down || a.taken || a.extracted) continue;
+    const d = Math.hypot(a.x - t.x, a.y - t.y);
+    if (d < best && lineClear(t.x, t.y, a.x, a.y, 4)) {
+      best = d;
+      target = a;
+    }
+  }
+  if (!target) {
+    // nobody in sight: she keeps walking the corridor, toward the last place she heard someone
+    for (const a of game.agents) {
+      if (a.down || a.taken || a.extracted) continue;
+      const d = Math.hypot(a.x - t.x, a.y - t.y);
+      if (d < best) {
+        best = d;
+        target = a;
+      }
+    }
+  }
+  if (!target) return;
+  if (best > t.reach) {
+    stepPath(game, t, target.x, target.y, dt, t.speed);
+  } else if (t.cooldown <= 0) {
+    t.cooldown = t.cooldownMax;
+    hurtAgent(game, target, t.damage, t);
+  }
+}
+
+function updateMirror(game, t, dt) {
+  t.cooldown = Math.max(0, t.cooldown - dt);
+  t.hitFlash = Math.max(0, t.hitFlash - dt * 3);
+  let target = null;
+  let best = Infinity;
+  for (const a of game.agents) {
+    if (a.down || a.taken || a.extracted) continue;
+    const d = Math.hypot(a.x - t.x, a.y - t.y);
+    if (d < best && lineClear(t.x, t.y, a.x, a.y, 4)) {
+      best = d;
+      target = a;
+    }
+  }
+  if (!target) return;
+  t.aim = Math.atan2(target.y - t.y, target.x - t.x);
+  if (best > 150) {
+    stepPath(game, t, target.x, target.y, dt, t.speed);
+  } else if (best < 90) {
+    const away = Math.atan2(t.y - target.y, t.x - target.x);
+    const bx = t.x + Math.cos(away) * 70;
+    const by = t.y + Math.sin(away) * 70;
+    if (!solid(bx, by, 10)) {
+      t.x += (bx - t.x) * dt * 2;
+      t.y += (by - t.y) * dt * 2;
+    }
+  }
+  if (t.cooldown <= 0 && best < t.range && lineClear(t.x, t.y, target.x, target.y, 4)) {
+    t.cooldown = t.fireRate;
+    const spread = (Math.random() - 0.5) * t.spread * 2;
+    const angle = t.aim + spread;
+    game.bullets.push({
+      x: t.x + Math.cos(angle) * 26,
+      y: t.y + Math.sin(angle) * 26,
+      vx: Math.cos(angle) * TUNING.bulletSpeed * 0.7,
+      vy: Math.sin(angle) * TUNING.bulletSpeed * 0.7,
+      life: 0.9,
+      damage: t.damage,
+      team: 'enemy',
+    });
+    game.muzzle.push({ x: t.x + Math.cos(angle) * 28, y: t.y + Math.sin(angle) * 28, life: 0.06, cold: true });
+    game.sound.shot('rookie', t.x, t.y);
+  }
+}
 
 function updateThrall(game, t, dt) {
   if (t.dead) return;
+  if (t.kind === 'hachi') {
+    updateHachi(game, t, dt);
+    return;
+  }
+  if (t.kind === 'kune') {
+    t.step += dt * 0.6;
+    t.sway = (t.sway || 0) + dt * (0.6 + (t.agitation || 0) * 3);
+    t.agitation = Math.max(0, (t.agitation || 0) - dt);
+    return;
+  }
+  if (t.kind === 'mirror') {
+    updateMirror(game, t, dt);
+    return;
+  }
   if (t.stun > 0) {
     t.stun = Math.max(0, t.stun - dt);
     return;
@@ -445,8 +705,7 @@ function updateThrall(game, t, dt) {
       }
     } else if (t.cooldown <= 0) {
       t.cooldown = t.cooldownMax || THRALL.cooldown;
-      target.hp -= t.damage || THRALL.damage;
-      target.flash = 1;
+      hurtAgent(game, target, t.damage || THRALL.damage, null);
       // the broadcast: static arcs off the set onto everyone standing close
       if (t.kind !== 'spiderling') {
         for (const other of game.agents) {
@@ -456,15 +715,6 @@ function updateThrall(game, t, dt) {
             other.flash = Math.max(other.flash, 0.8);
           }
         }
-      }
-      game.shake = 6;
-      game.sound.hurt();
-      if (target.hp <= 0) {
-        target.hp = 0;
-        target.down = true;
-        target.revive = 0;
-        target.charmed = false;
-        game.log(`${L_NAME(target)} is down.`);
       }
     }
     return;
@@ -501,10 +751,21 @@ export function updateBullets(game, dt) {
     if (!hit && b.team === 'agent') {
       for (const t of game.thralls) {
         if (t.dead) continue;
-        if (Math.hypot(t.x - nx, t.y - ny) < TUNING.bulletRadius + 13) {
+        if (Math.hypot(t.x - nx, t.y - ny) < TUNING.bulletRadius + (t.radius || 13)) {
+          hit = true;
+          if (t.kind === 'kune') {
+            // 子弹穿过去，只让它挥得更快
+            t.agitation = 1.2;
+            break;
+          }
+          if (t.armor) {
+            t.stun = Math.max(t.stun, HACHI.stunOnHit);
+            t.hitFlash = 1;
+            game.sound.kill();
+            break;
+          }
           t.hp -= b.damage;
           t.hitFlash = 1;
-          hit = true;
           for (let k = 0; k < 4; k += 1) {
             game.spatter.push({
               x: nx,
@@ -519,7 +780,7 @@ export function updateBullets(game, dt) {
             game.kills += 1;
             game.shake = Math.max(game.shake, t.kind === 'spider' ? 10 : 3);
             game.sound.kill();
-            if (t.kind === 'spider') spawnSpiderlings(game, t.x, t.y);
+            if (t.kind === 'spider') game.onSpiderDeath?.(t);
             if (t.kind === 'thrall') game.debris.push({ x: t.x, y: t.y, rot: Math.random() * 6.28 });
             for (let k = 0; k < 10; k += 1) {
               game.spatter.push({
@@ -531,6 +792,16 @@ export function updateBullets(game, dt) {
               });
             }
           }
+          break;
+        }
+      }
+    }
+    if (!hit && b.team === 'enemy') {
+      for (const a of game.agents) {
+        if (a.down || a.taken || a.extracted) continue;
+        if (Math.hypot(a.x - nx, a.y - ny) < TUNING.bulletRadius + 12) {
+          hit = true;
+          hurtAgent(game, a, b.damage, null);
           break;
         }
       }
@@ -571,7 +842,7 @@ export function updateUnits(game, dt) {
   // bodies have volume: nothing stands inside anything else
   const bodies = [
     ...game.agents.filter((a) => !a.down && !a.taken && !a.extracted),
-    ...game.thralls.filter((t) => !t.dead),
+    ...game.thralls.filter((t) => !t.dead && t.kind !== 'kune'),
   ];
   for (let i = 0; i < bodies.length; i += 1) {
     for (let j = i + 1; j < bodies.length; j += 1) {
