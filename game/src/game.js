@@ -473,6 +473,15 @@ export class Game {
     const c = this.case;
     // 你一下手，队长就闭嘴：这一下是你下的命令
     this.auto = false;
+    // 点在队员身上＝接过他这一步（WASD 走、左键开火、ESC 松手）
+    for (let i = 0; i < this.agents.length; i += 1) {
+      const a = this.agents[i];
+      if (a.down || a.taken || a.extracted) continue;
+      if (Math.hypot(a.x - x, a.y - y) < 17) {
+        this.takeOver(i);
+        return;
+      }
+    }
     // 第五案：点门＝让整队走进那扇门（门牌自己看）
     if (c.rule.kind === 'floors') {
       for (const d of c.doors) {

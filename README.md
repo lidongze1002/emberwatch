@@ -37,7 +37,8 @@ node serve.ts
 ```
 
 Then open <http://localhost:8080> (English) or <http://localhost:8080/zh.html> (中文). Click to open
-the case files; click a spot to take command (the squad drives itself until you do). `T` hands them
+the case files; click a spot to send the nearest free agent, or click an agent to take them over
+(WASD to walk, click to fire, `Esc` to let go). The squad drives itself until you do. `T` hands them
 back to the duty officer, `Space`/`E` is the case's rule action (don't answer / look away / recall),
 `Q` spends the lamp, `P` pauses, `1`/`2` sets speed, `Escape` goes back to the duty room.
 

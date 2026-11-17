@@ -185,7 +185,7 @@ export const zh = {
     open: '待办',
     paused: '暂停',
     speed: (n) => `${n}×`,
-    hint: '点地面接管 · P 暂停 · 1/2 速度 · Q 提灯 · 空格/E 规则动作 · T 自动',
+    hint: '点地面接管 · 点队员亲手带 · P 暂停 · 1/2 速度 · Q 提灯 · 空格/E 规则动作 · T 自动',
     autoOn: '交回队长',
     autoOff: '你自己带',
     controlling: (name) => `接管 ${name}`,

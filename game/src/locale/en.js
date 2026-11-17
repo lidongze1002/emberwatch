@@ -44,7 +44,7 @@ export const en = {
       place: 'THE OPERA HOUSE · 02:10',
       legend: 'TSUCHIGUMO',
       rule: 'The house keeps singing while the power is on. Three seconds inside and an agent stops taking orders and walks to the stage. The switchboard is backstage. Cut it.',
-      hint: 'CLICK A SPOT TO SEND THE NEAREST FREE AGENT · CLICK A THING TO FOCUS FIRE · SPACE RECALLS · T AUTO',
+      hint: 'CLICK A SPOT TO SEND THE NEAREST FREE AGENT · CLICK AN AGENT TO TAKE THEM · SPACE RECALLS · T AUTO',
       obj: ['CUT THE POWER', 'CLEAR THE HOUSE', 'EXTRACT THE SQUAD'],
       winSub: 'The power is cut. The house is empty.',
       loseSub: 'The aria is still running.',
