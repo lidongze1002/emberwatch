@@ -117,6 +117,13 @@ export function settle(roster, game) {
   if (pay) payLine(roster, L.ledger.fee(meta.no), pay);
   if (broke && game.won) payLine(roster, L.ledger.half, 0);
 
+  // 待命的人也要吃饭：超过三个人的部分，每案一人 200
+  const bench = Math.max(0, living(roster).length - 3);
+  if (bench) {
+    roster.cash -= BENCH_FEE * bench;
+    payLine(roster, L.ledger.bench(bench), -BENCH_FEE * bench);
+  }
+
   let dead = 0;
   let hurt = 0;
   game.agents.forEach((a, i) => {

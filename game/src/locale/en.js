@@ -126,6 +126,7 @@ export const en = {
     freshLine: 'a fresh page in the roster',
     allClosed: 'ALL FILES CLOSED',
     allClosedLine: 'Section 7 finished the watch.',
+    benchNote: (n) => `${n} on the bench · ¥ ${n * 200} a case`,
   },
   hire: {
     title: 'RECRUIT',
@@ -160,6 +161,7 @@ export const en = {
     pension: (name) => `pension · ${name}`,
     dressing: (name) => `dressing · ${name}`,
     hired: (trait) => `hired · ${trait}`,
+    bench: (n) => `bench · ${n}`,
   },
   names: ['ZHOU DEHAI', 'LU XIAOMAN', 'HE XIULIAN', 'FENG QI', 'CHEN JIU', 'LIN ATANG', 'ZHAO SHOUYI', 'WU TONG', 'ZHENG WANSHAN', 'SUN YUE', 'XU YAN', 'MA CHANGGENG'],
   agent: {

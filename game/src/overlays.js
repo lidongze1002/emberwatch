@@ -455,6 +455,8 @@ export function drawRoster(ctx, game, time) {
     label(ctx, line.text, 148, y, 8, INK_SOFT, 0.7);
     label(ctx, line.amount === 0 ? '—' : money(line.amount), 620, y, 8, line.amount < 0 ? 'rgba(206, 110, 96, 0.8)' : 'rgba(226, 216, 194, 0.7)', 1, 'right');
   });
+  const benchCount = Math.max(0, r.members.filter((m) => !m.dead).length - 3);
+  if (benchCount) label(ctx, L.roster.benchNote(benchCount), 148, ly + 88, 7.5, INK_FAINT, 1);
 
   // 阵亡的人不在名册上了，只在页脚留一行黑框
   if (r.memorial.length) {

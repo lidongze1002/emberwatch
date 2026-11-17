@@ -125,6 +125,7 @@ export const zh = {
     freshLine: '名册换了新的一页。',
     allClosed: '全案结清',
     allClosedLine: '第七组这一班岗值完了。',
+    benchNote: (n) => `待命 ${n} 人 · 每案 ¥ ${n * 200}`,
   },
   hire: {
     title: '招聘',
@@ -159,6 +160,7 @@ export const zh = {
     pension: (name) => `抚恤 · ${name}`,
     dressing: (name) => `医药 · ${name}`,
     hired: (trait) => `录用 · ${trait}`,
+    bench: (n) => `待命 · ${n} 人`,
   },
   names: ['周德海', '陆小满', '何秀莲', '冯启', '陈九', '林阿棠', '赵守义', '吴桐', '郑万山', '孙月', '许砚', '马长庚'],
   agent: {
