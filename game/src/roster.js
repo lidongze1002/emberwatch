@@ -50,6 +50,7 @@ export function createRoster() {
     hired: 0,
     ledger: [],
     memorial: [],
+    upgrades: { lamp: false },
     settledCase: null,
   };
 }
@@ -200,6 +201,18 @@ export function dismissCandidates(roster) {
   roster.candidates = [];
 }
 
+// 装备：一盏好灯（光锥 +8%，灯油 −10%）。不涨数值，只换一件东西。
+export const LAMP_PRICE = 900;
+
+export function buyLamp(roster) {
+  if (roster.upgrades && roster.upgrades.lamp) return false;
+  if (roster.cash < LAMP_PRICE) return false;
+  roster.cash -= LAMP_PRICE;
+  roster.upgrades = { ...(roster.upgrades || {}), lamp: true };
+  payLine(roster, L.ledger.lamp, -LAMP_PRICE);
+  return true;
+}
+
 // 存一下：值班室不该因为刷新就忘掉这一夜。读回来的东西形状不对就当没有。
 const SAVE_KEY = 'nw.roster.v1';
 
@@ -221,6 +234,7 @@ export function loadRoster() {
     if (!Array.isArray(r.memorial)) r.memorial = [];
     if (!Array.isArray(r.candidates)) r.candidates = [];
     if (!r.closed || typeof r.closed !== 'object') r.closed = {};
+    if (!r.upgrades || typeof r.upgrades !== 'object') r.upgrades = { lamp: false };
     const maxId = r.members.reduce((mx, m) => Math.max(mx, Number(String(m.id).replace(/\D/g, '')) || 0), 0);
     seq = Math.max(seq, maxId + 1);
     return r;

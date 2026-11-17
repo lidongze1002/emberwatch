@@ -247,6 +247,7 @@ export function createAgents(game) {
       role: spot.role,
       trait: sq ? sq.trait : 'green',
       deaf: !!(sq && sq.trait === 'deaf'),
+      lampUp: !!(game.roster && game.roster.upgrades && game.roster.upgrades.lamp && spot.role === 'lamp'),
       x: spot.x,
       y: spot.y,
       hp: spec.hp,

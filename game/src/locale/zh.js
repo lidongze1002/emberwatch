@@ -123,6 +123,10 @@ export const zh = {
     kia: (n) => `${n} · 未归`,
     fresh: '新的一夜',
     freshLine: '名册换了新的一页。',
+    buyLamp: '买一盏好灯 ¥ 900',
+    lampOwned: '好灯在岗',
+    lampBroken: '现金不够 ¥ 900',
+    lampBought: '灯换了',
     allClosed: '全案结清',
     allClosedLine: '第七组这一班岗值完了。',
     benchNote: (n) => `待命 ${n} 人 · 每案 ¥ ${n * 200}`,
@@ -162,6 +166,7 @@ export const zh = {
     dressing: (name) => `医药 · ${name}`,
     hired: (trait) => `录用 · ${trait}`,
     bench: (n) => `待命 · ${n} 人`,
+    lamp: '装备 · 好灯',
   },
   names: ['周德海', '陆小满', '何秀莲', '冯启', '陈九', '林阿棠', '赵守义', '吴桐', '郑万山', '孙月', '许砚', '马长庚'],
   agent: {

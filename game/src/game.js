@@ -7,9 +7,9 @@ import { buildLevel, setWorld, solid } from './level.js';
 import { createAgents, createThralls, updateUnits } from './units.js';
 import { drawFrame, drawBars, screenToWorld } from './render.js';
 import { drawHud } from './hud.js';
-import { drawBrief, drawHire, drawResult, drawRoster, drawSelect, drawTitle, tCaseAt, tHireAt, tHireNoneAt, tRosterCardAt, tRosterCasesAt, tRosterFreshAt, tRosterHireAt, tSelectRosterAt, tTitleLinkAt } from './overlays.js';
+import { drawBrief, drawHire, drawResult, drawRoster, drawSelect, drawTitle, tCaseAt, tHireAt, tHireNoneAt, tRosterCardAt, tRosterCasesAt, tRosterFreshAt, tRosterHireAt, tRosterLampAt, tSelectRosterAt, tTitleLinkAt } from './overlays.js';
 import { actionA, afterRules, directRules, initRules, updateRules, verdict } from './rules.js';
-import { createRoster, clearRoster, dismissCandidates, hire, loadRoster, saveRoster, setDuty, squadForRun, settle } from './roster.js';
+import { createRoster, buyLamp, clearRoster, dismissCandidates, hire, loadRoster, saveRoster, setDuty, squadForRun, settle } from './roster.js';
 import { L } from './text.js';
 
 export class Game {
@@ -264,7 +264,7 @@ export class Game {
     if (this.state !== 'play' || this.lampCooldown > 0) return;
     const lamp = this.agents.find((a) => a.role === 'lamp' && !a.down && !a.taken && !a.extracted);
     if (!lamp) return;
-    this.lampCooldown = 14;
+    this.lampCooldown = this.roster.upgrades && this.roster.upgrades.lamp ? 12.6 : 14;
     this.flashWhite = 1;
     this.shake = 5;
     for (const t of this.thralls) {
@@ -428,6 +428,15 @@ export class Game {
         }
         if (tRosterFreshAt(click.x, click.y)) {
           this.freshWatch();
+          continue;
+        }
+        if (tRosterLampAt(click.x, click.y)) {
+          if (buyLamp(this.roster)) {
+            saveRoster(this.roster);
+            this.say(L.roster.lampBought);
+          } else {
+            this.say(this.roster.upgrades.lamp ? L.roster.lampOwned : L.roster.lampBroken);
+          }
         }
         continue;
       }

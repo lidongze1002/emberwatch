@@ -8,7 +8,7 @@ import { CASES } from './cases.js';
 
 export const TITLE_LINK = { x: 104, y: 676, w: 160, h: 40 };
 export const SELECT_ROW = { x: 176, top: 176, w: VIEW.width - 352, h: 82, gap: 12 };
-export const ROSTER_BTN = { hire: { x: 852, y: 700, w: 140, h: 34 }, cases: { x: 1006, y: 700, w: 140, h: 34 }, fresh: { x: 148, y: 700, w: 140, h: 34 } };
+export const ROSTER_BTN = { hire: { x: 852, y: 700, w: 140, h: 34 }, cases: { x: 1006, y: 700, w: 140, h: 34 }, fresh: { x: 148, y: 700, w: 140, h: 34 }, lamp: { x: 400, y: 700, w: 168, h: 34 } };
 export const SELECT_ROSTER_BTN = { x: 1006, y: 690, w: 140, h: 34 };
 export const HIRE_CARD = { x: 184, w: 288, gap: 24, top: 216, h: 372 };
 export const HIRE_NONE = { x: VIEW.width / 2 - 70, y: 640, w: 140, h: 36 };
@@ -40,6 +40,10 @@ export function tRosterCasesAt(x, y) {
 
 export function tRosterFreshAt(x, y) {
   return inRect(ROSTER_BTN.fresh, x, y);
+}
+
+export function tRosterLampAt(x, y) {
+  return inRect(ROSTER_BTN.lamp, x, y);
 }
 
 export function tHireAt(x, y, count) {
@@ -477,7 +481,14 @@ export function drawRoster(ctx, game, time) {
 
   const hover = game.input && game.input.inside ? game.input : { x: -1, y: -1 };
   button(ctx, ROSTER_BTN.fresh, L.roster.fresh, inRect(ROSTER_BTN.fresh, hover.x, hover.y));
-  button(ctx, ROSTER_BTN.hire, L.roster.hire, inRect(ROSTER_BTN.hire, hover.x, hover.y));
+  const hasLamp = r.upgrades && r.upgrades.lamp;
+  button(
+    ctx,
+    ROSTER_BTN.lamp,
+    hasLamp ? L.roster.lampOwned : L.roster.buyLamp,
+    !hasLamp && inRect(ROSTER_BTN.lamp, hover.x, hover.y),
+  );
+  if (!hasLamp && r.cash < 900) label(ctx, L.roster.lampBroken, ROSTER_BTN.lamp.x + 4, ROSTER_BTN.lamp.y - 6, 7, INK_FAINT, 0.8);  button(ctx, ROSTER_BTN.hire, L.roster.hire, inRect(ROSTER_BTN.hire, hover.x, hover.y));
   button(ctx, ROSTER_BTN.cases, L.roster.cases, inRect(ROSTER_BTN.cases, hover.x, hover.y));
   label(ctx, L.roster.hint, 148, 744, 8, INK_FAINT, 1.8);
 

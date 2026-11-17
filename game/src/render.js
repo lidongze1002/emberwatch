@@ -1779,7 +1779,7 @@ function drawWalls(ctx, game) {
 function drawFlashlights(ctx, game) {
   for (const a of game.agents) {
     if (a.down || a.taken || a.extracted || a.charmed) continue;
-    const reach = a.trait === 'nighteyes' ? 368 : 320;
+    const reach = a.trait === 'nighteyes' ? 368 : a.lampUp ? 346 : 320;
     const half = 0.33;
     for (let i = 0; i < 8; i += 1) {
       const t = (i + 1) / 8;
