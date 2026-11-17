@@ -443,6 +443,13 @@
 **结论**：保留。钱第一次能买一件影响局内的东西。
 截图：`screenshots/gallery/41-lamp-upgrade.jpg`
 
+## 轮 66 — 接管的一瞬间会打出一发
+**看**：点队员接管时，那一次 `pointerdown` 同时是「按住开火」。`possessed` 分支在同一帧读到 `input.down`，于是接管的同时朝光标（就在他自己身上）打出一发——方向是 0 弧度，也就是向右 26 px 出膛，队友在右边就会吃一发。
+**改**：`takeOver()` 设 `suppressFire = 0.25` 秒，`update()` 里递减，`units.js` 的开火条件加 `!(game.suppressFire > 0)`。接管后仍然可以立刻按住开火，只是漏过按下接管的那一次点击。
+**测**：接管脚本仍 `possessed === true`、`Esc` 松开；`nw-cases` 5/5、3/3、meta 回归通过；`nw-perf` median 16.7 ms。
+**结论**：保留。
+截图：无（小修）
+
 ## 备注
 - `render.js` 里有一行 `window.__nwCam?.(CAM)` 的调试钩子，只给 tools 下的截图脚本用，未设置回调时无副作用。
 - 帧时：16.7 ms 是这台机器的垂直同步值；浏览器不在前台时会抖到 33（p95），median 仍是 16.7。评审时以 median 为准。

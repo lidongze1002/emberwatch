@@ -547,7 +547,7 @@ function updateAgentInner(game, a, dt) {
       a.path = null;
     }
     a.aim = Math.atan2(game.input.y - a.y, game.input.x - a.x);
-    if (game.input.down) fire(game, a, { x: game.input.x, y: game.input.y });
+    if (game.input.down && !(game.suppressFire > 0)) fire(game, a, { x: game.input.x, y: game.input.y });
     return;
   }
 

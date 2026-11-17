@@ -123,6 +123,7 @@ export class Game {
     this.flashWhite = Math.max(0, this.flashWhite - dt * 2.4);
     this.lampCooldown = Math.max(0, this.lampCooldown - dt);
     this.directorClock += dt;
+    this.suppressFire = Math.max(0, (this.suppressFire || 0) - dt);
     if (this.directorClock > 0.8) {
       this.directorClock = 0;
       if (this.auto) this.direct();
@@ -288,6 +289,7 @@ export class Game {
     }
     this.possessed = a;
     this.possessTimer = POSSESS_SECONDS;
+    this.suppressFire = 0.25;
     a.path = null;
     this.say(L.hud.controlling(L.agent[a.role].name));
   }
