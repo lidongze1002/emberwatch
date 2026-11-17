@@ -26,7 +26,8 @@ night cost.
 
 Between the files: a **duty room** with six places on the desk, a pay book, wounds and funerals, and
 two or three candidates who will not wait. No upgrade tree and no stat growth — you replace people
-and live with it. A vacant post is filled by a night temp with no file.
+and live with it. A vacant post is filled by a night temp with no file. The desk remembers: the
+roster, the cash and the closed files survive a reload, and "NEW WATCH" clears the page.
 
 Drawn entirely with canvas code, sounded entirely with WebAudio, no assets and no network.
 
