@@ -831,6 +831,20 @@ function drawDoors(ctx, game, time) {
       ctx.beginPath();
       ctx.arc(hx, hy, 1.8, 0, Math.PI * 2);
       ctx.fill();
+      // 她记住的门：门槛外面用红粉笔划一个叉，这一夜它就是个陷阱
+      const hachi = game.thralls.find((t) => t.kind === 'hachi');
+      if (hachi && hachi.remember === i) {
+        const mx = d.x + (d.face === 'e' ? -26 : d.face === 'w' ? 26 : 0);
+        const my = d.y + (d.face === 'n' ? 26 : d.face === 's' ? -26 : 0);
+        ctx.strokeStyle = 'rgba(168, 58, 50, 0.55)';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(mx - 6, my - 6);
+        ctx.lineTo(mx + 6, my + 6);
+        ctx.moveTo(mx + 6, my - 6);
+        ctx.lineTo(mx - 6, my + 6);
+        ctx.stroke();
+      }
       if (knock) {
         // light under the door: someone is standing on the other side
         const spill = 0.2 + 0.18 * Math.sin(time * 6);
