@@ -4,7 +4,7 @@
 // is the only thing this file owns, and the game's own rules never know it exists.
 
 import { LAMP } from './config.js';
-import { aimAt } from './beam.js';
+import { aimAt, spendOverdrive } from './beam.js';
 
 const STEP = 1 / 60;
 const MAX_STEPS = 120000;
@@ -139,6 +139,9 @@ function frameQuality(game) {
   if (game.combo > 0) q += 8;
   if (game.hearts === 2) q += 10;
   if (near > 140 && near < 340) q += 8;
+  // the overdrive flash whites out the whole scene for a moment; a photograph does not want it
+  if (game.flashScreen > 0.04) q -= 160;
+  if (game.odTimer > 0.9) q += 12;
   return q;
 }
 
@@ -183,7 +186,31 @@ function huntScene(game) {
     return;
   }
   huntReplay(game, used, best.steps);
-  info(game, 'hunt', best.steps, `attempt ${used + 1}, wave ${best.wave}`);
+
+  // The cover is taken during an Overdrive: the cone is doubled and white hot, which is what
+  // the game looks like when it is going well. Spend the lamp, scan the burst, keep the frame
+  // with the most light in it.
+  const burst = () => {
+    game.overdrive = 100;
+    spendOverdrive(game);
+    let pick = { q: -Infinity, at: 0 };
+    for (let i = 0; i < 72; i += 1) {
+      huntPick(game);
+      tick(game);
+      const q = frameQuality(game);
+      if (q > pick.q) pick = { q, at: i + 1 };
+    }
+    return pick;
+  };
+  const pick = burst();
+  huntReplay(game, used, best.steps);
+  game.overdrive = 100;
+  spendOverdrive(game);
+  for (let i = 0; i < pick.at; i += 1) {
+    huntPick(game);
+    tick(game);
+  }
+  info(game, 'hunt', best.steps + pick.at, `attempt ${used + 1}, wave ${best.wave}, overdrive`);
 }
 
 function upgradesScene(game) {

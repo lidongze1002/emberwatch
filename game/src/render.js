@@ -32,10 +32,36 @@ export function drawScene(ctx, game, time) {
   }
   game.particles.draw(ctx);
   drawMotes(ctx, scene, game, time);
+  drawPointer(ctx, game, time);
   drawLamp(ctx, game, time);
 
   ctx.restore();
   drawAir(ctx, game, time);
+}
+
+// The little warm ring that follows the mouse: it is where the beam is pointed, so it should
+// feel like part of the light rather than a cursor.
+function drawPointer(ctx, game, time) {
+  if (game.state !== 'playing' || !game.input.inside) return;
+  const x = game.input.x;
+  const y = game.input.y;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const halo = ctx.createRadialGradient(x, y, 1, x, y, 26);
+  halo.addColorStop(0, 'rgba(255, 238, 205, 0.5)');
+  halo.addColorStop(0.35, 'rgba(255, 175, 95, 0.15)');
+  halo.addColorStop(1, 'rgba(255, 140, 60, 0)');
+  ctx.fillStyle = halo;
+  ctx.beginPath();
+  ctx.arc(x, y, 26, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 0.4;
+  ctx.strokeStyle = 'rgba(255, 214, 156, 0.55)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(x, y, 9 + Math.sin(time * 4) * 1.3, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function buildSky() {
@@ -455,8 +481,8 @@ function drawBeam(ctx, game, time) {
   }
 
   // the edges, barely there
-  ctx.globalAlpha = hot ? 0.34 : 0.2;
-  ctx.strokeStyle = hot ? 'rgba(255, 246, 226, 0.5)' : 'rgba(255, 205, 145, 0.35)';
+  ctx.globalAlpha = 0.14;
+  ctx.strokeStyle = hot ? 'rgba(255, 246, 226, 0.4)' : 'rgba(255, 205, 145, 0.3)';
   ctx.lineWidth = 1;
   for (const edge of [shape.angle - half, shape.angle + half]) {
     ctx.beginPath();
