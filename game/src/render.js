@@ -26,6 +26,70 @@ function grainTile() {
   return c;
 }
 
+// Materials are four layers: grain, light, specular, contact shadow. These two tiles are the
+// grain layer, generated once and repeated so the floor and the seats have a surface.
+let wood = null;
+function woodTile() {
+  if (wood) return wood;
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#1b1512';
+  g.fillRect(0, 0, 256, 128);
+  for (let i = 0; i < 90; i += 1) {
+    const y = Math.random() * 128;
+    g.strokeStyle = `rgba(${90 + Math.random() * 60}, ${60 + Math.random() * 40}, ${40 + Math.random() * 26}, ${0.05 + Math.random() * 0.08})`;
+    g.lineWidth = 0.6 + Math.random() * 1.2;
+    g.beginPath();
+    g.moveTo(0, y);
+    for (let x = 0; x <= 256; x += 32) g.lineTo(x, y + Math.sin(x * 0.05 + i) * 2);
+    g.stroke();
+  }
+  for (let i = 0; i < 4; i += 1) {
+    const x = Math.random() * 256;
+    const y = Math.random() * 128;
+    g.strokeStyle = 'rgba(20, 14, 10, 0.55)';
+    g.lineWidth = 1.6;
+    g.beginPath();
+    g.ellipse(x, y, 4 + Math.random() * 5, 2 + Math.random() * 2, Math.random(), 0, Math.PI * 2);
+    g.stroke();
+  }
+  g.fillStyle = 'rgba(0, 0, 0, 0.35)';
+  g.fillRect(0, 0, 256, 1);
+  g.fillRect(0, 127, 256, 1);
+  wood = c;
+  return c;
+}
+
+let velvet = null;
+function velvetTile() {
+  if (velvet) return velvet;
+  const c = document.createElement('canvas');
+  c.width = 64;
+  c.height = 64;
+  const g = c.getContext('2d');
+  for (let i = 0; i < 900; i += 1) {
+    const v = Math.random();
+    g.fillStyle = v > 0.5 ? `rgba(170, 70, 70, ${0.05 + v * 0.08})` : `rgba(20, 6, 8, ${0.05 + v * 0.1})`;
+    g.fillRect(Math.random() * 64, Math.random() * 64, 1, 1);
+  }
+  velvet = c;
+  return c;
+}
+
+// One light, one shadow direction: +x a little, +y more, soft edge.
+function castShadow(ctx, x, y, rx, ry, alpha = 0.5) {
+  const g = ctx.createRadialGradient(x + 5, y + 9, 2, x + 5, y + 9, Math.max(rx, ry) * 1.25);
+  g.addColorStop(0, `rgba(0, 0, 0, ${alpha})`);
+  g.addColorStop(0.55, `rgba(0, 0, 0, ${alpha * 0.55})`);
+  g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.ellipse(x + 5, y + 9, rx * 1.25, ry * 1.25, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 export function drawWorld(ctx, game, time) {
   ctx.clearRect(0, 0, VIEW.width, VIEW.height);
   ctx.save();
@@ -62,32 +126,40 @@ export function drawWorld(ctx, game, time) {
 
 function drawFloor(ctx, game, time) {
   const base = ctx.createLinearGradient(0, 0, 0, VIEW.height);
-  base.addColorStop(0, '#080a0f');
-  base.addColorStop(0.5, '#0b0d12');
-  base.addColorStop(1, '#06080c');
+  base.addColorStop(0, '#06080c');
+  base.addColorStop(0.5, '#080a0f');
+  base.addColorStop(1, '#04060a');
   ctx.fillStyle = base;
   ctx.fillRect(-80, -80, VIEW.width + 160, VIEW.height + 160);
 
-  // boards: long planks with a varnish sheen and a seam every 34 px
+  // the boards: grain, then varnish, then seams, then the shadow they sit in
+  ctx.save();
+  ctx.globalAlpha = 0.92;
+  ctx.fillStyle = ctx.createPattern(woodTile(), 'repeat');
+  ctx.fillRect(40, 40, VIEW.width - 80, VIEW.height - 80);
+  ctx.restore();
+  const varnish = ctx.createLinearGradient(0, 40, 0, VIEW.height - 40);
+  varnish.addColorStop(0, 'rgba(255, 200, 140, 0.1)');
+  varnish.addColorStop(0.45, 'rgba(120, 150, 190, 0.02)');
+  varnish.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
+  ctx.fillStyle = varnish;
+  ctx.fillRect(40, 40, VIEW.width - 80, VIEW.height - 80);
   for (let y = 60; y < 740; y += 34) {
-    const shade = 10 + ((y / 34) % 3) * 2;
-    ctx.fillStyle = `rgba(${18 + shade}, ${20 + shade}, ${26 + shade}, 0.5)`;
-    ctx.fillRect(50, y, VIEW.width - 100, 33);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-    ctx.fillRect(50, y + 32, VIEW.width - 100, 2);
-    ctx.fillStyle = 'rgba(160, 180, 205, 0.035)';
-    ctx.fillRect(50, y, VIEW.width - 100, 1);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.fillRect(40, y + 32, VIEW.width - 80, 2);
+    ctx.fillStyle = 'rgba(190, 205, 225, 0.05)';
+    ctx.fillRect(40, y, VIEW.width - 80, 1);
   }
-  // plank joins
-  for (let i = 0; i < 40; i += 1) {
-    const x = 60 + ((i * 137) % 1160);
-    const y = 60 + ((i * 83) % 660);
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x, y + 33);
-    ctx.stroke();
+  // contact darkening along every wall foot
+  ctx.save();
+  for (const [x, y, w, h] of WALLS) {
+    const down = ctx.createLinearGradient(0, y + h, 0, y + h + 12);
+    down.addColorStop(0, 'rgba(0, 0, 0, 0.5)');
+    down.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = down;
+    ctx.fillRect(x - 2, y + h, w + 4, 12);
   }
+  ctx.restore();
 
   // the light that is in the room: stage key, chandelier fill, exit fill
   ctx.save();
@@ -204,19 +276,31 @@ function drawStage(ctx, game, time) {
 
 function drawSeats(ctx) {
   for (const s of SEATS) {
-    // velvet back, piping, a shadow under the seat
-    ctx.fillStyle = '#241014';
-    ctx.fillRect(s.x, s.y, s.w, s.h);
+    // contact shadow under the row
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.fillRect(s.x - 2, s.y + s.h - 2, s.w + 6, 5);
+
+    // the back: a velvet top surface, lit from the stage
     const grad = ctx.createLinearGradient(s.x, s.y, s.x, s.y + s.h);
-    grad.addColorStop(0, 'rgba(150, 44, 48, 0.5)');
-    grad.addColorStop(0.4, 'rgba(96, 26, 30, 0.42)');
-    grad.addColorStop(1, 'rgba(50, 14, 18, 0.5)');
+    grad.addColorStop(0, 'rgba(122, 34, 38, 1)');
+    grad.addColorStop(0.35, 'rgba(84, 22, 26, 1)');
+    grad.addColorStop(1, 'rgba(44, 12, 16, 1)');
     ctx.fillStyle = grad;
-    ctx.fillRect(s.x + 1, s.y + 2, s.w - 2, s.h - 4);
-    ctx.fillStyle = 'rgba(230, 190, 150, 0.16)';
-    ctx.fillRect(s.x + 1, s.y + 2, s.w - 2, 1);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-    ctx.fillRect(s.x, s.y + s.h - 3, s.w, 3);
+    ctx.fillRect(s.x, s.y, s.w, s.h);
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = ctx.createPattern(velvetTile(), 'repeat');
+    ctx.fillRect(s.x, s.y, s.w, s.h);
+    ctx.restore();
+
+    // piping: a bright bead along the lit edge, a dark one at the foot
+    ctx.fillStyle = 'rgba(232, 190, 150, 0.35)';
+    ctx.fillRect(s.x + 1, s.y + 1, s.w - 2, 1.4);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(s.x, s.y + s.h - 2.5, s.w, 2.5);
+    // the seam down the middle of the back
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+    ctx.fillRect(s.x + s.w / 2 - 0.5, s.y + 4, 1, s.h - 7);
   }
 }
 
@@ -382,34 +466,52 @@ function drawThralls(ctx, game, time) {
     ctx.lineTo(15, 7 - swing * 0.5);
     ctx.stroke();
 
-    // the set
+    // the set, seen from above: a top panel, vents at the back, a sliver of screen at the front
     ctx.fillStyle = '#0a0c10';
-    ctx.strokeStyle = '#33392c';
-    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.roundRect(-16, -34, 32, 27, 4);
+    ctx.roundRect(-15, -40, 30, 24, 3.5);
     ctx.fill();
-    ctx.stroke();
-    ctx.save();
-    ctx.beginPath();
-    ctx.roundRect(-11, -29, 22, 17, 2);
-    ctx.clip();
-    const flick = 0.55 + Math.sin(time * 24 + t.step * 3) * 0.3;
-    ctx.fillStyle = `rgba(132, 232, 212, ${0.5 * flick})`;
-    ctx.fillRect(-11, -29, 22, 17);
-    for (let i = 0; i < 7; i += 1) {
-      const y = -29 + ((i * 3 + Math.floor(time * 48 + t.step * 9)) % 17);
-      ctx.fillStyle = `rgba(226, 255, 248, ${0.34 * flick})`;
-      ctx.fillRect(-11, y, 22, 1.2);
+    // bevel: lit on the stage side, dark at the back
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.09)';
+    ctx.fillRect(-13, -39.4, 26, 1.4);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.fillRect(-13, -17.6, 26, 1.6);
+    // vents and a handle at the back of the set
+    ctx.strokeStyle = 'rgba(120, 130, 120, 0.35)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 3; i += 1) {
+      ctx.beginPath();
+      ctx.moveTo(-9, -22 + i * 2.2);
+      ctx.lineTo(9, -22 + i * 2.2);
+      ctx.stroke();
     }
-    ctx.restore();
-    ctx.strokeStyle = '#3d4433';
-    ctx.lineWidth = 1.4;
+    ctx.fillStyle = '#2b3028';
+    ctx.fillRect(-5, -17, 10, 2);
+
+    // the only screen you can see from above: a hot line at the front edge, and its spill
+    const flick = 0.55 + Math.sin(time * 24 + t.step * 3) * 0.3;
+    ctx.fillStyle = `rgba(150, 240, 222, ${0.85 * flick})`;
+    ctx.fillRect(-13, -40.6, 26, 1.6);
+    const spill = ctx.createLinearGradient(0, -40, 0, -78);
+    spill.addColorStop(0, `rgba(140, 235, 215, ${0.22 * flick})`);
+    spill.addColorStop(1, 'rgba(140, 235, 215, 0)');
+    ctx.fillStyle = spill;
     ctx.beginPath();
-    ctx.moveTo(-6, 1);
-    ctx.lineTo(-10, 12);
-    ctx.moveTo(6, 1);
-    ctx.lineTo(10, 12);
+    ctx.moveTo(-13, -40);
+    ctx.lineTo(13, -40);
+    ctx.lineTo(26, -78);
+    ctx.lineTo(-26, -78);
+    ctx.closePath();
+    ctx.fill();
+
+    // antennas, seen from above as two rods out of the back
+    ctx.strokeStyle = '#4a5040';
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(-10, -17);
+    ctx.lineTo(-17, -5);
+    ctx.moveTo(10, -17);
+    ctx.lineTo(17, -5);
     ctx.stroke();
 
     if (t.hitFlash > 0.02) {
@@ -523,19 +625,30 @@ function drawAgents(ctx, game, time) {
     ctx.fillStyle = 'rgba(190, 205, 225, 0.45)';
     ctx.fillRect(-0.5, -39, 1, 8);
 
-    // head: skin, hair, a hint of a face turned away
+    // head: the crown of the head, hair over it, a sliver of forehead at the front
     ctx.fillStyle = '#c69a7d';
     ctx.beginPath();
     ctx.arc(0, -4, 8, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = 'rgba(30, 24, 22, 0.55)';
+    ctx.fillStyle = a.role === 'lamp' ? '#191d24' : a.role === 'rookie' ? '#221b18' : '#33363a';
     ctx.beginPath();
-    ctx.arc(0, -2, 8, Math.PI * 0.1, Math.PI * 0.9);
+    ctx.arc(0, -4, 8, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = a.role === 'lamp' ? '#1b1f26' : a.role === 'rookie' ? '#241d1a' : '#3c3c3c';
+    ctx.fillStyle = '#b98f74';
     ctx.beginPath();
-    ctx.arc(0, -1, 8, Math.PI * 0.12, Math.PI * 0.88);
+    ctx.ellipse(0, -11, 4.2, 2.4, 0, 0, Math.PI * 2);
     ctx.fill();
+    // the veteran wears a cap: a dark disc with a brim toward the light
+    if (a.role === 'veteran') {
+      ctx.fillStyle = '#12161c';
+      ctx.beginPath();
+      ctx.arc(0, -4, 8.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#1b2028';
+      ctx.beginPath();
+      ctx.roundRect(-6, -14, 12, 3.6, 1.6);
+      ctx.fill();
+    }
     ctx.restore();
 
     if (a.charmed) {
