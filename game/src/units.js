@@ -250,6 +250,9 @@ function updateAgent(game, a, dt) {
     a.facing = turnToward(a.facing, a.aim, dt * 3.4);
   }
   a.pose = a.state === 'fighting' || a.order.kind === 'focus' ? 'ready' : 'carry';
+  // with nothing to shoot, the weapon — and the torch on it — follows the walk, not the last target
+  const engaged = a.state === 'fighting' || a.order.kind === 'focus';
+  if (!engaged) a.aim = turnToward(a.aim, a.facing, dt * 7);
 
   // you are in this one: hands on, no orders
   if (game.possessed === a) {
