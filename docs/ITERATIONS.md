@@ -273,6 +273,13 @@
 **结论**：保留。这一夜有头有尾。
 截图：`screenshots/gallery/23-all-files-closed.jpg`、`24-watch-over.jpg`
 
+## 轮 39 — 站台没有一盏灯
+**看**：`station-ticket.jpg`。一个乡下车站，站台上只有长椅、小卖亭和一块时刻表；天花板没有灯，边缘没有盲道——看起来像一间空仓库。唯一的光是队员的手电，可这里是室内站台。
+**改**：站台边加**盲道**（5×5 的黄色凸点，压一条暗底，1132 px 全程），加**四盏吊灯**：灯下 130 px 的冷光晕 + 一片亮的瓷灯罩（椭圆、中心亮边缘压暗），不是黑圈。
+**测**：`nw-cases` 5/5 WON、3/3、meta 回归通过、无 console error；`nw-perf` median 16.7 ms。
+**结论**：保留。站台第一次像一个有顶的车站。
+截图：`screenshots/gallery/25-station-platform.jpg`
+
 ## 备注
 - `render.js` 里有一行 `window.__nwCam?.(CAM)` 的调试钩子，只给 tools 下的截图脚本用，未设置回调时无副作用。
 - 帧时：本轮期间机器整体从 16.7 ms 漂到 17.7–17.9 ms；用 `git stash` 回退到上一个提交复测仍是 17.8 ms，确认是机器负载，不是本轮改动。

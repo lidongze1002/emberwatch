@@ -605,6 +605,37 @@ function drawStation(ctx, game, time) {
     ctx.textAlign = 'center';
     ctx.fillText(L.hud.gates[name], gx, by + 36);
   });
+  // 站台边缘的盲道：一条压着凸点的黄线，只在站台这一侧
+  for (let x = 90; x < 1190; x += 9) {
+    ctx.fillStyle = 'rgba(186, 164, 92, 0.3)';
+    ctx.fillRect(x, 208, 5, 5);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.fillRect(x, 212, 5, 1.2);
+  }
+  // 吊灯：四盏，灯下有一小圈冷光；灯罩从上看是一条亮的瓷盘，不是一圈黑洞
+  for (const lx of [230, 520, 780, 1060]) {
+    const ly = 470;
+    const pool = ctx.createRadialGradient(lx, ly, 6, lx, ly, 130);
+    pool.addColorStop(0, 'rgba(190, 232, 226, 0.13)');
+    pool.addColorStop(1, 'rgba(190, 232, 226, 0)');
+    ctx.fillStyle = pool;
+    ctx.beginPath();
+    ctx.arc(lx, ly, 130, 0, Math.PI * 2);
+    ctx.fill();
+    const shade = ctx.createRadialGradient(lx, ly - 1, 1, lx, ly, 13);
+    shade.addColorStop(0, 'rgba(226, 246, 238, 0.75)');
+    shade.addColorStop(0.55, 'rgba(160, 200, 194, 0.32)');
+    shade.addColorStop(1, 'rgba(10, 14, 14, 0.55)');
+    ctx.fillStyle = shade;
+    ctx.beginPath();
+    ctx.ellipse(lx, ly, 14, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(lx, ly, 14, 9, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
   // 站台钟：秒针在走，没人看
   const cx = 350;
   const cy = 240;
