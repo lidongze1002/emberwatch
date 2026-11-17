@@ -1,7 +1,7 @@
 // 值班界面：一份摊在桌上的现场卷宗，不是发光面板。骨白与琥珀的细线、等宽字、红色分类章、
 // 一个照片位，只放能用的信息。没有四角括号、没有扫描线、没有刻度尺。
 
-import { VIEW } from './config.js';
+import { TUNING, VIEW } from './config.js';
 import { L, fonts, personName, postName, traitName } from './text.js';
 import { objectives, readout } from './rules.js';
 import { worldToScreen } from './render.js';
@@ -59,7 +59,7 @@ function photo(ctx, agent, x, y, w, h) {
   label(ctx, agent.id.replace('a', '0'), x + w / 2, y + h - 3.5, 7, INK_SOFT, 0.5, 'center');
 }
 
-function condition(ctx, agent, x, y, w, gaze) {
+function condition(ctx, agent, x, y, w, gaze, charm) {
   const ratio = Math.max(0, Math.min(1, agent.hp / agent.maxHp));
   const down = agent.down || agent.taken;
   // a segmented readout: six cells, a hairline track, no glow
@@ -81,9 +81,17 @@ function condition(ctx, agent, x, y, w, gaze) {
     ctx.fillStyle = pct > 0.66 ? 'rgba(206, 108, 96, 0.95)' : 'rgba(190, 168, 108, 0.85)';
     ctx.fillRect(x, y + 4.6, w * pct, 1.4);
   }
+  // 第一案：礼堂的歌声在往上走，满了这个人就自己上台
+  if (charm !== null && charm !== undefined && charm > 0.01) {
+    const pct = Math.max(0, Math.min(1, charm));
+    ctx.fillStyle = 'rgba(150, 146, 136, 0.16)';
+    ctx.fillRect(x, y + 4.6, w, 1.4);
+    ctx.fillStyle = pct > 0.66 ? 'rgba(206, 96, 86, 0.95)' : 'rgba(186, 96, 84, 0.8)';
+    ctx.fillRect(x, y + 4.6, w * pct, 1.4);
+  }
 }
 
-function fileRow(ctx, agent, x, y, w, gaze, member) {
+function fileRow(ctx, agent, x, y, w, gaze, member, charm) {
   const meta = L.agent[agent.role];
   const down = agent.down || agent.taken;
   const name = member ? personName(member) : meta.name;
@@ -91,7 +99,7 @@ function fileRow(ctx, agent, x, y, w, gaze, member) {
   label(ctx, agent.id.replace('a', '0'), x + 40, y + 11, 8, INK_FAINT, 1);
   label(ctx, name, x + 66, y + 12, 13, down ? INK_SOFT : INK, 1.5, 'left', fonts.display);
   label(ctx, `${postName(agent.role)} · ${traitName(agent.trait)}`, x + 40, y + 24, 8.5, INK_SOFT, 0);
-  condition(ctx, agent, x + 40, y + 30, 92, gaze);
+  condition(ctx, agent, x + 40, y + 30, 92, gaze, charm);
   label(ctx, `${Math.max(0, Math.ceil(agent.hp))}`, x + 138, y + 33, 8, INK_SOFT, 0.5);
   const stateText = agent.taken ? L.state.charmed : down ? L.state.down : L.state[agent.state] || '';
   label(ctx, stateText, x + w, y + 12, 8, down ? RED_SOFT : INK_SOFT, 1.5, 'right');
@@ -165,6 +173,7 @@ export function drawHud(ctx, game, time) {
   label(ctx, L.hud.objective, left, 134, 7.5, AMBER, 3.4);
   const steps = objectives(game);
   const gazeCase = game.case.rule.kind === 'gaze';
+  const powerCase = game.case.rule.kind === 'power';
   steps.forEach((step, i) => {
     const y = 152 + i * 17;
     label(ctx, `0${i + 1}`, left, y, 8, step.done ? AMBER : INK_FAINT, 1);
@@ -215,7 +224,12 @@ export function drawHud(ctx, game, time) {
   rule(ctx, fileX, top, fileX + fileW, top, AMBER_FAINT);
   const limit = game.case.rule.limit || 1;
   game.agents.forEach((a, i) => {
-    fileRow(ctx, a, fileX, top + 8 + i * 50, fileW, gazeCase ? a.gaze / limit : null, game.squad && game.squad[i]);
+    fileRow(
+      ctx, a, fileX, top + 8 + i * 50, fileW,
+      gazeCase ? a.gaze / limit : null,
+      game.squad && game.squad[i],
+      powerCase ? Math.min(1, a.charm / TUNING.charmSeconds) : null,
+    );
   });
 
   // ---- footer ----------------------------------------------------------
