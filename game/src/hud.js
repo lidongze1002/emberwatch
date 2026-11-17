@@ -124,6 +124,30 @@ function clampText(ctx, text, max, font) {
   return `${out}…`;
 }
 
+// 画外的东西：箭头落在中心外一圈，方向对着它，字在箭头外面一点。
+function edgeMarker(ctx, s, text, rgb, time) {
+  const a = Math.atan2(s.y - VIEW.height / 2, s.x - VIEW.width / 2);
+  const cx = VIEW.width / 2 + Math.cos(a) * 292;
+  const cy = VIEW.height / 2 + Math.sin(a) * 236;
+  const blink = 0.55 + Math.sin(time * 5) * 0.25;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(a);
+  ctx.fillStyle = `rgba(${rgb}, ${blink})`;
+  ctx.beginPath();
+  ctx.moveTo(11, 0);
+  ctx.lineTo(-7, 7);
+  ctx.lineTo(-7, -7);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+  label(ctx, text, cx + Math.cos(a) * 34, cy + Math.sin(a) * 26 + 3, 7.5, `rgba(${rgb}, ${blink})`, 1.2, 'center');
+}
+
+function offFrame(s) {
+  return s.x < 60 || s.x > VIEW.width - 60 || s.y < 130 || s.y > VIEW.height - 150;
+}
+
 export function drawHud(ctx, game, time) {
   const left = 34;
   const right = VIEW.width - left;
@@ -168,34 +192,18 @@ export function drawHud(ctx, game, time) {
     label(ctx, clampText(ctx, game.logText(entry), 250, `7.5px ${fonts.ui}`), logX + 48, y, 7.5, 'rgba(200, 194, 180, 0.6)', 0.2, 'left', fonts.ui);
   });
 
-  // ---- a knock off frame: an arrow at the edge of the play area, with the door number ----
+  // ---- off frame: the door that is knocking, and the switchboard that is still live ----
   if (game.rule && game.rule.knock && game.case.doors) {
     const d = game.case.doors[game.rule.knock.door];
     if (d) {
       const s = worldToScreen(d.x, d.y);
-      const padX = 60;
-      const padTop = 130;
-      const padBottom = 150;
-      const off = s.x < padX || s.x > VIEW.width - padX || s.y < padTop || s.y > VIEW.height - padBottom;
-      if (off) {
-        const a = Math.atan2(s.y - VIEW.height / 2, s.x - VIEW.width / 2);
-        const cx = VIEW.width / 2 + Math.cos(a) * 292;
-        const cy = VIEW.height / 2 + Math.sin(a) * 236;
-        const blink = 0.55 + Math.sin(time * 5) * 0.25;
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(a);
-        ctx.fillStyle = `rgba(186, 70, 60, ${blink})`;
-        ctx.beginPath();
-        ctx.moveTo(11, 0);
-        ctx.lineTo(-7, 7);
-        ctx.lineTo(-7, -7);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-        label(ctx, L.hud.knockAt(game.rule.knock.door + 1), cx + Math.cos(a) * 34, cy + Math.sin(a) * 26 + 3, 7.5, `rgba(196, 84, 72, ${blink})`, 1.2, 'center');
-      }
+      if (offFrame(s)) edgeMarker(ctx, s, L.hud.knockAt(game.rule.knock.door + 1), '186, 70, 60', time);
     }
+  }
+  if (game.case.rule.kind === 'power' && game.power && game.case.spawns.switchboard) {
+    const sw = game.case.spawns.switchboard;
+    const s = worldToScreen(sw.x, sw.y);
+    if (offFrame(s)) edgeMarker(ctx, s, L.hud.toSwitch, '201, 162, 90', time);
   }
 
   // ---- the unit file, bottom left -------------------------------------
