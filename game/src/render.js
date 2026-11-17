@@ -476,14 +476,17 @@ function drawRiceSurface(ctx, time) {
 }
 
 function drawBackroomsSurface(ctx, time) {
-  // damp mustard carpet: noise, seams every 80 px, and the stains that never dry
+  // damp mustard carpet: noise, carpet-tile seams, the stains that never dry, and a wet sheen
   for (let y = 40; y < 760; y += 80) {
     for (let x = 40; x < 1240; x += 80) {
       const v = ((x * 5 + y * 3) % 19) / 19;
       ctx.fillStyle = `rgba(${46 + v * 18}, ${42 + v * 16}, ${26 + v * 10}, 1)`;
       ctx.fillRect(x, y, 79, 79);
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      // carpet tiles: a soft seam, not a grout line
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
       ctx.fillRect(x, y + 78, 79, 2);
+      ctx.fillStyle = 'rgba(140, 128, 72, 0.06)';
+      ctx.fillRect(x, y, 79, 1);
     }
   }
   for (let i = 0; i < 1200; i += 1) {
@@ -502,7 +505,21 @@ function drawBackroomsSurface(ctx, time) {
     ctx.beginPath();
     ctx.arc(x, y, 54, 0, Math.PI * 2);
     ctx.fill();
+    // the edge of a damp patch: a pale tide line, then nothing
+    ctx.strokeStyle = 'rgba(150, 136, 78, 0.1)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 40 + (i % 3) * 9, 30 + (i % 4) * 7, i * 0.7, 0, Math.PI * 2);
+    ctx.stroke();
   }
+  // wet sheen: a long soft specular across the whole corridor, as if the ceiling light is reflected
+  const sheen = ctx.createLinearGradient(0, 240, 0, 620);
+  sheen.addColorStop(0, 'rgba(236, 226, 168, 0)');
+  sheen.addColorStop(0.42, 'rgba(236, 226, 168, 0.045)');
+  sheen.addColorStop(0.55, 'rgba(236, 226, 168, 0.015)');
+  sheen.addColorStop(1, 'rgba(236, 226, 168, 0)');
+  ctx.fillStyle = sheen;
+  ctx.fillRect(40, 240, 1200, 380);
 }
 
 // ---- 每一层自己的东西 -----------------------------------------------------
