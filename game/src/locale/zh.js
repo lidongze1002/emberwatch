@@ -119,6 +119,8 @@ export const zh = {
     substitute: '值夜临时工',
     memorial: '阵亡名单',
     kia: (n) => `${n} · 未归`,
+    allClosed: '全案结清',
+    allClosedLine: '第七组这一班岗值完了。',
   },
   hire: {
     title: '招聘',
@@ -270,5 +272,6 @@ export const zh = {
     medical: (n) => `医药 ${n} 人`,
     cameOut: '出来了',
     stayed: '留在了里面',
+    watchOver: '五宗都结清了。这一班岗到此为止。',
   },
 };

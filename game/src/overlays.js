@@ -483,6 +483,13 @@ export function drawRoster(ctx, game, time) {
   button(ctx, ROSTER_BTN.hire, L.roster.hire, inRect(ROSTER_BTN.hire, hover.x, hover.y));
   button(ctx, ROSTER_BTN.cases, L.roster.cases, inRect(ROSTER_BTN.cases, hover.x, hover.y));
   label(ctx, L.roster.hint, 148, 744, 8, INK_FAINT, 1.8);
+
+  // 五案全结：这一夜是有头的
+  const cleared = Object.values(r.closed).filter((v) => v === 'won').length;
+  if (cleared >= 5) {
+    stamp(ctx, 660, 688, L.roster.allClosed, 15);
+    label(ctx, L.roster.allClosedLine, 660, 726, 8, 'rgba(214, 198, 172, 0.7)', 1.2);
+  }
 }
 
 export function drawHire(ctx, game, time) {
@@ -747,6 +754,10 @@ export function drawResult(ctx, game, time) {
     label(ctx, alive ? L.result.cameOut : L.result.stayed, x + 20, 650, 7.5, alive ? AMBER : RED, 1.4);
     if (m) label(ctx, traitName(m.trait), x + 20, 664, 7, INK_FAINT, 0.8);
   });
+
+  if (won && game.caseIndex === 4) {
+    label(ctx, L.result.watchOver, cx, 702, 9, AMBER, 2.2, 'center');
+  }
 
   ctx.font = `10px ${fonts.mono}`;
   ctx.letterSpacing = '3px';

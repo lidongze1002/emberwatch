@@ -120,6 +120,8 @@ export const en = {
     substitute: 'NIGHT TEMP',
     memorial: 'KILLED IN THE LINE',
     kia: (n) => `${n} · NOT BACK`,
+    allClosed: 'ALL FILES CLOSED',
+    allClosedLine: 'Section 7 finished the watch.',
   },
   hire: {
     title: 'RECRUIT',
@@ -276,5 +278,6 @@ export const en = {
     medical: (n) => `${n} on the mend`,
     cameOut: 'OUT',
     stayed: 'LEFT INSIDE',
+    watchOver: 'All five files are closed. The watch ends here.',
   },
 };
