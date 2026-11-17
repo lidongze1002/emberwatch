@@ -1,7 +1,7 @@
 // 三张纸：接警单、卷宗目录、简报、结案。同一套卷宗语言——骨白细线、等宽字、一枚红色印章，没有发光。
 
 import { VIEW } from './config.js';
-import { L, fonts } from './text.js';
+import { L, fonts, personName, postName, traitLine, traitName } from './text.js';
 import { label } from './hud.js';
 import { squadOf } from './roster.js';
 import { CASES } from './cases.js';
@@ -316,24 +316,6 @@ function button(ctx, rect, text, hot) {
 function money(n) {
   const s = Math.abs(Math.round(n)).toLocaleString('en-US');
   return n < 0 ? `-¥ ${s}` : `¥ ${s}`;
-}
-
-function postName(post) {
-  return (L.post && L.post[post]) || post;
-}
-
-function personName(m) {
-  if (!m) return '—';
-  if (m.nameIdx < 0) return L.roster.substitute;
-  return L.names[m.nameIdx % L.names.length];
-}
-
-function traitName(t) {
-  return (L.trait && L.trait[t]) || t;
-}
-
-function traitLine(t) {
-  return (L.trait.line && L.trait.line[t]) || '';
 }
 
 export function drawTitle(ctx, game, time) {

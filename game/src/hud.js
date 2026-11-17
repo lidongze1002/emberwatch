@@ -2,7 +2,7 @@
 // 一个照片位，只放能用的信息。没有四角括号、没有扫描线、没有刻度尺。
 
 import { VIEW } from './config.js';
-import { L, fonts } from './text.js';
+import { L, fonts, personName, postName, traitName } from './text.js';
 import { objectives, readout } from './rules.js';
 import { worldToScreen } from './render.js';
 
@@ -83,13 +83,14 @@ function condition(ctx, agent, x, y, w, gaze) {
   }
 }
 
-function fileRow(ctx, agent, x, y, w, gaze) {
+function fileRow(ctx, agent, x, y, w, gaze, member) {
   const meta = L.agent[agent.role];
   const down = agent.down || agent.taken;
+  const name = member ? personName(member) : meta.name;
   photo(ctx, agent, x, y, 30, 38);
   label(ctx, agent.id.replace('a', '0'), x + 40, y + 11, 8, INK_FAINT, 1);
-  label(ctx, meta.name, x + 66, y + 12, 13, down ? INK_SOFT : INK, 1.5, 'left', fonts.display);
-  label(ctx, meta.line, x + 40, y + 24, 8.5, INK_SOFT, 0);
+  label(ctx, name, x + 66, y + 12, 13, down ? INK_SOFT : INK, 1.5, 'left', fonts.display);
+  label(ctx, `${postName(agent.role)} · ${traitName(agent.trait)}`, x + 40, y + 24, 8.5, INK_SOFT, 0);
   condition(ctx, agent, x + 40, y + 30, 92, gaze);
   label(ctx, `${Math.max(0, Math.ceil(agent.hp))}`, x + 138, y + 33, 8, INK_SOFT, 0.5);
   const stateText = agent.taken ? L.state.charmed : down ? L.state.down : L.state[agent.state] || '';
@@ -214,7 +215,7 @@ export function drawHud(ctx, game, time) {
   rule(ctx, fileX, top, fileX + fileW, top, AMBER_FAINT);
   const limit = game.case.rule.limit || 1;
   game.agents.forEach((a, i) => {
-    fileRow(ctx, a, fileX, top + 8 + i * 50, fileW, gazeCase ? a.gaze / limit : null);
+    fileRow(ctx, a, fileX, top + 8 + i * 50, fileW, gazeCase ? a.gaze / limit : null, game.squad && game.squad[i]);
   });
 
   // ---- footer ----------------------------------------------------------
