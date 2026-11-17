@@ -587,9 +587,19 @@ export function drawSelect(ctx, game, time) {
 
     ctx.font = `10px ${fonts.ui}`;
     ctx.fillStyle = 'rgba(216, 212, 200, 0.6)';
-    const lines = wrap(ctx, row.blurb || row.rule, SELECT_ROW.w - 486);
+    const lines = wrap(ctx, row.blurb || row.rule, 330);
     lines.slice(0, 3).forEach((line, k) => ctx.fillText(line, SELECT_ROW.x + 440, top + 27 + k * 16));
     label(ctx, L.select.rules, SELECT_ROW.x + 440, top + 14, 6.5, AMBER, 3);
+
+    // the file's photograph, small: the same plate the briefing shows
+    const px = SELECT_ROW.x + SELECT_ROW.w - 142;
+    const py = top + 7;
+    ctx.fillStyle = 'rgba(206, 198, 182, 0.75)';
+    ctx.fillRect(px - 3, py - 3, 136, 72);
+    scenePlate(ctx, px, py, 130, 66, rowId);
+    ctx.strokeStyle = 'rgba(120, 112, 98, 0.35)';
+    ctx.lineWidth = 0.7;
+    ctx.strokeRect(px - 2.5, py - 2.5, 135, 71);
   }
 
   // the three on duty, as photographs with a pencil name under them
