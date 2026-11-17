@@ -46,6 +46,7 @@ export function createRoster() {
     candidates: [],
     hired: 0,
     ledger: [],
+    memorial: [],
     settledCase: null,
   };
 }
@@ -112,7 +113,10 @@ export function settle(roster, game) {
     if (a.taken || (a.down && !a.extracted)) {
       dead += 1;
       roster.cash -= PENSION;
-      if (own) own.dead = true;
+      if (own) {
+        own.dead = true;
+        roster.memorial.push({ nameIdx: own.nameIdx, post: own.post, cases: own.cases, at: meta.no });
+      }
       payLine(roster, `pension · ${nameOf(m)}`, -PENSION);
       return;
     }
@@ -128,6 +132,8 @@ export function settle(roster, game) {
 
   const id = meta.id;
   roster.closed[id] = game.won ? 'won' : 'lost';
+  // 阵亡的人从名册上撤下来，只在案卷末尾留一行黑框
+  roster.members = roster.members.filter((m) => !m.dead);
   roster.settledCase = { id, won: game.won, pay, dead, hurt, fee };
   refreshCandidates(roster);
   return roster.settledCase;

@@ -117,6 +117,8 @@ export const en = {
     none: 'No candidates. Close a case first.',
     noPhoto: 'NO PHOTO ON FILE',
     substitute: 'NIGHT TEMP',
+    memorial: 'KILLED IN THE LINE',
+    kia: (n) => `${n} · NOT BACK`,
   },
   hire: {
     title: 'RECRUIT',

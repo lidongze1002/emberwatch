@@ -446,6 +446,23 @@ export function drawRoster(ctx, game, time) {
     label(ctx, line.amount === 0 ? '—' : money(line.amount), 620, y, 8, line.amount < 0 ? 'rgba(206, 110, 96, 0.8)' : 'rgba(226, 216, 194, 0.7)', 1, 'right');
   });
 
+  // 阵亡的人不在名册上了，只在页脚留一行黑框
+  if (r.memorial.length) {
+    const mx = 660;
+    label(ctx, L.roster.memorial, mx, ly, 7.5, AMBER, 3.2);
+    r.memorial.slice(0, 5).forEach((m, i) => {
+      const y = ly + 22 + i * 16;
+      ctx.fillStyle = 'rgba(4, 5, 7, 0.85)';
+      ctx.fillRect(mx, y - 9.5, 2.5, 13);
+      ctx.strokeStyle = 'rgba(206, 200, 186, 0.16)';
+      ctx.lineWidth = 0.8;
+      ctx.strokeRect(mx + 6.5, y - 9.5, 296, 13);
+      label(ctx, personName(m), mx + 12, y, 8, INK_SOFT, 0.6);
+      label(ctx, postName(m.post), mx + 170, y, 7, INK_FAINT, 1.2);
+      label(ctx, L.roster.kia(m.at), mx + 296, y, 7, RED, 1.2, 'right');
+    });
+  }
+
   const hover = game.input && game.input.inside ? game.input : { x: -1, y: -1 };
   button(ctx, ROSTER_BTN.hire, L.roster.hire, inRect(ROSTER_BTN.hire, hover.x, hover.y));
   button(ctx, ROSTER_BTN.cases, L.roster.cases, inRect(ROSTER_BTN.cases, hover.x, hover.y));

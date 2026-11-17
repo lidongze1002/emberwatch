@@ -116,6 +116,8 @@ export const zh = {
     none: '没有候选人。结一案再来。',
     noPhoto: '无照片',
     substitute: '值夜临时工',
+    memorial: '阵亡名单',
+    kia: (n) => `${n} · 未归`,
   },
   hire: {
     title: '招聘',
