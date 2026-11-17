@@ -61,6 +61,7 @@ function spawnSpiderlings(game, x, y) {
     });
   }
 }
+export function createAgents() {
   return SPAWNS.agents.map((spot, i) => {
     const spec = AGENTS[spot.role];
     return {
