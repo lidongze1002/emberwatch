@@ -40,6 +40,12 @@ export function initRules(game) {
     r.open = c.rule.order[0];
     r.admitted = 0;
     r.ejected = 0;
+    // 一张票只卖给一个人：上车前先到小卖亭拿票
+    r.tickets = 0;
+    for (const a of game.agents) {
+      a.ticket = false;
+      a.ticketT = 0;
+    }
     setExtras(game.level, shuttersOf(game));
   }
   if (c.rule.kind === 'gaze') {
@@ -737,8 +743,26 @@ export function afterRules(game, dt) {
     return;
   }
   if (c.rule.kind === 'timetable') {
+    const kiosk = c.rule.kiosk;
     for (const a of game.agents) {
       if (a.extracted || a.down || a.taken) continue;
+      // 先到小卖亭拿票，再上车
+      if (!a.ticket && kiosk) {
+        const dx = Math.max(0, Math.abs(a.x - kiosk.x) - kiosk.w / 2);
+        const dy = Math.max(0, Math.abs(a.y - kiosk.y) - kiosk.h / 2);
+        if (Math.hypot(dx, dy) < 62) {
+          a.ticketT = (a.ticketT || 0) + dt;
+          if (a.ticketT > 0.7) {
+            a.ticket = true;
+            r.tickets = (r.tickets || 0) + 1;
+            game.log(`${a.role} is holding a ticket.`);
+            game.say(L.hud.ticketGot);
+          }
+        } else {
+          a.ticketT = 0;
+        }
+        continue;
+      }
       const zone = c.zones[r.open];
       if (inZone(zone, a.x, a.y)) {
         a.extracted = true;
@@ -895,7 +919,12 @@ export function readout(game) {
   }
   if (c.rule.kind === 'timetable') {
     const left = Math.ceil(c.rule.phaseSeconds - r.phaseT);
-    return { stamp: L.hud.stampGate, line: r.admitted >= 1 ? L.hud.oneThrough : L.hud.nextGate(L.hud.gates[r.open], left), live: true };
+    const tickets = L.hud.tickets(r.tickets || 0, game.agents.length);
+    return {
+      stamp: L.hud.stampGate,
+      line: `${tickets} · ${r.admitted >= 1 ? L.hud.oneThrough : L.hud.nextGate(L.hud.gates[r.open], left)}`,
+      live: true,
+    };
   }
   if (c.rule.kind === 'gaze') {
     let worst = 0;
@@ -1047,6 +1076,13 @@ export function directRules(game) {
   }
 
   if (c.rule.kind === 'timetable') {
+    // 先拿票。三个人一起去小卖亭，一人一张，然后才去活着的门。
+    const kiosk = c.rule.kiosk;
+    const need = kiosk && game.agents.some((a) => !a.extracted && !a.down && !a.taken && !a.ticket);
+    if (need) {
+      sendAll(game, kiosk.x, kiosk.y + kiosk.h / 2 + 20, true);
+      return;
+    }
     if (r.admitted >= 1) return;
     const gate = c.rule.gates[r.open];
     const left = c.rule.phaseSeconds - r.phaseT;

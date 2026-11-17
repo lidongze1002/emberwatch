@@ -225,6 +225,7 @@ const STATION = {
     phaseSeconds: 16,
     lastTrain: 96,
     order: ['south', 'west', 'east'],
+    kiosk: { x: 608, y: 387, w: 96, h: 54 },
     shutters: {
       west: [236, 308, 18, 204],
       east: [1026, 308, 18, 204],
