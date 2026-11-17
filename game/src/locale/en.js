@@ -42,6 +42,7 @@ export const en = {
     charmed: 'LISTENING',
     down: 'DOWN',
     reviving: 'REVIVING',
+    possessed: 'UNDER CONTROL',
   },
   hud: {
     objective: 'CUT THE POWER · CLEAR THE HOUSE · GET THEM OUT',
@@ -50,8 +51,10 @@ export const en = {
     quiet: 'THE HOUSE IS QUIET',
     paused: 'PAUSED',
     speed: (n) => `${n}×`,
-    hint: 'CLICK TO SEND · SPACE RECALL · P PAUSE · Q LAMP',
+    hint: 'CLICK TO SEND · 1/2/3 TAKE OVER · SPACE RECALL · P PAUSE · Q LAMP',
     legend: 'TSUCHIGUMO',
+    controlling: (name) => `YOU HAVE ${name}`,
+    possessHint: 'WASD MOVE · LMB FIRE · ESC RELEASE',
   },
   result: {
     winTitle: 'CASE CLOSED',

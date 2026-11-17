@@ -8,6 +8,7 @@ export class Input {
     this.x = VIEW.width / 2;
     this.y = VIEW.height / 2;
     this.inside = false;
+    this.down = false;
     this.clicks = [];
     this.typed = [];
     this.held = new Set();
@@ -23,7 +24,15 @@ export class Input {
       e.preventDefault();
       this.locate(e);
       this.gesture();
+      this.down = true;
       this.clicks.push({ x: this.x, y: this.y, button: e.button });
+    });
+    c.addEventListener('pointerup', () => {
+      this.down = false;
+    });
+    c.addEventListener('pointerleave', () => {
+      this.inside = false;
+      this.down = false;
     });
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
@@ -33,7 +42,14 @@ export class Input {
       this.gesture();
     });
     window.addEventListener('keyup', (e) => this.held.delete(e.code));
-    window.addEventListener('blur', () => this.held.clear());
+    window.addEventListener('blur', () => {
+      this.held.clear();
+      this.down = false;
+    });
+  }
+
+  isHeld(code) {
+    return this.held.has(code);
   }
 
   gesture() {

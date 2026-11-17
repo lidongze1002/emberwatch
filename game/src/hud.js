@@ -89,8 +89,40 @@ export function drawHud(ctx, game, time) {
   const cardW = 232;
   const cardH = 54;
   game.agents.forEach((a, i) => {
-    agentCard(ctx, a, 30, VIEW.height - 40 - (i + 1) * (cardH + 8), cardW, cardH);
+    const y = VIEW.height - 40 - (i + 1) * (cardH + 8);
+    agentCard(ctx, a, 30, y, cardW, cardH);
+    if (game.possessed === a) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 226, 180, 0.9)';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.roundRect(30, y, cardW, cardH, 5);
+      ctx.stroke();
+      ctx.restore();
+    }
+    label(ctx, `${i + 1}`, 30 + cardW - 8, y + 12, 9, 'rgba(160, 176, 196, 0.55)', 0, 'right', fonts.mono);
   });
+
+  // possession: who you have, and how long is left
+  if (game.possessed) {
+    const p = game.possessed;
+    const w = 300;
+    const x = cx - w / 2;
+    const y = 66;
+    ctx.save();
+    ctx.fillStyle = 'rgba(10, 13, 19, 0.85)';
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, 40, 5);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 214, 160, 0.5)';
+    ctx.stroke();
+    label(ctx, L.hud.controlling(L.agent[p.role].name), x + 14, y + 18, 12, 'rgba(255, 226, 180, 0.95)', 2);
+    label(ctx, L.hud.possessHint, x + 14, y + 32, 9, 'rgba(160, 176, 196, 0.8)', 1);
+    const ratio = Math.max(0, game.possessTimer / 8);
+    ctx.fillStyle = 'rgba(255, 214, 160, 0.85)';
+    ctx.fillRect(x + w - 96, y + 28, 82 * ratio, 3);
+    ctx.restore();
+  }
 
   // the case line and the hint
   label(ctx, `${L.title.foot}`, 34, VIEW.height - 22, 10, 'rgba(120, 136, 156, 0.75)', 3);

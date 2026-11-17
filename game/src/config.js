@@ -85,14 +85,22 @@ export const SPAWNS = {
     { role: 'lamp', x: 96, y: 682 },
   ],
   thralls: [
-    { x: 600, y: 470 },
-    { x: 900, y: 420 },
-    { x: 1120, y: 610 },
-    { x: 820, y: 640 },
+    { x: 735, y: 470 },
+    { x: 995, y: 420 },
+    { x: 1160, y: 690 },
+    { x: 820, y: 690 },
   ],
   switchboard: { x: 150, y: 150 },
   exit: { x: 106, y: 470 },
   stageMark: { x: 840, y: 180 },
 };
+
+// Things a body cannot walk through but light and bullets pass over: seat rows and the booth.
+export const PROPS = [
+  ...SEATS.map((s) => [s.x - 2, s.y - 2, s.w + 4, s.h + 4]),
+  [280, 356, 108, 56],
+];
+
+export const POSSESS_SECONDS = 8;
 
 export const THRALL = { hp: 6, speed: 40, damage: 5, reach: 26, cooldown: 1.15 };

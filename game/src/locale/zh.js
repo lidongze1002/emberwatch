@@ -41,6 +41,7 @@ export const zh = {
     charmed: '在听',
     down: '倒下',
     reviving: '施救',
+    possessed: '接管中',
   },
   hud: {
     objective: '拉闸 · 清场 · 把人带出去',
@@ -49,8 +50,10 @@ export const zh = {
     quiet: '礼堂安静了',
     paused: '已暂停',
     speed: (n) => `${n}×`,
-    hint: '点地面派人 · 空格撤回 · P 暂停 · Q 提灯',
+    hint: '点地面派人 · 1/2/3 接管 · 空格撤回 · P 暂停 · Q 提灯',
     legend: '土蜘蛛',
+    controlling: (name) => `接管 ${name}`,
+    possessHint: 'WASD 移动 · 左键开火 · ESC 松开',
   },
   result: {
     winTitle: '案件结束',

@@ -1,7 +1,7 @@
 // The floor plan as a machine: a coarse grid for pathing, the wall rectangles for sight and for
 // the body, and a string-pulled path so agents walk lines instead of staircases.
 
-import { TUNING, VIEW, WALLS } from './config.js';
+import { PROPS, TUNING, VIEW, WALLS } from './config.js';
 
 const CELL = TUNING.cell;
 
@@ -13,17 +13,21 @@ export function buildLevel() {
     for (let gx = 0; gx < cols; gx += 1) {
       const cx = gx * CELL + CELL / 2;
       const cy = gy * CELL + CELL / 2;
-      const hit = WALLS.some(([x, y, w, h]) => cx > x - 14 && cx < x + w + 14 && cy > y - 14 && cy < y + h + 14);
+      const hit = WALLS.some(([x, y, w, h]) => cx > x - 14 && cx < x + w + 14 && cy > y - 14 && cy < y + h + 14)
+        || PROPS.some(([x, y, w, h]) => cx > x - 12 && cx < x + w + 12 && cy > y - 12 && cy < y + h + 12);
       if (hit) blocked[gy * cols + gx] = 1;
     }
   }
   return { cols, rows, blocked };
 }
 
-// A point is solid if it is inside a wall block, with a small margin for the body.
+// A point is solid if it is inside a wall block or a piece of furniture, with the body's margin.
 export function solid(x, y, margin = 0) {
   for (const [wx, wy, ww, wh] of WALLS) {
     if (x > wx - margin && x < wx + ww + margin && y > wy - margin && y < wy + wh + margin) return true;
+  }
+  for (const [px, py, pw, ph] of PROPS) {
+    if (x > px - margin && x < px + pw + margin && y > py - margin && y < py + ph + margin) return true;
   }
   return false;
 }
@@ -35,6 +39,18 @@ export function lineClear(x1, y1, x2, y2, margin = 2) {
   const dist = Math.hypot(dx, dy);
   const steps = Math.max(1, Math.ceil(dist / 6));
   for (let i = 1; i < steps; i += 1) {
+    if (solid(x1 + (dx * i) / steps, y1 + (dy * i) / steps, margin)) return false;
+  }
+  return true;
+}
+
+// Walking clearance is stricter than sight: furniture counts, and the body has a radius.
+export function walkClear(x1, y1, x2, y2, margin = TUNING.agentRadius + 1) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const dist = Math.hypot(dx, dy);
+  const steps = Math.max(1, Math.ceil(dist / 5));
+  for (let i = 1; i <= steps; i += 1) {
     if (solid(x1 + (dx * i) / steps, y1 + (dy * i) / steps, margin)) return false;
   }
   return true;
@@ -114,15 +130,14 @@ export function findPath(level, fromX, fromY, toX, toY) {
   cells.reverse();
   cells.push({ x: toX, y: toY });
 
-  // string pull, with the body's own margin so a pulled line is a line the body can walk
+  // string pull, with walking clearance so a pulled line is a line the body can actually take
   const path = [];
   let anchor = { x: fromX, y: fromY };
   let i = 0;
-  const margin = TUNING.agentRadius + 1;
   while (i < cells.length) {
     let furthest = i;
     for (let j = cells.length - 1; j >= i; j -= 1) {
-      if (lineClear(anchor.x, anchor.y, cells[j].x, cells[j].y, margin)) {
+      if (walkClear(anchor.x, anchor.y, cells[j].x, cells[j].y)) {
         furthest = j;
         break;
       }

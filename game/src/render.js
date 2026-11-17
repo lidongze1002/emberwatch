@@ -25,6 +25,7 @@ export function drawWorld(ctx, game, time) {
   drawBullets(ctx, game);
   drawThralls(ctx, game, time);
   drawAgents(ctx, game, time);
+  drawSpatter(ctx, game);
   drawLights(ctx, game, time);
   ctx.restore();
 
@@ -178,7 +179,6 @@ function drawProps(ctx, game, time) {
   ctx.fillRect(86, 556, 76, 16);
   ctx.fillStyle = 'rgba(120, 146, 180, 0.18)';
   ctx.fillRect(86, 556, 76, 2);
-
   // switchboard, backstage: a box with a live light
   const sw = SPAWNS.switchboard;
   ctx.fillStyle = '#151a22';
@@ -250,53 +250,91 @@ function drawFlashlights(ctx, game) {
 function drawThralls(ctx, game, time) {
   for (const t of game.thralls) {
     if (t.dead) continue;
-    const bob = Math.sin(t.step) * 2;
     ctx.save();
-    ctx.translate(t.x, t.y + bob);
+    ctx.translate(t.x, t.y);
 
-    // grounded, not floating
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    // shadow, then the body, then rotate for the walk
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
     ctx.beginPath();
-    ctx.ellipse(0, 22, 18, 7, 0, 0, Math.PI * 2);
+    ctx.ellipse(4, 12, 17, 8, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // suit body
-    ctx.fillStyle = '#b9b2a2';
-    ctx.beginPath();
-    ctx.roundRect(-14, -6, 28, 26, 5);
-    ctx.fill();
-    ctx.fillStyle = '#8f8778';
-    ctx.fillRect(-4, 0, 8, 20);
+    ctx.rotate(t.aim + Math.PI / 2);
+    const swing = Math.sin(t.step * 1.4) * 3.2;
 
-    // TV head
+    // trousers
+    ctx.fillStyle = '#1b1e26';
+    ctx.beginPath();
+    ctx.roundRect(-9, 4 + swing, 7, 18, 3);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.roundRect(2, 4 - swing, 7, 18, 3);
+    ctx.fill();
+
+    // jacket
+    ctx.fillStyle = '#a79f8e';
+    ctx.beginPath();
+    ctx.ellipse(0, -2, 15, 17, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(240, 236, 224, 0.55)';
+    ctx.beginPath();
+    ctx.moveTo(-4, -14);
+    ctx.lineTo(0, -2);
+    ctx.lineTo(4, -14);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(60, 52, 44, 0.35)';
+    ctx.fillRect(-1, -14, 2, 14);
+
+    // arms hanging
+    ctx.strokeStyle = '#8f8778';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-11, -6);
+    ctx.lineTo(-13, 6 + swing * 0.5);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(11, -6);
+    ctx.lineTo(13, 6 - swing * 0.5);
+    ctx.stroke();
+
+    // the head: a set, and a screen inside it
     ctx.fillStyle = '#0a0c10';
     ctx.strokeStyle = '#3a4030';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.roundRect(-15, -32, 30, 26, 4);
+    ctx.roundRect(-14, -30, 28, 24, 4);
     ctx.fill();
     ctx.stroke();
-
-    // static
     ctx.save();
     ctx.beginPath();
-    ctx.roundRect(-10, -27, 20, 16, 2);
+    ctx.roundRect(-9, -25, 18, 14, 2);
     ctx.clip();
-    const flick = 0.5 + Math.sin(time * 20 + t.step * 3) * 0.3;
-    ctx.fillStyle = `rgba(127, 227, 208, ${0.4 * flick})`;
-    ctx.fillRect(-10, -27, 20, 16);
+    const flick = 0.5 + Math.sin(time * 22 + t.step * 3) * 0.3;
+    ctx.fillStyle = `rgba(127, 227, 208, ${0.42 * flick})`;
+    ctx.fillRect(-9, -25, 18, 14);
     for (let i = 0; i < 6; i += 1) {
-      const y = -27 + ((i * 4 + Math.floor(time * 40 + t.step * 9)) % 16);
-      ctx.fillStyle = `rgba(210, 255, 245, ${0.3 * flick})`;
-      ctx.fillRect(-10, y, 20, 1.2);
+      const y = -25 + ((i * 3 + Math.floor(time * 44 + t.step * 9)) % 14);
+      ctx.fillStyle = `rgba(220, 255, 246, ${0.3 * flick})`;
+      ctx.fillRect(-9, y, 18, 1.2);
     }
     ctx.restore();
+    // antenna
+    ctx.strokeStyle = '#4a5040';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(-5, 0);
+    ctx.lineTo(-8, 10);
+    ctx.moveTo(5, 0);
+    ctx.lineTo(8, 10);
+    ctx.stroke();
 
     if (t.hitFlash > 0.02) {
       ctx.globalAlpha = Math.min(0.8, t.hitFlash);
       ctx.fillStyle = '#fff';
       ctx.beginPath();
-      ctx.arc(0, -8, 22, 0, Math.PI * 2);
+      ctx.arc(0, -8, 24, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
     }
@@ -305,9 +343,9 @@ function drawThralls(ctx, game, time) {
     if (t.hp < t.maxHp) {
       const w = 30;
       ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fillRect(t.x - w / 2, t.y - 44, w, 3);
+      ctx.fillRect(t.x - w / 2, t.y - 46, w, 3);
       ctx.fillStyle = 'rgba(200, 90, 80, 0.9)';
-      ctx.fillRect(t.x - w / 2, t.y - 44, (w * t.hp) / t.maxHp, 3);
+      ctx.fillRect(t.x - w / 2, t.y - 46, (w * t.hp) / t.maxHp, 3);
     }
   }
 }
@@ -316,33 +354,97 @@ function drawAgents(ctx, game, time) {
   for (const a of game.agents) {
     if (a.taken || a.extracted) continue;
     const down = a.down;
+    const held = game.possessed === a;
     ctx.save();
     ctx.translate(a.x, a.y);
-    if (down) ctx.globalAlpha = 0.55;
 
-    // grounded
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    // a body on the floor: pooled, prone, no walk
+    if (down) {
+      ctx.fillStyle = 'rgba(58, 16, 16, 0.5)';
+      ctx.beginPath();
+      ctx.ellipse(0, 8, 26, 12, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.rotate(a.aim + Math.PI / 2);
+      ctx.fillStyle = '#22262e';
+      ctx.beginPath();
+      ctx.roundRect(-9, -20, 18, 40, 8);
+      ctx.fill();
+      ctx.fillStyle = a.colour;
+      ctx.beginPath();
+      ctx.arc(0, -18, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      drawDownRing(ctx, a);
+      continue;
+    }
+
+    // grounded: a shadow with the light coming from the stage
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
     ctx.beginPath();
-    ctx.ellipse(0, 15, 14, 6, 0, 0, Math.PI * 2);
+    ctx.ellipse(5, 12, 16, 8, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // body: a coat and shoulders, facing aim
     ctx.rotate(a.aim + Math.PI / 2);
-    ctx.fillStyle = a.role === 'veteran' ? '#3d4757' : a.role === 'rookie' ? '#31505c' : '#4a4030';
+    const swing = Math.sin(a.step) * 4;
+    const coat = a.role === 'veteran' ? '#3d4757' : a.role === 'rookie' ? '#31505c' : '#4a4030';
+    const coatLight = a.role === 'veteran' ? '#586477' : a.role === 'rookie' ? '#4b7383' : '#6a5b42';
+
+    // legs
+    ctx.fillStyle = '#161a21';
     ctx.beginPath();
-    ctx.ellipse(0, 0, 13, 16, 0, 0, Math.PI * 2);
+    ctx.roundRect(-8, 4 + swing, 7, 17, 3);
     ctx.fill();
-    ctx.fillStyle = a.colour;
     ctx.beginPath();
-    ctx.ellipse(0, -9, 7, 6.5, 0, 0, Math.PI * 2);
+    ctx.roundRect(1, 4 - swing, 7, 17, 3);
     ctx.fill();
-    // the weapon
-    ctx.strokeStyle = 'rgba(230, 236, 245, 0.6)';
-    ctx.lineWidth = 3;
+
+    // torso and shoulders
+    ctx.fillStyle = coat;
     ctx.beginPath();
-    ctx.moveTo(0, -8);
-    ctx.lineTo(0, -27);
+    ctx.ellipse(0, -2, 14, 16, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = coatLight;
+    ctx.beginPath();
+    ctx.ellipse(0, -10, 11, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // a vest strap
+    ctx.fillStyle = 'rgba(20, 24, 30, 0.5)';
+    ctx.fillRect(-9, -8, 18, 3);
+
+    // arms out to the weapon
+    ctx.strokeStyle = coatLight;
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-9, -6);
+    ctx.lineTo(-3, -19);
     ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(9, -6);
+    ctx.lineTo(3, -19);
+    ctx.stroke();
+
+    // the rifle
+    ctx.strokeStyle = '#0e1218';
+    ctx.lineWidth = 3.6;
+    ctx.beginPath();
+    ctx.moveTo(0, -13);
+    ctx.lineTo(0, -36);
+    ctx.stroke();
+    ctx.fillStyle = '#0e1218';
+    ctx.fillRect(-2.5, -17, 5, 8);
+    ctx.fillStyle = 'rgba(200, 214, 236, 0.35)';
+    ctx.fillRect(-0.6, -34, 1.2, 6);
+
+    // head: skin, then hair over the back half
+    ctx.fillStyle = '#c9a184';
+    ctx.beginPath();
+    ctx.arc(0, -4, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = a.role === 'lamp' ? '#20242b' : a.role === 'rookie' ? '#2b2320' : '#4a4a4a';
+    ctx.beginPath();
+    ctx.arc(0, -2, 7, Math.PI * 0.08, Math.PI * 0.92);
+    ctx.fill();
     ctx.restore();
 
     // charm: a red ring and a note, so the player can see who is being taken
@@ -351,40 +453,62 @@ function drawAgents(ctx, game, time) {
       ctx.strokeStyle = `rgba(220, 90, 90, ${pulse})`;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(a.x, a.y, 20, 0, Math.PI * 2);
+      ctx.arc(a.x, a.y, 26, 0, Math.PI * 2);
       ctx.stroke();
     }
-
-    // down: a ring that fills as someone revives them
-    if (down) {
-      ctx.strokeStyle = 'rgba(220, 226, 236, 0.25)';
+    if (held) {
+      ctx.strokeStyle = 'rgba(255, 226, 180, 0.85)';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(a.x, a.y, 16, 0, Math.PI * 2);
+      ctx.arc(a.x, a.y, 30, 0, Math.PI * 2);
       ctx.stroke();
-      if (a.revive > 0) {
-        ctx.strokeStyle = 'rgba(255, 214, 150, 0.9)';
-        ctx.beginPath();
-        ctx.arc(a.x, a.y, 16, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, a.revive / TUNING.reviveSeconds));
-        ctx.stroke();
-      }
+      ctx.fillStyle = 'rgba(255, 226, 180, 0.9)';
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y - 40);
+      ctx.lineTo(a.x - 5, a.y - 48);
+      ctx.lineTo(a.x + 5, a.y - 48);
+      ctx.closePath();
+      ctx.fill();
     }
 
-    // name and health
-    if (!down) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
-      ctx.fillRect(a.x - 19, a.y + 22, 38, 4);
-      ctx.fillStyle = a.colour;
-      ctx.fillRect(a.x - 19, a.y + 22, (38 * Math.max(0, a.hp)) / a.maxHp, 4);
-    }
+    // health
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.fillRect(a.x - 19, a.y + 24, 38, 4);
+    ctx.fillStyle = a.colour;
+    ctx.fillRect(a.x - 19, a.y + 24, (38 * Math.max(0, a.hp)) / a.maxHp, 4);
 
     if (a.flash > 0) {
       ctx.fillStyle = `rgba(255, 80, 70, ${a.flash * 0.5})`;
       ctx.beginPath();
-      ctx.arc(a.x, a.y, 22, 0, Math.PI * 2);
+      ctx.arc(a.x, a.y, 24, 0, Math.PI * 2);
       ctx.fill();
     }
   }
+}
+
+function drawDownRing(ctx, a) {
+  ctx.strokeStyle = 'rgba(220, 226, 236, 0.25)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(a.x, a.y, 20, 0, Math.PI * 2);
+  ctx.stroke();
+  if (a.revive > 0) {
+    ctx.strokeStyle = 'rgba(255, 214, 150, 0.9)';
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, 20, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, a.revive / TUNING.reviveSeconds));
+    ctx.stroke();
+  }
+}
+
+function drawSpatter(ctx, game) {
+  if (!game.spatter.length) return;
+  ctx.save();
+  for (const s of game.spatter) {
+    ctx.globalAlpha = Math.min(1, s.life * 3) * 0.75;
+    ctx.fillStyle = '#4a1414';
+    ctx.fillRect(s.x, s.y, 2.4, 2.4);
+  }
+  ctx.restore();
 }
 
 function drawBullets(ctx, game) {

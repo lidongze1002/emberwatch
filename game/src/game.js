@@ -1,6 +1,6 @@
 // 值班室：案件的状态机、你下的每一条目标、电闸、撤离和结案。人怎么走、打谁、什么时候退，都不在这里。
 
-import { SPAWNS, TUNING, VIEW } from './config.js';
+import { POSSESS_SECONDS, SPAWNS, TUNING, VIEW } from './config.js';
 import { buildLevel } from './level.js';
 import { createAgents, createThralls, updateUnits } from './units.js';
 import { drawWorld } from './render.js';
@@ -24,6 +24,7 @@ export class Game {
     this.thralls = createThralls();
     this.bullets = [];
     this.muzzle = [];
+    this.spatter = [];
     this.logs = [];
     this.clock = 0;
     this.power = true;
@@ -39,6 +40,8 @@ export class Game {
     this.paused = false;
     this.speed = 1;
     this.won = false;
+    this.possessed = null;
+    this.possessTimer = 0;
   }
 
   startRun() {
@@ -73,6 +76,17 @@ export class Game {
     this.shake = Math.max(0, this.shake - dt * 14);
     this.flashWhite = Math.max(0, this.flashWhite - dt * 2.4);
     this.lampCooldown = Math.max(0, this.lampCooldown - dt);
+
+    if (this.possessed) {
+      const a = this.possessed;
+      this.possessTimer -= dt;
+      if (this.possessTimer <= 0 || a.down || a.taken || a.extracted) {
+        this.possessed = null;
+        this.possessTimer = 0;
+        a.order = { kind: 'hold' };
+        a.path = null;
+      }
+    }
 
     for (const t of this.thralls) {
       if (t.stun > 0) t.stun = Math.max(0, t.stun - dt);
@@ -144,6 +158,22 @@ export class Game {
     this.say(L.agent.lamp.name);
   }
 
+  takeOver(index) {
+    const a = this.agents[index];
+    if (!a || a.down || a.taken || a.extracted) return;
+    if (this.possessed === a) {
+      this.possessed = null;
+      this.possessTimer = 0;
+      a.order = { kind: 'hold' };
+      a.path = null;
+      return;
+    }
+    this.possessed = a;
+    this.possessTimer = POSSESS_SECONDS;
+    a.path = null;
+    this.say(L.hud.controlling(L.agent[a.role].name));
+  }
+
   orderNearest(x, y, kind = 'goto') {
     const list = this.free();
     if (!list.length) return null;
@@ -189,8 +219,15 @@ export class Game {
       if (code === 'KeyP') this.paused = !this.paused;
       if (code === 'Space') this.recall();
       if (code === 'KeyQ') this.useLamp();
-      if (code === 'Digit1') this.speed = 1;
-      if (code === 'Digit2') this.speed = 2;
+      if (code === 'Escape') {
+        this.possessed = null;
+        this.possessTimer = 0;
+      }
+      if (code === 'Digit1') this.takeOver(0);
+      if (code === 'Digit2') this.takeOver(1);
+      if (code === 'Digit3') this.takeOver(2);
+      if (code === 'Digit4') this.speed = 1;
+      if (code === 'Digit5') this.speed = 2;
     }
 
     for (const click of clicks) {
@@ -212,6 +249,7 @@ export class Game {
         continue;
       }
       if (this.state !== 'play' || this.paused) continue;
+      if (this.possessed) continue;
 
       const thrall = this.thralls.find((t) => !t.dead && Math.hypot(t.x - click.x, t.y - click.y) < 26);
       if (thrall) {
