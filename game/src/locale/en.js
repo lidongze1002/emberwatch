@@ -264,5 +264,7 @@ export const en = {
     cash: 'CASH',
     funerals: (n) => `${n} pension${n > 1 ? 's' : ''}`,
     medical: (n) => `${n} on the mend`,
+    cameOut: 'OUT',
+    stayed: 'LEFT INSIDE',
   },
 };

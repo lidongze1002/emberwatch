@@ -712,6 +712,20 @@ export function drawResult(ctx, game, time) {
     if (notes.length) label(ctx, notes.join(' · '), cx, 556, 8, INK_FAINT, 1.6, 'center');
   }
 
+  // the roll call: who came out, who did not. Three columns, no portraits — a list, not a card.
+  const colW = 236;
+  const x0 = cx - colW * 1.5 + 18;
+  game.agents.forEach((a, i) => {
+    const x = x0 + i * colW;
+    const m = game.squad && game.squad[i];
+    const name = m && m.nameIdx >= 0 ? L.names[m.nameIdx % L.names.length] : L.roster.substitute;
+    const alive = a.extracted;
+    label(ctx, `0${i + 1}`, x, 632, 7.5, INK_FAINT, 1.2);
+    label(ctx, name, x + 20, 634, 13, alive ? INK : INK_SOFT, L.cjk ? 1.2 : 0.8, 'left', fonts.display);
+    label(ctx, alive ? L.result.cameOut : L.result.stayed, x + 20, 650, 7.5, alive ? AMBER : RED, 1.4);
+    if (m) label(ctx, traitName(m.trait), x + 20, 664, 7, INK_FAINT, 0.8);
+  });
+
   ctx.font = `10px ${fonts.mono}`;
   ctx.letterSpacing = '3px';
   const goW = ctx.measureText(L.result.again).width;

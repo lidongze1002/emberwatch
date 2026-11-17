@@ -258,5 +258,7 @@ export const zh = {
     cash: '现金',
     funerals: (n) => `抚恤 ${n} 人`,
     medical: (n) => `医药 ${n} 人`,
+    cameOut: '出来了',
+    stayed: '留在了里面',
   },
 };
