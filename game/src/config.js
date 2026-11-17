@@ -39,6 +39,8 @@ export const TUNING = {
   armour: { bulwark: 0.9, leviathan: 1.2 },
   nearTower: 170,
   nearTowerSlow: 0.8,
+  flare: { charges: 2, max: 3, radius: 96, dps: 5, seconds: 2.6, fall: 0.3 },
+  weather: { fogReach: 0.75, rainSpawn: 0.9, surgeRing: 70, dimOff: 1.1, dimEvery: 6 },
 };
 
 // Cold indigo sea, cold stone, warm fire. No shadow is a neon colour and no light is white
@@ -81,17 +83,17 @@ export const SHADOWS = {
   boss: { hp: 60, speed: 22, radius: 54, score: 500 },
 };
 
-// The eight tides. A wave is a bag of shadows; the game deals them out in an interleaved
-// order so a wave never arrives as one species at a time.
+// The eight tides. A wave is a bag of shadows plus one weather; the game deals the shadows out
+// in an interleaved order so a wave never arrives as one species at a time.
 export const WAVES = [
-  { spawn: { crawler: 10 } },
-  { spawn: { crawler: 12, skitter: 6 } },
-  { spawn: { crawler: 8, skitter: 8, bulwark: 3 } },
-  { spawn: { skitter: 10, splitter: 5 } },
-  { spawn: { bulwark: 5, moth: 8, crawler: 8 } },
-  { spawn: { skitter: 12, splitter: 6, bulwark: 4 } },
-  { spawn: { moth: 8, bulwark: 5, crawler: 10, skitter: 8 } },
-  { spawn: { boss: 1, skitter: 8, crawler: 8 }, boss: true },
+  { spawn: { crawler: 10 }, weather: 'clear' },
+  { spawn: { crawler: 12, skitter: 6 }, weather: 'clear' },
+  { spawn: { crawler: 8, skitter: 8, bulwark: 3 }, weather: 'clear' },
+  { spawn: { skitter: 10, splitter: 5 }, weather: 'fog' },
+  { spawn: { bulwark: 5, moth: 8, crawler: 8 }, weather: 'rain' },
+  { spawn: { skitter: 12, splitter: 6, bulwark: 4 }, weather: 'dim' },
+  { spawn: { moth: 8, bulwark: 5, crawler: 10, skitter: 8 }, weather: 'surge' },
+  { spawn: { boss: 1, skitter: 8, crawler: 8 }, boss: true, weather: 'surge' },
 ];
 
 export const KEYS = {

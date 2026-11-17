@@ -31,11 +31,14 @@ export function aimAt(beam, x, y) {
 // drawn as lit.
 export function beamShape(game) {
   const overdrive = game.odTimer > 0;
+  const fog = game.weather === 'fog' ? TUNING.weather.fogReach : 1;
   return {
     angle: game.beam.angle,
     half: game.stats.halfAngle * (overdrive ? TUNING.overdriveCone : 1),
-    reach: game.stats.reach,
+    reach: game.stats.reach * fog,
     overdrive,
+    out: game.lampOut > 0,
+    power: game.lampPower ?? 1,
   };
 }
 
@@ -43,12 +46,19 @@ export function updateBeam(game, dt) {
   const beam = game.beam;
   const overdrive = game.odTimer > 0;
   beam.halfAngle = game.stats.halfAngle * (overdrive ? TUNING.overdriveCone : 1);
-  beam.reach = game.stats.reach;
+  const fog = game.weather === 'fog' ? TUNING.weather.fogReach : 1;
+  beam.reach = game.stats.reach * fog;
   beam.power = overdrive ? 1.7 : 1;
 
   // aim: fast enough to feel direct, smoothed just enough to take the jitter out of a mouse
   const diff = wrapAngle(beam.target - beam.angle);
   beam.angle = wrapAngle(beam.angle + diff * Math.min(1, dt * 26));
+
+  // when the lamp drops out there is no light to do any of this with
+  if (game.lampOut > 0) {
+    for (const e of game.shadows) if (e.lit) e.lit = false;
+    return { lit: 0, hits: 0, nearest: null };
+  }
 
   const dps = game.stats.dps * (overdrive ? TUNING.overdriveDamage : 1);
   const reach = beam.reach;
@@ -117,6 +127,6 @@ export function spendOverdrive(game) {
   game.odTimer = game.stats.odSeconds;
   game.flashScreen = 0.55;
   game.shake = Math.max(game.shake, 5);
-  game.particles.ring(LAMP.x, LAMP.y, 24, PALETTE.fireHot, 2.4);
+  game.particles.sparks(LAMP.x, LAMP.y - 10, 14, -Math.PI / 2, Math.PI * 1.6, 180, PALETTE.fireHot, 2.2);
   return true;
 }

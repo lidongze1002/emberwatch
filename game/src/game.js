@@ -2,7 +2,7 @@
 // book, kills and their rewards, the moment a shadow reaches the cliff, and the two ways a
 // run can end. It reads input, updates the world, and asks the other modules to draw it.
 
-import { KEYS, LAMP, PALETTE, TUNING, WAVES } from './config.js';
+import { KEYS, LAMP, PALETTE, TUNING, VIEW, WAVES } from './config.js';
 import { Rng } from './rng.js';
 import { Particles } from './particles.js';
 import { aimAt, createBeam, spendOverdrive, updateBeam } from './beam.js';
@@ -13,6 +13,7 @@ import { drawHud } from './hud.js';
 import { cardAt, drawResults, drawTitle, drawUpgrades, tTitleLinkAt } from './overlays.js';
 import { drawCodex, codexTabAt } from './codex.js';
 import { L } from './text.js';
+import { drawIntro, updateIntro } from './intro.js';
 
 const BEST_KEY = 'emberwatch.best.v1';
 
@@ -47,6 +48,7 @@ export class Game {
     this.best = loadBest();
     this.autopilot = null;
     this.fixedSeed = false;
+    this.introEnabled = true;
     this.onNavigate = null;
     this.codexOpen = false;
     this.codexPage = 0;
@@ -98,6 +100,14 @@ export class Game {
     this.attractAngle = Math.PI / 2;
     this.codexOpen = false;
     this.codexPage = 0;
+    this.introTime = 0;
+    this.weather = 'clear';
+    this.lampOut = 0;
+    this.lampClock = 0;
+    this.lampPower = 1;
+    this.camera = null;
+    this.flares = TUNING.flare.charges;
+    this.flareSpots = [];
     this.seedAttract();
   }
 
@@ -118,13 +128,71 @@ export class Game {
     this.shadows = [];
     this.pending = [];
     this.banner = null;
+    this.flareSpots = [];
+    this.flares = TUNING.flare.charges;
     // a fresh run is a fresh sea: only the staged screenshot scenes hold the seed still
     if (!this.fixedSeed) {
       this.seed = (Math.random() * 0x7fffffff) >>> 0;
       this.rng = new Rng(this.seed);
     }
-    this.beginWave(0);
     this.sound.begin();
+    if (this.introEnabled) {
+      // a short cold open: the lamp comes up, the beam finds the water, then the first tide
+      this.state = 'intro';
+      this.introTime = 0;
+      this.lampPower = 0;
+      this.camera = null;
+      this.beam.angle = -Math.PI / 2 - 0.55;
+      this.beam.target = this.beam.angle;
+      return;
+    }
+    this.beginWave(0);
+  }
+
+  endIntro() {
+    if (this.state !== 'intro') return;
+    this.state = 'playing';
+    this.introTime = 0;
+    this.camera = null;
+    this.lampPower = 1;
+    this.beginWave(0);
+  }
+
+  // A flare falls where the mouse is, then burns there: the one action besides aiming the beam.
+  dropFlare() {
+    if (this.state !== 'playing' || this.flares <= 0) return false;
+    const x = Math.max(70, Math.min(VIEW.width - 70, this.input.x));
+    const y = Math.max(190, Math.min(VIEW.height - 46, this.input.y));
+    this.flareSpots.push({ x, y, life: TUNING.flare.seconds, fall: TUNING.flare.fall });
+    this.flares -= 1;
+    this.sound.flare();
+    return true;
+  }
+
+  updateFlares(dt) {
+    for (let i = this.flareSpots.length - 1; i >= 0; i -= 1) {
+      const spot = this.flareSpots[i];
+      spot.life -= dt;
+      if (spot.fall > 0) {
+        spot.fall -= dt;
+      } else {
+        for (const shadow of this.shadows) {
+          if (shadow.dead) continue;
+          if (Math.hypot(shadow.x - spot.x, shadow.y - spot.y) < TUNING.flare.radius + shadow.radius) {
+            shadow.lit = true;
+            shadow.litTime += dt;
+            shadow.hp -= TUNING.flare.dps * dt;
+            if (shadow.flash < 0.3) shadow.flash = 0.3;
+          }
+        }
+        if (this.rng.chance(dt * 18)) {
+          const a = this.rng.float(0, Math.PI * 2);
+          const r = this.rng.float(0, TUNING.flare.radius);
+          this.particles.sparks(spot.x + Math.cos(a) * r, spot.y + Math.sin(a) * r, 1, -Math.PI / 2, 2.4, 60, PALETTE.fire, 1.5);
+        }
+      }
+      if (spot.life <= 0) this.flareSpots.splice(i, 1);
+    }
   }
 
   beginWave(index) {
@@ -132,11 +200,15 @@ export class Game {
     const written = L.waves[index];
     this.wave = index + 1;
     this.waveTitle = written.name;
+    this.weather = wave.weather || 'clear';
+    this.lampOut = 0;
+    this.lampClock = 0;
     this.waveTotal = 0;
     this.waveSpawned = 0;
     this.waveGone = 0;
     this.spawnTimer = 0.7;
-    this.spawnInterval = Math.max(TUNING.spawnFloor, TUNING.spawnEvery - TUNING.spawnTighten * index);
+    const rain = this.weather === 'rain' ? TUNING.weather.rainSpawn : 1;
+    this.spawnInterval = Math.max(TUNING.spawnFloor, TUNING.spawnEvery - TUNING.spawnTighten * index) * rain;
 
     const pools = Object.entries(wave.spawn).map(([type, count]) => ({ type, left: count }));
     const queue = [];
@@ -169,9 +241,10 @@ export class Game {
     this.waveTotal = queue.length;
 
     const name = wave.boss ? L.banner.leviathan : L.banner.wave(this.wave);
+    const weatherLine = L.weather[this.weather] || '';
     this.banner = {
       text: name,
-      sub: wave.boss ? L.banner.leviathanSub : written.lore,
+      sub: wave.boss ? L.banner.leviathanSub : (weatherLine || written.note),
       age: 0,
       life: wave.boss ? 3.4 : 2.5,
     };
@@ -183,7 +256,10 @@ export class Game {
     if (!type) return;
     const waveIndex = this.wave - 1;
     const angle = type === 'boss' ? -Math.PI / 2 : null;
-    const shadow = createShadow(type, waveIndex, this.rng, angle);
+    const ring = this.weather === 'surge'
+      ? { inner: TUNING.spawnRing.inner - TUNING.weather.surgeRing, outer: TUNING.spawnRing.outer - TUNING.weather.surgeRing }
+      : TUNING.spawnRing;
+    const shadow = createShadow(type, waveIndex, this.rng, angle, ring);
     this.shadows.push(shadow);
     this.waveSpawned += 1;
     if (type === 'boss') {
@@ -194,10 +270,24 @@ export class Game {
 
   update(dt) {
     if (this.codexOpen) return;
+    if (this.state === 'intro') {
+      updateIntro(this, dt);
+      return;
+    }
     this.clock += dt;
     if (this.state === 'title') {
       this.updateAttract(dt);
       return;
+    }
+
+    // weather: fog and rain are handled where they bite; an unstable lamp drops out on a cycle
+    if (this.weather === 'dim') {
+      this.lampClock += dt;
+      const phase = this.lampClock % TUNING.weather.dimEvery;
+      this.lampOut = phase > TUNING.weather.dimEvery - TUNING.weather.dimOff ? 1 : 0;
+    } else {
+      this.lampOut = 0;
+      this.lampClock = 0;
     }
 
     if (this.invulnerable > 0) this.invulnerable = Math.max(0, this.invulnerable - dt);
@@ -224,6 +314,7 @@ export class Game {
     else aimAt(this.beam, this.input.x, this.input.y);
 
     const { lit } = updateBeam(this, dt);
+    this.updateFlares(dt);
     if (this.odTimer > 0) this.sound.setLit(lit, true);
     else {
       this.humClock += dt;
@@ -416,6 +507,8 @@ export class Game {
     this.cards = offerUpgrades(this, 3);
     this.hoverCard = -1;
     this.banner = null;
+    // one more flare for the next tide, up to the cap
+    this.flares = Math.min(TUNING.flare.max, this.flares + 1);
     this.sound.upgrade();
   }
 
@@ -470,6 +563,10 @@ export class Game {
         this.sound.toggleMute();
         continue;
       }
+      if (this.state === 'intro') {
+        this.endIntro();
+        continue;
+      }
       if (this.codexOpen) {
         if (code === 'KeyC' || code === 'Escape') {
           this.codexOpen = false;
@@ -507,6 +604,10 @@ export class Game {
         this.restart();
         continue;
       }
+      if (this.state === 'playing' && code === 'KeyF') {
+        this.dropFlare();
+        continue;
+      }
       if (this.state === 'playing' && KEYS.overdrive.includes(code)) {
         if (spendOverdrive(this)) {
           this.sound.overdrive();
@@ -516,6 +617,10 @@ export class Game {
     }
 
     for (const click of clicks) {
+      if (this.state === 'intro') {
+        this.endIntro();
+        continue;
+      }
       if (this.codexOpen) {
         const tab = codexTabAt(click.x, click.y);
         if (tab >= 0) {
@@ -557,6 +662,10 @@ export class Game {
 
   draw(ctx, time) {
     drawScene(ctx, this, time);
+    if (this.state === 'intro') {
+      drawIntro(ctx, this, time);
+      return;
+    }
     if (this.codexOpen) {
       drawCodex(ctx, this, time);
       return;

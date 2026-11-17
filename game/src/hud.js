@@ -181,6 +181,10 @@ export function drawHud(ctx, game, time) {
   drawCombo(ctx, game);
   drawBoss(ctx, game);
   drawOverdrive(ctx, game, time);
+  const weather = L.weather[game.weather] || '';
+  if (weather) label(ctx, weather, M, 106, 9, 'rgba(255, 186, 120, 0.75)', 3);
+  const flares = game.flares ?? 0;
+  label(ctx, L.hud.flares(flares), VIEW.width / 2, VIEW.height - 30, 10, flares > 0 ? 'rgba(255, 179, 71, 0.75)' : 'rgba(127, 142, 163, 0.45)', 3, 'center');
   label(ctx, L.hud.mute, VIEW.width - M, VIEW.height - 30, 10, 'rgba(127, 142, 163, 0.7)', 3, 'right');
   drawBanner(ctx, game);
 }

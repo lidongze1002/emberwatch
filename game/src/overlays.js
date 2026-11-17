@@ -156,10 +156,12 @@ export function drawTitle(ctx, game, time) {
   label(ctx, L.title.lines[1], cx, line1 + 28, 19, 'rgba(223, 230, 240, 0.56)', 1, 'center', fonts.display);
 
   const controlY = line1 + layout.controlsGap;
-  const xs = [cx - 268, cx, cx + 268];
-  L.title.controls.forEach((col, i) => {
-    keyCap(ctx, xs[i], controlY, col.key, col.key.length > 6 ? 92 : 76, 'rgba(240, 201, 141, 0.85)');
-    label(ctx, col.text, xs[i], controlY + 38, 14, 'rgba(223, 230, 240, 0.62)', 1, 'center');
+  const controls = L.title.controls;
+  const spread = 820;
+  controls.forEach((col, i) => {
+    const x = controls.length === 1 ? cx : cx - spread / 2 + (spread / (controls.length - 1)) * i;
+    keyCap(ctx, x, controlY, col.key, col.key.length > 6 ? 92 : 76, 'rgba(240, 201, 141, 0.85)');
+    label(ctx, col.text, x, controlY + 38, 14, 'rgba(223, 230, 240, 0.62)', 1, 'center');
   });
 
   const pulse = 0.62 + Math.sin(time * 2.6) * 0.3;
@@ -235,12 +237,12 @@ export function drawUpgrades(ctx, game, time) {
     drawSigil(ctx, card.sigil, x + w / 2, y + 78, 76, colour);
 
     ctx.textAlign = 'center';
-    label(ctx, entry.name, x + w / 2, y + 168, fonts.cardName, hover ? PALETTE.fireHot : PALETTE.text, 1, 'center', fonts.display);
-    ctx.font = `15px ${fonts.ui}`;
+    label(ctx, entry.name, x + w / 2, y + 166, fonts.cardName, hover ? PALETTE.fireHot : PALETTE.text, 1, 'center', fonts.display);
+    ctx.font = `16px ${fonts.ui}`;
     ctx.fillStyle = 'rgba(223, 230, 240, 0.58)';
     ctx.textAlign = 'center';
     const lines = wrap(ctx, entry.blurb, w - 52);
-    lines.slice(0, 4).forEach((line, n) => ctx.fillText(line, x + w / 2, y + 204 + n * 22));
+    lines.slice(0, 3).forEach((line, n) => ctx.fillText(line, x + w / 2, y + 206 + n * 23));
 
     rule(ctx, x + 40, x + w - 40, y + h - 62, 'rgba(160, 185, 210, 0.16)');
     keyCap(ctx, x + w / 2, y + h - 32, String(i + 1), 40, hover ? PALETTE.fire : 'rgba(160, 185, 210, 0.6)');

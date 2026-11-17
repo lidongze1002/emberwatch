@@ -17,6 +17,13 @@ export function drawScene(ctx, game, time) {
   ctx.clearRect(0, 0, VIEW.width, VIEW.height);
   ctx.save();
   ctx.translate(sx, sy);
+  // the cold open pushes in on the tower and settles; everything else runs at 1:1
+  const cam = game.camera;
+  if (cam && (cam.scale !== 1 || cam.y !== 0)) {
+    ctx.translate(VIEW.width / 2, VIEW.height / 2);
+    ctx.scale(cam.scale, cam.scale);
+    ctx.translate(-VIEW.width / 2, -VIEW.height / 2 + cam.y);
+  }
 
   ctx.drawImage(scene.sky, 0, 0);
   drawSea(ctx, scene, time, game);
@@ -24,19 +31,109 @@ export function drawScene(ctx, game, time) {
   drawWaterReflection(ctx, time, game);
 
   drawTower(ctx, game, time);
-  if (!(game.state === 'results' && game.result === 'defeat')) drawBeam(ctx, game, time);
+  if (!(game.state === 'results' && game.result === 'defeat') && game.lampOut <= 0) drawBeam(ctx, game, time);
   // shadows belong to a run in progress: the title is a still night, and an ended run has
   // nothing left on the water
-  if (game.state === 'playing' || game.state === 'upgrades') {
+  if (game.state === 'playing' || game.state === 'upgrades' || game.state === 'intro') {
     for (const shadow of game.shadows) drawShadow(ctx, shadow, time);
   }
   game.particles.draw(ctx);
+  drawFlares(ctx, game, time);
+  drawWeather(ctx, scene, game, time);
   drawMotes(ctx, scene, game, time);
   drawPointer(ctx, game, time);
   drawLamp(ctx, game, time);
 
   ctx.restore();
   drawAir(ctx, game, time);
+}
+
+// Flares: a hot coal falling, then a burning pool that lights and hurts whatever stands in it.
+function drawFlares(ctx, game, time) {
+  if (!game.flareSpots || !game.flareSpots.length) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const spot of game.flareSpots) {
+    if (spot.fall > 0) {
+      const k = 1 - spot.fall / 0.3;
+      const y = spot.y - 160 * (1 - k);
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = PALETTE.fireHot;
+      ctx.beginPath();
+      ctx.arc(spot.x, y, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 0.35;
+      ctx.strokeStyle = PALETTE.fire;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(spot.x, y);
+      ctx.lineTo(spot.x, y - 26);
+      ctx.stroke();
+      continue;
+    }
+    const k = Math.max(0, Math.min(1, spot.life / 2.6));
+    const r = 96 * (0.75 + 0.25 * k);
+    const pool = ctx.createRadialGradient(spot.x, spot.y, 4, spot.x, spot.y, r);
+    pool.addColorStop(0, `rgba(255, 240, 200, ${0.55 * k})`);
+    pool.addColorStop(0.35, `rgba(255, 160, 70, ${0.3 * k})`);
+    pool.addColorStop(1, 'rgba(255, 110, 40, 0)');
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = pool;
+    ctx.beginPath();
+    ctx.arc(spot.x, spot.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    for (let i = 0; i < 3; i += 1) {
+      const a = time * 2.1 + i * 2.4;
+      const rr = 18 + (Math.sin(time * 3 + i) * 0.5 + 0.5) * (r - 18);
+      ctx.globalAlpha = 0.5 * k;
+      ctx.fillStyle = PALETTE.fireHot;
+      ctx.beginPath();
+      ctx.arc(spot.x + Math.cos(a) * rr, spot.y + Math.sin(a * 1.3) * rr * 0.6, 1.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+// Weather, drawn over the water but under the interface: fog eats the far sea, rain scratches it.
+function drawWeather(ctx, scene, game, time) {
+  if (game.state === 'title' && game.weather === 'clear') return;
+  if (game.weather === 'fog') {
+    const haze = ctx.createLinearGradient(0, 220, 0, VIEW.height);
+    haze.addColorStop(0, 'rgba(158, 180, 202, 0)');
+    haze.addColorStop(0.35, 'rgba(158, 180, 202, 0.1)');
+    haze.addColorStop(0.75, 'rgba(150, 172, 196, 0.17)');
+    haze.addColorStop(1, 'rgba(140, 162, 188, 0.22)');
+    ctx.fillStyle = haze;
+    ctx.fillRect(0, 220, VIEW.width, VIEW.height - 220);
+    for (let i = 0; i < 4; i += 1) {
+      const y = 300 + i * 120 + Math.sin(time * 0.35 + i * 1.7) * 18;
+      const band = ctx.createLinearGradient(0, y, 0, y + 90);
+      band.addColorStop(0, 'rgba(170, 190, 210, 0)');
+      band.addColorStop(0.5, `rgba(170, 190, 210, ${0.05 + i * 0.008})`);
+      band.addColorStop(1, 'rgba(170, 190, 210, 0)');
+      ctx.fillStyle = band;
+      ctx.fillRect(0, y, VIEW.width, 90);
+    }
+    return;
+  }
+  if (game.weather === 'rain') {
+    ctx.fillStyle = 'rgba(18, 30, 46, 0.14)';
+    ctx.fillRect(0, 150, VIEW.width, VIEW.height - 150);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(180, 206, 230, 0.34)';
+    ctx.lineWidth = 1.1;
+    ctx.lineCap = 'round';
+    for (const drop of scene.rain) {
+      const y = ((drop.y + time * drop.speed) % 940) - 80;
+      ctx.globalAlpha = drop.alpha;
+      ctx.beginPath();
+      ctx.moveTo(drop.x, y);
+      ctx.lineTo(drop.x - drop.len * 0.3, y + drop.len);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
 }
 
 // The little warm ring that follows the mouse: it is where the beam is pointed, so it should
@@ -246,12 +343,24 @@ function buildMotes() {
   }));
 }
 
+function buildRain() {
+  const rng = new Rng(3311);
+  return Array.from({ length: 220 }, () => ({
+    x: rng.float(-60, VIEW.width + 60),
+    y: rng.float(0, 940),
+    len: rng.float(12, 26),
+    speed: rng.float(1000, 1700),
+    alpha: rng.float(0.18, 0.5),
+  }));
+}
+
 export function createScene() {
   return {
     sky: buildSky(),
     cliff: buildCliff(),
     waves: buildWaves(),
     motes: buildMotes(),
+    rain: buildRain(),
   };
 }
 
@@ -297,6 +406,25 @@ function drawSea(ctx, scene, time, game) {
   if (game.state === 'upgrades') {
     ctx.fillStyle = 'rgba(6, 12, 20, 0.35)';
     ctx.fillRect(0, 150, VIEW.width, VIEW.height - 150);
+  }
+
+  // high water: the sea rides higher up the cliff, with a foam line to say so
+  if (game.weather === 'surge') {
+    const foam = ctx.createLinearGradient(0, 640, 0, 780);
+    foam.addColorStop(0, 'rgba(190, 214, 236, 0)');
+    foam.addColorStop(0.55, 'rgba(190, 214, 236, 0.08)');
+    foam.addColorStop(1, 'rgba(190, 214, 236, 0)');
+    ctx.fillStyle = foam;
+    ctx.fillRect(0, 640, VIEW.width, 140);
+    ctx.strokeStyle = 'rgba(200, 222, 240, 0.14)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    for (let x = -40; x <= VIEW.width + 40; x += 12) {
+      const y = 744 + Math.sin(x / 70 + time * 0.9) * 8;
+      if (x === -40) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
   }
 }
 
@@ -452,6 +580,8 @@ function drawBeam(ctx, game, time) {
   const half = shape.half;
   const reach = shape.reach;
   const hot = shape.overdrive;
+  const power = Math.max(0, Math.min(1, shape.power ?? 1));
+  if (power < 0.02) return;
 
   // The cone is built out of nested wedges, each a little wider and a little fainter than the
   // one inside it. Additive, so the accumulation gives a smooth falloff across the cone: hot
@@ -464,7 +594,7 @@ function drawBeam(ctx, game, time) {
     const t = (i + 1) / layers;
     const spread = 0.34 + 0.66 * t;
     const h = half * spread;
-    const alpha = (0.24 * Math.pow(1 - t, 1.35) + 0.012) * (hot ? 1.3 : 1);
+    const alpha = (0.24 * Math.pow(1 - t, 1.35) + 0.012) * (hot ? 1.3 : 1) * power;
     const grad = ctx.createRadialGradient(LAMP.x, LAMP.y, 8, LAMP.x, LAMP.y, reach * (0.92 + spread * 0.1));
     grad.addColorStop(0, hot ? 'rgba(255, 255, 246, 0.98)' : 'rgba(255, 240, 208, 0.95)');
     grad.addColorStop(0.1, hot ? 'rgba(255, 238, 206, 0.72)' : 'rgba(255, 212, 158, 0.62)');
@@ -481,7 +611,7 @@ function drawBeam(ctx, game, time) {
   }
 
   // the edges, barely there
-  ctx.globalAlpha = 0.14;
+  ctx.globalAlpha = 0.14 * power;
   ctx.strokeStyle = hot ? 'rgba(255, 246, 226, 0.4)' : 'rgba(255, 205, 145, 0.3)';
   ctx.lineWidth = 1;
   for (const edge of [shape.angle - half, shape.angle + half]) {
@@ -496,7 +626,7 @@ function drawBeam(ctx, game, time) {
   coreGrad.addColorStop(0, hot ? 'rgba(255, 255, 252, 0.85)' : 'rgba(255, 240, 206, 0.7)');
   coreGrad.addColorStop(0.3, hot ? 'rgba(255, 236, 200, 0.3)' : 'rgba(255, 200, 140, 0.22)');
   coreGrad.addColorStop(1, 'rgba(255, 170, 90, 0)');
-  ctx.globalAlpha = 1;
+  ctx.globalAlpha = power;
   ctx.strokeStyle = coreGrad;
   ctx.lineWidth = 2.2 + Math.sin(time * 5) * 0.4;
   ctx.beginPath();
@@ -509,9 +639,10 @@ function drawBeam(ctx, game, time) {
 function drawLamp(ctx, game, time) {
   const hot = game.odTimer > 0;
   const dead = game.state === 'results' && game.result === 'defeat';
+  const out = game.lampOut > 0;
   const pulse = 1 + Math.sin(time * 3.1) * 0.04;
   const radius = (hot ? 88 : 62) * pulse;
-  const life = dead ? 0.22 : 1;
+  const life = (dead ? 0.22 : 1) * (game.lampPower ?? 1) * (out ? 0.14 : 1);
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   const glow = ctx.createRadialGradient(LAMP.x, LAMP.y - 12, 2, LAMP.x, LAMP.y - 12, radius);
@@ -525,16 +656,16 @@ function drawLamp(ctx, game, time) {
   ctx.arc(LAMP.x, LAMP.y - 12, radius, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = dead ? 'rgba(160, 130, 105, 0.5)' : hot ? '#fffdf6' : '#fff2d4';
+  ctx.fillStyle = dead ? 'rgba(160, 130, 105, 0.5)' : out ? 'rgba(120, 70, 40, 0.45)' : hot ? '#fffdf6' : '#fff2d4';
   ctx.beginPath();
   ctx.arc(LAMP.x, LAMP.y - 12, hot ? 8 : 6, 0, Math.PI * 2);
   ctx.fill();
 
   // motes of dust catching the light at the glass
-  for (let i = 0; i < 7 && !dead; i += 1) {
+  for (let i = 0; i < 7 && !dead && !out; i += 1) {
     const a = time * 0.7 + i * 1.7;
     const r = 10 + (i % 3) * 7;
-    ctx.globalAlpha = 0.3 + Math.sin(time * 2 + i) * 0.15;
+    ctx.globalAlpha = (0.3 + Math.sin(time * 2 + i) * 0.15) * (game.lampPower ?? 1);
     ctx.fillStyle = PALETTE.fireHot;
     ctx.beginPath();
     ctx.arc(LAMP.x + Math.cos(a) * r, LAMP.y - 12 + Math.sin(a * 1.3) * r * 0.7, 1.1, 0, Math.PI * 2);

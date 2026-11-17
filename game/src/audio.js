@@ -202,6 +202,12 @@ export class Sound {
     this.tone(92, 0.42, 'sine', 0.16, 44);
   }
 
+  flare() {
+    if (!this.ctx) return;
+    this.tone(340, 0.45, 'sine', 0.05, 120);
+    this.burst(0.5, 1400, 0.05, 'highpass');
+  }
+
   wave() {
     this.tone(392, 0.3, 'triangle', 0.07);
     this.tone(587, 0.5, 'triangle', 0.06, null, 0.12);

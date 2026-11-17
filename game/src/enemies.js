@@ -15,11 +15,11 @@ export function shadowScale(waveIndex) {
   };
 }
 
-export function createShadow(type, waveIndex, rng, angle = null) {
+export function createShadow(type, waveIndex, rng, angle = null, ring = TUNING.spawnRing) {
   const specs = SHADOWS[type];
   const scale = shadowScale(waveIndex);
   const heading = angle ?? rng.float(TUNING.spawnArc.from, TUNING.spawnArc.to) * Math.PI;
-  const radius = type === 'boss' ? TUNING.spawnRing.outer + 40 : rng.float(TUNING.spawnRing.inner, TUNING.spawnRing.outer);
+  const radius = type === 'boss' ? ring.outer + 40 : rng.float(ring.inner, ring.outer);
   const hp = Math.round(specs.hp * scale.hp * 10) / 10;
   return {
     id: nextId += 1,

@@ -128,17 +128,20 @@ function huntPick(game) {
 }
 
 // How good a frame the live state would make: lit bodies, bodies still on the water, a combo
-// that is actually running, and the tower already carrying a scar.
+// that is actually running, and the tower already carrying a scar. Fog photographs badly, and
+// the third tide is the cleanest water in the run, so it gets a nudge.
 function frameQuality(game) {
   const lit = litCount(game);
   const alive = game.shadows.length;
   const near = nearest(game);
-  let q = Math.min(lit, 4) * 12 + Math.min(alive, 8) * 7;
+  let q = Math.min(lit, 4) * 16 + Math.min(alive, 8) * 6;
   if (lit >= 3) q += 14;
   if (alive >= 5) q += 10;
   if (game.combo > 0) q += 8;
   if (game.hearts === 2) q += 10;
   if (near > 140 && near < 340) q += 8;
+  if (game.wave === 3) q += 12;
+  if (game.weather === 'fog') q -= 25;
   // the overdrive flash whites out the whole scene for a moment; a photograph does not want it
   if (game.flashScreen > 0.04) q -= 160;
   if (game.odTimer > 0.9) q += 12;
@@ -259,6 +262,7 @@ export function prepareShot(game, name, seed = 1) {
   const scene = SCENES[name];
   if (!scene) return false;
   game.fixedSeed = true;
+  game.introEnabled = false;
   game.reset(seed);
   game.autopilot = null;
   scene(game);
