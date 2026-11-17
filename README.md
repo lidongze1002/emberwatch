@@ -61,7 +61,7 @@ the recruiting pool; `render.js` the scene; `hud.js` and `overlays.js` the dossi
 Design notes live in `docs/`: `CAMERA.md` (the top-down projection and its seven checks),
 `CHARACTERS.md` (proportions and animation), `CASES.md` (the five cases, their rules and the
 implementation status), `META.md` (money, people, recruiting), `PORTRAITS.md` (the art prompts) and
-`ITERATIONS.md` (the rounds, what was tried and what was kept).
+`ITERATIONS.md` (forty-two rounds: the people, the interface, the desk and the five floors).
 
 ## The four pictures
 
