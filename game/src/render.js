@@ -1402,6 +1402,116 @@ function drawRoof(ctx, x, y, w, h) {
   ctx.restore();
 }
 
+function drawShaft(ctx, x, y, w, h) {
+  // 电梯井顶：混凝土、分格缝、一台排风机、一滩水渍、一盏红色的应急灯，还有不知谁用粉笔写的层数
+  const v = ((x * 11 + y * 7) % 5) / 5;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x + 2, y + 2, w - 4, h - 4);
+  ctx.clip();
+  ctx.globalAlpha = 0.42;
+  ctx.fillStyle = ctx.createPattern(gravelTile(), 'repeat');
+  ctx.fillRect(x, y, w, h);
+  ctx.globalAlpha = 1;
+  // 分格缝
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.26)';
+  ctx.lineWidth = 1;
+  for (let i = 90; i < w; i += 96) {
+    ctx.beginPath();
+    ctx.moveTo(x + i, y + 3);
+    ctx.lineTo(x + i, y + h - 3);
+    ctx.stroke();
+  }
+  // 水渍：边上有一圈干掉的痕
+  const sx = x + w * (0.2 + v * 0.15);
+  const sy = y + h * (0.55 - v * 0.1);
+  const stain = ctx.createRadialGradient(sx, sy, 2, sx, sy, 42);
+  stain.addColorStop(0, 'rgba(20, 16, 6, 0.38)');
+  stain.addColorStop(0.8, 'rgba(30, 24, 10, 0.16)');
+  stain.addColorStop(1, 'rgba(30, 24, 10, 0)');
+  ctx.fillStyle = stain;
+  ctx.beginPath();
+  ctx.ellipse(sx, sy, 44, 20, 0.3, 0, Math.PI * 2);
+  ctx.fill();
+  // 排风机：圆壳 + 三道叶片 + 一圈螺栓
+  const fx = x + w * (0.68 - v * 0.08);
+  const fy = y + h * 0.34;
+  ctx.fillStyle = 'rgba(8, 8, 7, 0.5)';
+  ctx.beginPath();
+  ctx.arc(fx + 3, fy + 3, 26, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#3c3f38';
+  ctx.beginPath();
+  ctx.arc(fx, fy, 25, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(214, 220, 206, 0.16)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(fx, fy, 25, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  for (let i = 0; i < 3; i += 1) {
+    const a = (i / 3) * Math.PI * 2 + 0.5;
+    ctx.moveTo(fx, fy);
+    ctx.lineTo(fx + Math.cos(a) * 20, fy + Math.sin(a) * 20);
+  }
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+  for (let i = 0; i < 8; i += 1) {
+    const a = (i / 8) * Math.PI * 2;
+    ctx.fillRect(fx + Math.cos(a) * 21 - 1, fy + Math.sin(a) * 21 - 1, 2, 2);
+  }
+  // 应急灯：只有一颗红点，和一小圈红光
+  const ex = x + w - 54;
+  const ey = y + h - 44;
+  const halo = ctx.createRadialGradient(ex, ey, 1, ex, ey, 26);
+  halo.addColorStop(0, 'rgba(206, 72, 58, 0.3)');
+  halo.addColorStop(1, 'rgba(206, 72, 58, 0)');
+  ctx.fillStyle = halo;
+  ctx.beginPath();
+  ctx.arc(ex, ey, 26, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(232, 96, 78, 0.9)';
+  ctx.beginPath();
+  ctx.arc(ex, ey, 2.4, 0, Math.PI * 2);
+  ctx.fill();
+  // 检修爬梯：两根导轨加一排横档
+  const lx = x + 18;
+  ctx.strokeStyle = 'rgba(180, 190, 172, 0.16)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(lx, y + 10);
+  ctx.lineTo(lx, y + h - 10);
+  ctx.moveTo(lx + 16, y + 10);
+  ctx.lineTo(lx + 16, y + h - 10);
+  for (let i = y + 18; i < y + h - 12; i += 14) {
+    ctx.moveTo(lx, i);
+    ctx.lineTo(lx + 16, i);
+  }
+  ctx.stroke();
+  // 井道的检修口：一块盖板，四角有螺栓
+  const hx = x + w * 0.42;
+  const hy = y + h * 0.56;
+  ctx.fillStyle = 'rgba(10, 10, 9, 0.55)';
+  ctx.fillRect(hx, hy, 46, 34);
+  ctx.strokeStyle = 'rgba(200, 206, 190, 0.18)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(hx + 0.5, hy + 0.5, 45, 33);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+  for (const [ox, oy] of [[5, 5], [37, 5], [5, 25], [37, 25]]) ctx.fillRect(hx + ox, hy + oy, 3, 3);
+  // 地上用粉笔画的一个箭头，指向井道门
+  ctx.strokeStyle = 'rgba(236, 232, 216, 0.1)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x + 40, y + h * 0.72);
+  ctx.lineTo(x + 82, y + h * 0.72);
+  ctx.lineTo(x + 72, y + h * 0.72 - 7);
+  ctx.moveTo(x + 82, y + h * 0.72);
+  ctx.lineTo(x + 72, y + h * 0.72 + 7);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawWalls(ctx, game) {
   const c = game.case;
   for (const [x, y, w, h] of c.walls) {
@@ -1432,8 +1542,12 @@ function drawWalls(ctx, game) {
         ctx.lineTo(x + w - 6, y + i);
         ctx.stroke();
       }
-      // 屋顶的两处设备：一截风管、一个水箱（公寓的楼板另有画法）
-      if (c.decor !== 'corridor') {
+      // 屋顶的两处设备：一截风管、一个水箱（公寓与十三楼另有画法）
+      if (c.decor === 'corridor') {
+        drawRoof(ctx, x, y, w, h);
+      } else if (c.decor === 'backrooms') {
+        drawShaft(ctx, x, y, w, h);
+      } else {
         ctx.fillStyle = 'rgba(160, 176, 190, 0.09)';
         ctx.fillRect(x + w * 0.62, y + h * 0.3, 54, 22);
         ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
@@ -1446,8 +1560,6 @@ function drawWalls(ctx, game) {
         ctx.beginPath();
         ctx.arc(x + w * 0.26, y + h * 0.62, 17, 0, Math.PI * 2);
         ctx.stroke();
-      } else {
-        drawRoof(ctx, x, y, w, h);
       }
     }
     ctx.fillStyle = 'rgba(190, 205, 225, 0.22)';
