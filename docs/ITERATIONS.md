@@ -331,6 +331,13 @@
 **结论**：保留。两个「画外」提示共用一套语言：红是威胁，琥珀是任务。
 截图：`screenshots/gallery/30-switchboard-marker.jpg`
 
+## 轮 47 — 小卖亭是一个木箱
+**看**：`station-ticket.jpg`。站台中央那个「小卖亭」和其它长椅用同一个 `propBlock`（棕色块 + 竖缝），看不出是柜台；而 HUD 一直写着「车票 0/3」。
+**改**：站台道具分支里认出 `rule.kiosk` 的那一块：换暖木色，朝站台的一面开一扇**亮着的售票窗**（上缘一条亮线），顶部压一块 44×10 的骨白小牌子，写「售票／TICKETS」。其余长椅不动。
+**测**：`nw-cases` 5/5 WON、3/3、meta 回归通过、无 console error；`nw-perf` median 16.7 ms。
+**结论**：保留。「车票」这个规则第一次有一个看得见的售票口。
+截图：`screenshots/gallery/31-ticket-window.jpg`
+
 ## 备注
 - `render.js` 里有一行 `window.__nwCam?.(CAM)` 的调试钩子，只给 tools 下的截图脚本用，未设置回调时无副作用。
 - 帧时：本轮期间机器整体从 16.7 ms 漂到 17.7–17.9 ms；用 `git stash` 回退到上一个提交复测仍是 17.8 ms，确认是机器负载，不是本轮改动。

@@ -216,6 +216,7 @@ export const en = {
     nextGate: (g, s) => `${g} · ${s}s LEFT`,
     tickets: (n, total) => `TICKETS ${n}/${total}`,
     ticketGot: 'one ticket in hand',
+    ticketSign: 'TICKETS',
     gateChange: (g, s) => `THE ${g} GATE IS LIVE`,
     gateAdmit: (g) => `ONE THROUGH THE ${g} GATE`,
     oneThrough: 'THE SHUTTER IS DOWN',

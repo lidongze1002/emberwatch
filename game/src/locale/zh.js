@@ -212,6 +212,7 @@ export const zh = {
     nextGate: (g, s) => `${g} 门 · 还有 ${s} 秒`,
     tickets: (n, total) => `车票 ${n}/${total}`,
     ticketGot: '拿到一张车票',
+    ticketSign: '售票',
     gateChange: (g, s) => `${g}门开了`,
     gateAdmit: (g) => `一个人过了${g}门`,
     oneThrough: '卷帘门已落下',

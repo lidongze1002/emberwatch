@@ -1322,10 +1322,29 @@ function drawProps(ctx, game, time) {
       ctx.fillRect(x + 10, y + h - 12, w - 20, 2);
     } else if (c.decor === 'station') {
       // 长椅与小卖亭
-      propBlock(ctx, x, y, w, h, '#39322a', '#15120e');
+      const kiosk = c.rule && c.rule.kiosk;
+      const isKiosk = kiosk && Math.abs(kiosk.x - (x + w / 2)) < 8 && Math.abs(kiosk.y - (y + h / 2)) < 8;
+      propBlock(ctx, x, y, w, h, isKiosk ? '#4a3d2c' : '#39322a', isKiosk ? '#1c1610' : '#15120e');
       for (let i = 0; i < w; i += 16) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
         ctx.fillRect(x + i, y + 3, 1.4, h - 6);
+      }
+      if (isKiosk) {
+        // 售票窗：朝站台的一面亮着，窗前一块小牌子
+        const win = ctx.createLinearGradient(0, y + h * 0.5, 0, y + h);
+        win.addColorStop(0, 'rgba(255, 220, 158, 0.4)');
+        win.addColorStop(1, 'rgba(255, 186, 120, 0.08)');
+        ctx.fillStyle = win;
+        ctx.fillRect(x + 7, y + h * 0.52, w - 14, h * 0.4);
+        ctx.fillStyle = 'rgba(255, 232, 190, 0.85)';
+        ctx.fillRect(x + 7, y + h * 0.5, w - 14, 1.4);
+        ctx.fillStyle = 'rgba(236, 226, 200, 0.9)';
+        ctx.fillRect(x + w / 2 - 22, y + 4, 44, 10);
+        ctx.fillStyle = 'rgba(30, 26, 18, 0.9)';
+        ctx.font = `7px ${L.fonts.mono}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(L.hud.ticketSign, x + w / 2, y + 9.4);
       }
       ctx.fillStyle = 'rgba(220, 190, 140, 0.2)';
       ctx.fillRect(x, y, w, 1);
