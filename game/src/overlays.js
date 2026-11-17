@@ -569,7 +569,7 @@ export function drawSelect(ctx, game, time) {
     let nameSize = L.cjk ? 24 : 21;
     ctx.font = `${nameSize}px ${fonts.display}`;
     const nameW = ctx.measureText(row.name).width;
-    if (nameW > 296) nameSize = Math.max(15, Math.floor(nameSize * (296 / nameW)));
+    if (nameW > 198) nameSize = Math.max(12, Math.floor(nameSize * (198 / nameW)));
     ctx.font = `${nameSize}px ${fonts.display}`;
     ctx.fillStyle = isHover ? '#f4e8cf' : INK;
     ctx.textAlign = 'left';
