@@ -4,6 +4,8 @@
 import { PALETTE, TUNING, VIEW } from './config.js';
 import { L } from './text.js';
 import { muzzleOf, poseOf } from './pose.js';
+import { sightGeometry, wallClear } from './level.js';
+import { cone, circle } from './lighting.js';
 
 // The lens: a long lens on the floor, not the whole house. 1.4× puts a body at ~40 px and the
 // camera rides the squad centroid, clamped so the matte never shows past the walls.
@@ -227,30 +229,168 @@ function castShadow(ctx, x, y, rx, ry, alpha = 0.5) {
   ctx.fill();
 }
 
-// 谁看得见这里：取所有活着的队员视距的最大值；敌人与物件在视距外不画。
-// 视距由 pose/装备决定，提灯人的灯油会让它变短。
+// ---- 光 -------------------------------------------------------------------
+// 每一帧先算一次「谁的手电照到哪」：枪口、射程、被墙切出来的多边形。
+// 敌人、掉落、锥形光、暗部都读这同一份结果，所以不会出现「人还在墙后，光已经过去了」。
+let mask = null;
+function maskCanvas() {
+  if (mask) return mask;
+  const canvas = document.createElement('canvas');
+  canvas.width = VIEW.width;
+  canvas.height = VIEW.height;
+  mask = { canvas, ctx: canvas.getContext('2d') };
+  return mask;
+}
+
+let geomCache = { revision: -1, rects: [] };
+function occluders() {
+  const g = sightGeometry();
+  if (g.revision !== geomCache.revision) {
+    geomCache = { revision: g.revision, rects: (g.walls || []).concat(g.extras || []) };
+  }
+  return geomCache.rects;
+}
+
+function lightReach(a, m) {
+  return (a.trait === 'nighteyes' ? 368 : a.lampUp ? 346 : 320) * (0.62 + 0.38 * m.pose.poseT);
+}
+
+// 三个人的手电：一份多边形，挂在 game 上，同一帧里谁都能读。
+function buildLights(game) {
+  const rects = occluders();
+  const lights = [];
+  for (const a of game.agents) {
+    if (a.down || a.taken || a.extracted || a.charmed) continue;
+    const m = muzzleOf(a);
+    a.lightOrigin = { x: m.x, y: m.y };
+    a.lightAngle = m.angle;
+    const reach = lightReach(a, m);
+    const half = 0.36;
+    lights.push({
+      a,
+      m,
+      reach,
+      half,
+      poly: cone(m.x, m.y, reach, m.angle, half, rects, 96),
+      near: circle(a.x, a.y, 118, rects, 40),
+    });
+  }
+  game.lights = lights;
+  // 给测试与调试用：墙后到底是「看不见」还是「只是黑」
+  game.seenAt = (x, y) => sightAt(game, x, y);
+}
+
+// 墙后不算看见：距离之内，且中间没有墙或门板。家具（座位、箱子）不挡目光。
 function sightAt(game, x, y) {
   let best = 0;
   for (const a of game.agents) {
     if (a.down || a.taken || a.extracted) continue;
     const s = a.sight || (a.role === 'lamp' ? 380 : a.role === 'veteran' ? 330 : 270);
     const d = Math.hypot(a.x - x, a.y - y);
+    if (d > s) continue;
+    if (!wallClear(a.x, a.y, x, y, 2)) continue;
     if (d <= s - 20) return 1;
-    if (d < s) best = Math.max(best, (s - d) / 20);
+    best = Math.max(best, (s - d) / 20);
   }
   return best;
+}
+
+function pathPoly(ctx, pts) {
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i += 1) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.closePath();
+}
+
+// 案一电闸还合着时，礼堂的灯是开的；拉下电闸，整层交给手电。
+// 案二天一亮，走廊也一点点亮回来。
+function nightAlpha(game) {
+  const kind = game.case.rule.kind;
+  if (kind === 'power') return game.power ? 0.12 : 0.9;
+  if (kind === 'knock') {
+    const age = Math.max(0, Math.min(1, (game.clock - (game.case.rule.dawn - 2)) / 6));
+    return 0.88 - 0.6 * age;
+  }
+  if (kind === 'floors') return 0.9;
+  return 0.86;
+}
+
+// 一层「夜」盖在整个世界上，只在手电照到的地方挖穿：
+// 枪口最亮、射程边缘收掉、墙后是整块阴影，身边留一小圈余光。
+function drawNight(ctx, game, time) {
+  const alpha = nightAlpha(game);
+  if (alpha < 0.02) return;
+  const m = maskCanvas();
+  const w = m.ctx;
+  w.setTransform(1, 0, 0, 1, 0, 0);
+  w.clearRect(0, 0, VIEW.width, VIEW.height);
+  w.fillStyle = `rgba(3, 5, 9, ${alpha})`;
+  w.fillRect(0, 0, VIEW.width, VIEW.height);
+  w.globalCompositeOperation = 'destination-out';
+  w.setTransform(
+    CAM.scale, 0, 0, CAM.scale,
+    VIEW.width / 2 - CAM.x * CAM.scale,
+    VIEW.height / 2 - CAM.y * CAM.scale,
+  );
+  const shake = game.shake || 0;
+  if (shake) w.translate(Math.sin(time * 71) * shake, Math.cos(time * 53) * shake);
+  for (const light of game.lights || []) {
+    const gun = light.m;
+    const { reach, half } = light;
+    w.save();
+    pathPoly(w, light.poly);
+    w.clip();
+    // 三层楔形：光锥的左右两边不是一条硬线
+    for (let k = 0; k < 3; k += 1) {
+      const a = half * (1 - k * 0.14);
+      w.save();
+      w.beginPath();
+      w.moveTo(gun.x, gun.y);
+      w.arc(gun.x, gun.y, reach, gun.angle - a, gun.angle + a);
+      w.closePath();
+      w.clip();
+      const edge = [0.93, 0.5, 0.24][k];
+      const g = w.createRadialGradient(gun.x, gun.y, 3, gun.x, gun.y, reach);
+      g.addColorStop(0, 'rgba(0, 0, 0, 0.98)');
+      g.addColorStop(0.62, `rgba(0, 0, 0, ${edge})`);
+      g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      w.fillStyle = g;
+      w.fillRect(gun.x - reach, gun.y - reach, reach * 2, reach * 2);
+      w.restore();
+    }
+    w.restore();
+    // 身边一圈余光：也一样被墙切一刀，不会从墙角漏到隔壁
+    if (light.near) {
+      w.save();
+      pathPoly(w, light.near);
+      w.clip();
+      const near = w.createRadialGradient(light.a.x, light.a.y, 6, light.a.x, light.a.y, 118);
+      near.addColorStop(0, 'rgba(0, 0, 0, 0.8)');
+      near.addColorStop(0.55, 'rgba(0, 0, 0, 0.46)');
+      near.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      w.fillStyle = near;
+      w.fillRect(light.a.x - 120, light.a.y - 120, 240, 240);
+      w.restore();
+    }
+  }
+  w.globalCompositeOperation = 'source-over';
+  ctx.drawImage(m.canvas, 0, 0);
 }
 
 export function drawWorld(ctx, game, time) {
   ctx.clearRect(0, 0, VIEW.width, VIEW.height);
   followSquad(game, time);
   if (typeof window !== 'undefined' && window.__nwCam) window.__nwCam(CAM);
-  ctx.save();
-  ctx.translate(VIEW.width / 2, VIEW.height / 2);
-  ctx.scale(CAM.scale, CAM.scale);
-  ctx.translate(-CAM.x, -CAM.y);
+  buildLights(game);
   const shake = game.shake;
-  ctx.translate(Math.sin(time * 71) * shake, Math.cos(time * 53) * shake);
+  const camera = () => {
+    ctx.translate(VIEW.width / 2, VIEW.height / 2);
+    ctx.scale(CAM.scale, CAM.scale);
+    ctx.translate(-CAM.x, -CAM.y);
+    ctx.translate(Math.sin(time * 71) * shake, Math.cos(time * 53) * shake);
+  };
+  ctx.save();
+  camera();
 
   drawFloor(ctx, game, time);
   drawDust(ctx, game);
@@ -260,22 +400,24 @@ export function drawWorld(ctx, game, time) {
   drawCobwebs(ctx, game);
   drawDoors(ctx, game, time);
   drawDrops(ctx, game, time);
+  // 敌人先画，再压上夜——他们站在手电照不到的地方时就该退进暗部
+  drawThralls(ctx, game, time);
+  ctx.restore();
 
+  drawNight(ctx, game, time);
+
+  ctx.save();
+  camera();
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   drawFlashlights(ctx, game);
   ctx.restore();
 
   drawBullets(ctx, game);
-  drawThralls(ctx, game, time);
   drawAgents(ctx, game, time);
   drawSpatter(ctx, game);
   drawDebris(ctx, game);
   drawWorldMarks(ctx, game, time);
-  if (game.case.rule.kind === 'power' && !game.power) {
-    ctx.fillStyle = 'rgba(4, 7, 12, 0.34)';
-    ctx.fillRect(40, 40, VIEW.width - 80, VIEW.height - 80);
-  }
   ctx.restore();
 
   drawPost(ctx, game, time);
@@ -2052,26 +2194,25 @@ function drawWalls(ctx, game) {
 }
 
 function drawFlashlights(ctx, game) {
-  for (const a of game.agents) {
-    if (a.down || a.taken || a.extracted || a.charmed) continue;
-    const m = muzzleOf(a);
-    a.lightOrigin = { x: m.x, y: m.y };
-    a.lightAngle = m.angle;
-    {
-      const mt = ctx.getTransform();
-      a.lightScreen = {
-        x: mt.a * m.x + mt.c * m.y + mt.e,
-        y: mt.b * m.x + mt.d * m.y + mt.f,
-      };
-    }
-    // 斜持时光也跟着枪压低、变近；不是胸口射出一道正前方的光
-    const reach = (a.trait === 'nighteyes' ? 368 : a.lampUp ? 346 : 320) * (0.62 + 0.38 * m.pose.poseT);
+  for (const light of game.lights || []) {
+    const a = light.a;
+    const m = light.m;
+    const { reach } = light;
+    const mt = ctx.getTransform();
+    a.lightScreen = {
+      x: mt.a * m.x + mt.c * m.y + mt.e,
+      y: mt.b * m.x + mt.d * m.y + mt.f,
+    };
+    // 光被墙切出来的那块多边形就是光锥的全部：只在这块里加亮，绝不越过墙。
+    ctx.save();
+    pathPoly(ctx, light.poly);
+    ctx.clip();
     const half = 0.33;
     for (let i = 0; i < 8; i += 1) {
       const t = (i + 1) / 8;
       const h = half * (0.45 + t * 0.55);
       const grad = ctx.createRadialGradient(m.x, m.y, 8, m.x, m.y, reach * (0.7 + t * 0.3));
-      grad.addColorStop(0, `rgba(255, 230, 190, ${0.2 * (1 - t) + 0.035})`);
+      grad.addColorStop(0, `rgba(255, 230, 190, ${0.14 * (1 - t) + 0.022})`);
       grad.addColorStop(1, 'rgba(255, 200, 140, 0)');
       ctx.fillStyle = grad;
       ctx.beginPath();
@@ -2080,6 +2221,7 @@ function drawFlashlights(ctx, game) {
       ctx.closePath();
       ctx.fill();
     }
+    ctx.restore();
     // 枪口本身的一小颗亮斑：光是从这根管子出来的
     const core = ctx.createRadialGradient(m.x, m.y, 0.4, m.x, m.y, 4.6);
     core.addColorStop(0, 'rgba(255, 248, 226, 0.95)');
@@ -2090,6 +2232,7 @@ function drawFlashlights(ctx, game) {
     ctx.arc(m.x, m.y, 4.6, 0, Math.PI * 2);
     ctx.fill();
   }
+  // 提灯人身边的一团暖光（贴在身上，不投远）
   for (const a of game.agents) {
     if (a.role !== 'lamp' || a.down || a.taken || a.extracted) continue;
     const grad = ctx.createRadialGradient(a.x, a.y, 6, a.x, a.y, 150);

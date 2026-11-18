@@ -64,6 +64,8 @@ WebAudio, every picture is canvas.
 | ![closed](screenshots/gallery/14-case-closed.jpg) | 结案：点名册与这一案的报酬。 / Case closed: the roll call and what the night paid. |
 | ![hud 1:1](screenshots/gallery/15-ui-1x.jpg) | 1:1：打钩目标、案件号、三个人的文件名。 / At 1:1: the checklist, the case number, three names. |
 | ![hud quarter](screenshots/gallery/16-ui-quarter.jpg) | 1/4 缩略图：最先消失的是细线，不是布局。 / At 1/4: the hairlines go first, the layout holds. |
+| ![dark hall](screenshots/gallery/56-dark-hall.jpg) | 拉下电闸：礼堂只剩三支手电，别处是暗的。 / Power cut: three flashlights, everything else dark. |
+| ![wall shadow](screenshots/gallery/57-wall-shadow.jpg) | 光停在墙面上，墙后的房间不跟着亮。 / The beam stops at the wall; the room behind it stays dark. |
 
 ## 四张参赛图 / The four entry pictures
 
@@ -84,17 +86,19 @@ panel switches language and keeps the roster, cash and closed files.
 `game/` is plain ES modules loaded by `game/index.html` with no build step and no third-party code.
 `cases.js` is the five case files (walls, furniture, spawns, zones, rule parameters, boss, fee);
 `rules.js` is one rule per case plus the autopilot that plays them; `level.js` the grid, the sight
-lines and the dynamic walls the station shutters swap in; `units.js` the three agents, the clerks,
-the tsuchigumo, Hachi-sama, the kune-kune and the mirrors; `tactics.js` the roles, sectors and
-bounding overwatch; `pose.js` the one pose that the gun, the torch and the bullet share; `roster.js`
-the money, the duty room and the recruiting pool; `portraits.js` the programmatic ID photographs;
-`render.js` the scene; `hud.js` and `overlays.js` the dossier interface; `game.js` the case flow;
-`main.js` the loop. `main.ts` hands the entry in: it copies `game/` and `screenshots/` to the output
-directory and writes `dossier.json` with the kit's `buildDossier`.
+lines and the dynamic walls the station shutters swap in; `lighting.js` the visibility fan (a torch's
+polygon, cut by walls); `units.js` the three agents, the clerks, the tsuchigumo, Hachi-sama, the
+kune-kune and the mirrors; `tactics.js` the roles, sectors and bounding overwatch; `pose.js` the one
+pose that the gun, the torch and the bullet share; `roster.js` the money, the duty room and the
+recruiting pool; `portraits.js` the programmatic ID photographs; `render.js` the scene and the night
+pass; `hud.js` and `overlays.js` the dossier interface; `game.js` the case flow; `main.js` the loop.
+`main.ts` hands the entry in: it copies `game/` and `screenshots/` to the output directory and writes
+`dossier.json` with the kit's `buildDossier`.
 
-Design notes live in `docs/`: `CAMERA.md` (the top-down projection and its checks), `CHARACTERS.md`
-(proportions, the aiming state machine, the squad's habits), `CASES.md`, `META.md`, `PORTRAITS.md`,
-`SETTINGS.md` and `ITERATIONS.md` (the rounds and what each one fixed).
+Design notes live in `docs/`: `CAMERA.md` (the top-down projection and its checks), `LIGHTING.md`
+(the torch, the polygons, the darkness and what blocks sight), `CHARACTERS.md` (proportions, the
+aiming state machine, the squad's habits), `CASES.md`, `META.md`, `PORTRAITS.md`, `SETTINGS.md` and
+`ITERATIONS.md` (the rounds and what each one fixed).
 
 ---
 

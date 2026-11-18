@@ -7,15 +7,19 @@ const CELL = TUNING.cell;
 
 let ACTIVE = null;
 let EXTRA = [];
+// 给光照用的版本号：换楼或换门时 +1，渲染端据此重建遮挡矩形缓存。
+let REVISION = 0;
 
 export function setWorld(caseData) {
   ACTIVE = caseData;
   EXTRA = [];
+  REVISION += 1;
 }
 
 // 动态实体（卷帘门、防火门、门板）：铁板一块，挡人也挡视线。
 export function setExtras(level, rects) {
   EXTRA = rects || [];
+  REVISION += 1;
   if (level) paint(level);
 }
 
@@ -114,6 +118,29 @@ function nearestFreeCell(level, gx, gy) {
     }
   }
   return null;
+}
+
+// ---- 视线与光 -------------------------------------------------------------
+// 光照那一遍要跟身体撞的是同一批墙：墙矩形 + 此刻立着的门板。
+// 只给矩形与版本号，渲染端自己缓存。
+export function sightGeometry() {
+  return { walls: ACTIVE ? ACTIVE.walls : [], extras: EXTRA, revision: REVISION };
+}
+
+// 墙与门挡目光；家具不挡（座位很矮，镜头又是正上方）。沿线段每 5 px 取一点。
+export function wallClear(x1, y1, x2, y2, margin = 1) {
+  const c = ACTIVE;
+  if (!c) return true;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const dist = Math.hypot(dx, dy);
+  const steps = Math.max(1, Math.ceil(dist / 5));
+  for (let i = 1; i < steps; i += 1) {
+    const x = x1 + (dx * i) / steps;
+    const y = y1 + (dy * i) / steps;
+    if (hits(x, y, c.walls, margin) || hits(x, y, EXTRA, margin)) return false;
+  }
+  return true;
 }
 
 // A* on the grid, then pull the string tight: any waypoint the body can see past is dropped.
