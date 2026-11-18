@@ -6,6 +6,8 @@ import { label } from './hud.js';
 import { squadOf } from './roster.js';
 import { CASES } from './cases.js';
 import { drawPortrait } from './portraits.js';
+import { SLOTS, SLOT_NAMES, SLOT_LINE, COST, levelOf, statsFor } from './arms.js';
+import { RADIO, WEAPON_PRICE } from './roster.js';
 
 export const TITLE_LINK = { x: 104, y: 676, w: 160, h: 40 };
 export const SETTINGS_BTN = { x: 1004, y: 690, w: 158, h: 34 };
@@ -837,7 +839,225 @@ export function drawResult(ctx, game, time) {
   caret(ctx, cx + goW / 2, 578, time, 10);
 }
 
-// ---- 设置：一页纸，五个开关 --------------------------------------------------
+// ---- 营地：案与案之间的一间办公室 -----------------------------------------
+export const CAMP = {
+  board: { x: 170, y: 118, w: 300, h: 148 },
+  desk: { x: 520, y: 292, w: 300, h: 168 },
+  radio: { x: 552, y: 318, w: 86, h: 62 },
+  ledger: { x: 668, y: 330, w: 112, h: 76 },
+  roster: { x: 552, y: 398, w: 116, h: 48 },
+  locker: { x: 930, y: 156, w: 176, h: 214 },
+  bench: { x: 170, y: 430, w: 288, h: 152 },
+  cot: { x: 820, y: 590, w: 292, h: 104 },
+  back: { x: 1010, y: 96, w: 120, h: 30 },
+};
+
+export function tCampAt(x, y) {
+  for (const key of ['board', 'radio', 'ledger', 'roster', 'locker', 'bench', 'cot', 'desk']) {
+    if (inRect(CAMP[key], x, y)) return key;
+  }
+  return null;
+}
+
+export function tCampBackAt(x, y) {
+  return inRect(CAMP.back, x, y);
+}
+
+const BENCH_X = 292;
+const BENCH_Y = 258;
+export function tBenchAt(x, y) {
+  const weapons = ['rifle', 'shotgun', 'flare'];
+  for (let i = 0; i < 3; i += 1) {
+    for (let j = 0; j < 3; j += 1) {
+      const r = { x: BENCH_X + i * 238, y: BENCH_Y + j * 84, w: 210, h: 60 };
+      if (inRect(r, x, y)) return { weapon: weapons[i], slot: SLOTS[j] };
+    }
+  }
+  return null;
+}
+
+const LOCKER_Y = 238;
+export function tLockerAt(x, y) {
+  for (let i = 0; i < 3; i += 1) {
+    for (let j = 0; j < 3; j += 1) {
+      const r = { x: 620 + j * 150, y: LOCKER_Y + i * 116 + 24, w: 136, h: 28 };
+      if (inRect(r, x, y)) return { row: i, weapon: ['rifle', 'shotgun', 'flare'][j] };
+    }
+  }
+  return null;
+}
+
+export function tRadioAt(x, y) {
+  if (inRect({ x: 560, y: 340, w: 180, h: 34 }, x, y)) return 'refresh';
+  if (inRect({ x: 560, y: 398, w: 180, h: 34 }, x, y)) return 'intel';
+  return null;
+}
+
+function objectBox(ctx, r, hot, labelText, sub) {
+  ctx.fillStyle = hot ? 'rgba(201, 162, 90, 0.08)' : 'rgba(9, 11, 15, 0.62)';
+  ctx.fillRect(r.x, r.y, r.w, r.h);
+  ctx.strokeStyle = hot ? 'rgba(201, 162, 90, 0.5)' : 'rgba(206, 200, 186, 0.16)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+  ctx.fillStyle = hot ? 'rgba(201, 162, 90, 0.9)' : 'rgba(201, 162, 90, 0.58)';
+  ctx.fillRect(r.x, r.y, 2, r.h);
+  label(ctx, labelText, r.x + 14, r.y + 22, 8, hot ? '#efe3ca' : INK_SOFT, 2.4);
+  if (sub) label(ctx, sub, r.x + 14, r.y + 40, 7.5, INK_FAINT, 0.6);
+}
+
+export function drawCamp(ctx, game, time) {
+  const r = game.roster;
+  const hov = game.input && game.input.inside ? game.input : { x: -1, y: -1 };
+  // the room: boards, one warm lamp, a lot of paper
+  ctx.fillStyle = 'rgba(3, 5, 9, 0.9)';
+  ctx.fillRect(0, 0, VIEW.width, VIEW.height);
+  const floor = ctx.createLinearGradient(0, 90, 0, 760);
+  floor.addColorStop(0, 'rgba(24, 20, 16, 0.9)');
+  floor.addColorStop(0.55, 'rgba(16, 14, 13, 0.92)');
+  floor.addColorStop(1, 'rgba(8, 8, 8, 0.95)');
+  ctx.fillStyle = floor;
+  ctx.fillRect(60, 80, VIEW.width - 120, 650);
+  for (let y = 90; y < 730; y += 22) {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
+    ctx.fillRect(60, y, VIEW.width - 120, 1);
+    ctx.fillStyle = 'rgba(200, 176, 140, 0.03)';
+    ctx.fillRect(60, y + 1, VIEW.width - 120, 1);
+  }
+  // the lamp pool over the desk
+  const pool = ctx.createRadialGradient(670, 360, 30, 670, 360, 330);
+  pool.addColorStop(0, 'rgba(255, 214, 158, 0.1)');
+  pool.addColorStop(1, 'rgba(255, 214, 158, 0)');
+  ctx.fillStyle = pool;
+  ctx.fillRect(60, 80, VIEW.width - 120, 650);
+
+  label(ctx, L.camp.eyebrow, 84, 66, 8, INK_FAINT, 3.2);
+  label(ctx, L.camp.title, 84, 108, 26, '#efe3ca', 4, 'left', fonts.display);
+  label(ctx, `${L.camp.cash} ${money(r.cash)} · ${L.camp.parts} ${r.parts || 0} · ${L.camp.scrap} ${r.scrap || 0}`, VIEW.width - 84, 106, 8.5, INK_SOFT, 1.4, 'right');
+  if (r.cash < 0) label(ctx, L.roster.broke, VIEW.width - 84, 124, 7, RED, 0.8, 'right');
+  rule(ctx, 84, VIEW.width - 84, 128, 'rgba(201, 162, 90, 0.2)');
+
+  objectBox(ctx, CAMP.board, inRect(CAMP.board, hov.x, hov.y), L.camp.board, L.camp.boardSub);
+  objectBox(ctx, CAMP.desk, inRect(CAMP.desk, hov.x, hov.y), L.camp.desk, '');
+  objectBox(ctx, CAMP.radio, inRect(CAMP.radio, hov.x, hov.y), L.camp.radio, L.camp.radioSub);
+  objectBox(ctx, CAMP.ledger, inRect(CAMP.ledger, hov.x, hov.y), L.camp.ledger, L.camp.ledgerSub);
+  objectBox(ctx, CAMP.roster, inRect(CAMP.roster, hov.x, hov.y), L.camp.roster, L.camp.rosterSub);
+  objectBox(ctx, CAMP.locker, inRect(CAMP.locker, hov.x, hov.y), L.camp.locker, L.camp.lockerSub);
+  objectBox(ctx, CAMP.bench, inRect(CAMP.bench, hov.x, hov.y), L.camp.bench, L.camp.benchSub);
+  objectBox(ctx, CAMP.cot, inRect(CAMP.cot, hov.x, hov.y), L.camp.cot, L.camp.cotSub);
+
+  // a few paper props on the desk, so the boxes are furniture, not UI cards
+  ctx.fillStyle = 'rgba(206, 198, 182, 0.16)';
+  ctx.fillRect(700, 430, 42, 28);
+  ctx.fillRect(748, 436, 30, 20);
+  ctx.fillStyle = 'rgba(201, 162, 90, 0.25)';
+  ctx.fillRect(700, 430, 42, 2);
+  stamp(ctx, VIEW.width - 300, 150, L.camp.stamp, 13);
+
+  label(ctx, L.camp.hint, VIEW.width / 2, VIEW.height - 34, 8, INK_FAINT, 1.6, 'center');
+}
+
+function subPage(ctx, game, title, sub) {
+  page(ctx);
+  label(ctx, L.camp.form, VIEW.width - 148, 96, 7.5, INK_FAINT, 2.6, 'right');
+  label(ctx, title, 148, 140, 24, '#efe3ca', 4, 'left', fonts.display);
+  if (sub) label(ctx, sub, 148, 160, 8.5, INK_SOFT, 0.8);
+  rule(ctx, 148, VIEW.width - 148, 176, 'rgba(201, 162, 90, 0.2)');
+  button(ctx, CAMP.back, L.camp.back, inRect(CAMP.back, game.input ? game.input.x : -1, game.input ? game.input.y : -1));
+}
+
+export function drawBench(ctx, game, time) {
+  const r = game.roster;
+  subPage(ctx, game, L.camp.bench, L.camp.benchSub);
+  label(ctx, `${L.camp.cash} ${money(r.cash)} · ${L.camp.parts} ${r.parts || 0} · ${L.camp.scrap} ${r.scrap || 0}`, VIEW.width - 148, 162, 8.5, INK_SOFT, 1.2, 'right');
+  const weapons = ['rifle', 'shotgun', 'flare'];
+  const hov = game.input && game.input.inside ? game.input : { x: -1, y: -1 };
+  weapons.forEach((w, i) => {
+    const x = BENCH_X + i * 238;
+    const stats = statsFor(w, r);
+    label(ctx, L.hud.weapon[w], x, 222, 11, INK, 2.4);
+    label(ctx, `${Math.round(stats.range)} / ${stats.damage.toFixed(1)}`, x + 210, 222, 8, INK_FAINT, 1, 'right');
+    SLOTS.forEach((slot, j) => {
+      const y = BENCH_Y + j * 84;
+      const lv = levelOf(r, w, slot);
+      const rect = { x, y, w: 210, h: 60 };
+      const hot = inRect(rect, hov.x, hov.y) && lv < 2;
+      ctx.fillStyle = hot ? 'rgba(201, 162, 90, 0.06)' : 'rgba(9, 11, 15, 0.4)';
+      ctx.fillRect(x, y, 210, 60);
+      ctx.strokeStyle = hot ? 'rgba(201, 162, 90, 0.35)' : 'rgba(206, 200, 186, 0.12)';
+      ctx.strokeRect(x + 0.5, y + 0.5, 209, 59);
+      label(ctx, L.cjk ? SLOT_NAMES[slot].zh : SLOT_NAMES[slot].en, x + 12, y + 20, 9, INK_SOFT, 2);
+      const line = (L.cjk ? SLOT_LINE[slot].zh : SLOT_LINE[slot].en)[Math.min(1, lv)];
+      label(ctx, line, x + 12, y + 38, 8, INK_FAINT, 0.6);
+      for (let k = 0; k < 2; k += 1) {
+        ctx.fillStyle = k < lv ? AMBER : 'rgba(186, 180, 168, 0.18)';
+        ctx.fillRect(x + 150 + k * 10, y + 34, 6, 3);
+      }
+      if (lv < 2) {
+        const c = COST[slot][lv];
+        label(ctx, `${L.camp.partsShort}${c.parts} · ${money(c.cash)}`, x + 12, y + 52, 7, AMBER, 0.8);
+      } else {
+        label(ctx, L.camp.maxed, x + 12, y + 52, 7, 'rgba(186, 180, 168, 0.5)', 1.2);
+      }
+    });
+  });
+  label(ctx, L.camp.benchNote, 148, 640, 8, INK_FAINT, 0.8);
+}
+
+export function drawLocker(ctx, game, time) {
+  const r = game.roster;
+  subPage(ctx, game, L.camp.locker, L.camp.lockerSub);
+  const weapons = ['rifle', 'shotgun', 'flare'];
+  const squad = squadOf(r);
+  const hov = game.input && game.input.inside ? game.input : { x: -1, y: -1 };
+  squad.forEach((m, i) => {
+    const y = LOCKER_Y + i * 116;
+    const name = m ? personName(m) : L.roster.temp;
+    label(ctx, `0${i + 1}`, 148, y + 16, 8, INK_FAINT, 1);
+    label(ctx, name, 176, y + 18, 14, INK, 1.4, 'left', fonts.display);
+    label(ctx, m ? postName(m.post) : '', 176, y + 36, 7.5, AMBER, 1.6);
+    weapons.forEach((w, j) => {
+      const rect = { x: 620 + j * 150, y: y + 24, w: 136, h: 28 };
+      const on = m && m.weapon === w;
+      const hot = inRect(rect, hov.x, hov.y);
+      ctx.fillStyle = on ? 'rgba(201, 162, 90, 0.12)' : hot ? 'rgba(201, 162, 90, 0.05)' : 'rgba(9, 11, 15, 0.4)';
+      ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+      ctx.strokeStyle = on ? 'rgba(201, 162, 90, 0.5)' : 'rgba(206, 200, 186, 0.16)';
+      ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
+      label(ctx, L.hud.weapon[w], rect.x + rect.w / 2, rect.y + 18, 8, on ? '#efe3ca' : INK_SOFT, 2, 'center');
+    });
+    rule(ctx, 148, VIEW.width - 148, y + 76, 'rgba(186, 180, 168, 0.1)');
+  });
+  label(ctx, L.camp.lockerNote(WEAPON_PRICE), 148, 640, 8, INK_FAINT, 0.8);
+}
+
+export function drawRadio(ctx, game, time) {
+  const r = game.roster;
+  subPage(ctx, game, L.camp.radio, L.camp.radioSub);
+  const hov = game.input && game.input.inside ? game.input : { x: -1, y: -1 };
+  button(ctx, { x: 560, y: 340, w: 180, h: 34 }, L.camp.refresh(RADIO.refresh), inRect({ x: 560, y: 340, w: 180, h: 34 }, hov.x, hov.y));
+  button(ctx, { x: 560, y: 398, w: 180, h: 34 }, L.camp.intel(RADIO.intel), inRect({ x: 560, y: 398, w: 180, h: 34 }, hov.x, hov.y));
+  label(ctx, `${L.hire.title} ${r.candidates.length}`, 560, 320, 8, INK_FAINT, 1.2);
+  label(ctx, `${L.camp.cash} ${money(r.cash)}`, 148, 320, 8.5, INK_SOFT, 1.2);
+  if (r.intel && r.intel[CASES[game.caseIndex].id]) label(ctx, L.camp.intelHave, 560, 452, 7.5, AMBER, 1);
+  label(ctx, L.camp.radioNote, 148, 640, 8, INK_FAINT, 0.8);
+}
+
+export function drawLedger(ctx, game, time) {
+  const r = game.roster;
+  subPage(ctx, game, L.camp.ledger, L.camp.ledgerSub);
+  label(ctx, L.roster.cash, 148, 220, 7.5, INK_FAINT, 2.4);
+  label(ctx, money(r.cash), 148, 254, 20, r.cash < 0 ? 'rgba(206, 96, 86, 0.95)' : 'rgba(238, 226, 200, 0.92)', 1.6, 'left', fonts.display);
+  label(ctx, `${L.camp.parts} ${r.parts || 0} · ${L.camp.scrap} ${r.scrap || 0} · ${L.roster.bench} ${r.members.filter((m) => !m.dead).length}`, 148, 278, 8, INK_SOFT, 1.2);
+  label(ctx, L.roster.ledger, 148, 330, 7.5, AMBER, 3.2);
+  if (!r.ledger.length) label(ctx, '—', 148, 352, 8, INK_FAINT, 1);
+  r.ledger.slice(0, 5).forEach((line, i) => {
+    const y = 352 + i * 18;
+    label(ctx, line.text, 148, y, 8.5, INK_SOFT, 0.7);
+    label(ctx, line.amount === 0 ? '—' : money(line.amount), 620, y, 8.5, line.amount < 0 ? 'rgba(206, 110, 96, 0.8)' : 'rgba(226, 216, 194, 0.7)', 1, 'right');
+  });
+  label(ctx, L.camp.ledgerNote, 148, 640, 8, INK_FAINT, 0.8);
+}
+
 const SETTINGS_RANGE = { brightness: [0.6, 1.4], volume: [0, 100], grain: [0, 100] };
 const SETTINGS_DEFAULT = { brightness: 1, volume: 85, grain: 50 };
 

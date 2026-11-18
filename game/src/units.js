@@ -1,9 +1,10 @@
 // 场上的人：三个自己拿主意的队员，和这一案里的东西。玩家只下目标；每一步、每个目标、
 // 每次后退，都是队员自己判断的。案子不同，这里的「东西」不同，但骨架是同一套。
 
-import { AGENTS, HACHI, KUNE, MIRROR, SPIDER, SPIDERLING, THRALL, TUNING } from './config.js';
+import { AGENTS, DEFAULT_WEAPON, DROPS, HACHI, KUNE, MIRROR, SPIDER, SPIDERLING, THRALL, TUNING, WEAPONS } from './config.js';
 import { findPath, hardSolid, lineClear, solid, walkClear } from './level.js';
 import { muzzleOf } from './pose.js';
+import { statsFor } from './arms.js';
 
 const inZone = (zone, x, y) => !!zone && x > zone.x && x < zone.x + zone.w && y > zone.y && y < zone.y + zone.h;
 
@@ -243,21 +244,35 @@ export function createAgents(game) {
   return game.case.spawns.agents.map((spot, i) => {
     const spec = AGENTS[spot.role];
     const sq = game.squad && game.squad[i];
+    const weapon = (sq && sq.weapon) || DEFAULT_WEAPON[spot.role] || 'rifle';
+    const gun = statsFor(weapon, game.roster);
+    const sightBase = spot.role === 'lamp' ? 380 : spot.role === 'veteran' ? 330 : 270;
     return {
       id: `a${i}`,
       role: spot.role,
       trait: sq ? sq.trait : 'green',
       deaf: !!(sq && sq.trait === 'deaf'),
       lampUp: !!(game.roster && game.roster.upgrades && game.roster.upgrades.lamp && spot.role === 'lamp'),
+      weapon,
+      ammo: gun.mag,
+      mag: gun.mag,
+      reserve: gun.mag * 3,
+      reloadT: 0,
+      reloadDur: gun.reload,
+      acquireTime: ACQUIRE_TIME * (gun.acquire || 1),
+      ember: 0,
+      oil: 1,
+      sight: sightBase,
+      picked: 0,
       x: spot.x,
       y: spot.y,
       hp: spec.hp,
       maxHp: spec.hp,
       speed: spec.speed,
-      range: spec.range,
-      damage: spec.damage,
-      fireRate: spec.fireRate,
-      spread: spec.spread,
+      range: gun.range,
+      damage: gun.damage,
+      fireRate: gun.fireRate,
+      spread: gun.spread,
       colour: spec.colour,
       aim: -Math.PI / 2,
       facing: -Math.PI / 2,
@@ -532,41 +547,60 @@ function walkTo(game, a, x, y, dt) {
   return false;
 }
 
+function startReload(game, a) {
+  const gun = WEAPONS[a.weapon] || WEAPONS.rifle;
+  if (a.reloadT > 0 || a.reserve <= 0 || a.ammo >= (a.mag || gun.mag)) return;
+  a.reloadT = a.reloadDur || gun.reload;
+  a.recoil = 0;
+}
+
 function fire(game, a, target) {
-  if (a.cooldown > 0 || a.aversion > 0) return;
+  if (a.cooldown > 0 || a.aversion > 0 || a.reloadT > 0) return;
   // 没停稳、没对准，就不开火：甩头打一枪再甩回来不是射击，是抽搐
-  if ((a.acquire || 0) < ACQUIRE_TIME) return;
+  if ((a.acquire || 0) < (a.acquireTime || ACQUIRE_TIME)) return;
   const want = Math.atan2(target.y - a.y, target.x - a.x);
   if (Math.abs(shortAngle(want - a.aim)) > AIM_WINDOW) return;
   const dist = Math.hypot(target.x - a.x, target.y - a.y);
   if (dist > a.range || !lineClear(a.x, a.y, target.x, target.y, 4)) return;
+  const gun = WEAPONS[a.weapon] || WEAPONS.rifle;
+  if (a.ammo <= 0) {
+    startReload(game, a);
+    return;
+  }
+  a.ammo -= 1;
   a.cooldown = a.fireRate;
   a.recoil = 1;
   a.firePulse = 1;
   const stay = a.trait === 'steady' ? 0.72 : 1;
-  const spread = (Math.random() - 0.5) * a.spread * 2 * stay;
+  const base = (Math.random() - 0.5) * a.spread * 2 * stay;
   // 子弹从画出来的枪口出膛，方向就是枪管的方向（斜持也跟着枪走）
   const m = muzzleOf(a);
-  const angle = m.angle + spread;
-  const bx = m.x + Math.cos(angle) * 2;
-  const by = m.y + Math.sin(angle) * 2;
-  game.bullets.push({
-    x: bx,
-    y: by,
-    vx: Math.cos(angle) * TUNING.bulletSpeed,
-    vy: Math.sin(angle) * TUNING.bulletSpeed,
-    life: 0.9,
-    damage: a.damage,
-    team: 'agent',
-  });
+  const pellets = gun.pellets || 1;
+  for (let p = 0; p < pellets; p += 1) {
+    const fan = pellets > 1 ? (p - (pellets - 1) / 2) * a.spread * 0.62 : 0;
+    const angle = m.angle + base + fan;
+    const bx = m.x + Math.cos(angle) * 2;
+    const by = m.y + Math.sin(angle) * 2;
+    game.bullets.push({
+      x: bx,
+      y: by,
+      vx: Math.cos(angle) * TUNING.bulletSpeed,
+      vy: Math.sin(angle) * TUNING.bulletSpeed,
+      life: 0.9,
+      damage: a.damage * (a.ember > 0 ? 1.35 : 1),
+      burn: gun.burn || 0,
+      team: 'agent',
+    });
+  }
   game.muzzle.push({
-    x: bx,
-    y: by,
-    angle,
+    x: m.x + Math.cos(m.angle) * 2,
+    y: m.y + Math.sin(m.angle) * 2,
+    angle: m.angle,
     sweep: a.aimSweep || 0,
     life: 0.06,
   });
   game.sound.shot(a.role, a.x, a.y);
+  if (a.ammo <= 0) startReload(game, a);
 }
 
 function updateAgentInner(game, a, dt) {
@@ -575,6 +609,32 @@ function updateAgentInner(game, a, dt) {
   a.flash = Math.max(0, a.flash - dt * 4);
   a.recoil = Math.max(0, a.recoil - dt * 6);
   a.firePulse = Math.max(0, (a.firePulse || 0) - dt * 7);
+  a.ember = Math.max(0, (a.ember || 0) - dt);
+  // 换弹：0.9 秒里不能开枪，枪口收下去；换完从备弹里补满
+  if (a.reloadT > 0) {
+    a.reloadT = Math.max(0, a.reloadT - dt);
+    if (a.reloadT === 0) {
+      const gun = WEAPONS[a.weapon] || WEAPONS.rifle;
+      const cap = a.mag || gun.mag;
+      const take = Math.min(cap - a.ammo, a.reserve);
+      a.ammo += take;
+      a.reserve -= take;
+    }
+  }
+  // 灯油：提灯人的光会慢慢变短，捡到灯油才补回来
+  if (a.role === 'lamp') a.oil = Math.max(0.2, (a.oil === undefined ? 1 : a.oil) - dt * 0.004);
+  a.sight = (a.role === 'lamp' ? 380 : a.role === 'veteran' ? 330 : 270) * (a.role === 'lamp' ? 0.55 + 0.45 * a.oil : 1);
+  // 脚步：走得越快越密；停下就没有
+  const sp = Math.hypot(a.vx, a.vy);
+  if (sp > 40) {
+    a.stepT = (a.stepT || 0) + dt;
+    if (a.stepT > (sp > 110 ? 0.24 : 0.34)) {
+      a.stepT = 0;
+      game.sound.step?.(a.role);
+    }
+  } else {
+    a.stepT = 0;
+  }
   // 目标离开视野后还瞄 0.25 秒；超过就把「发现」这件事忘掉，下一次重新停步
   a.settle = Math.max(0, (a.settle || 0) - dt);
   if (a.settle <= 0) a.acquire = 0;
@@ -583,7 +643,8 @@ function updateAgentInner(game, a, dt) {
     a.facing = turnToward(a.facing, a.aim, dt * 3.4);
   }
   // 抬枪 / 收枪不是瞬切：0.15 秒走过去，换姿势时枪口还会往下沉一点。
-  const engagedNow = (a.state === 'fighting' || a.order.kind === 'focus') && (a.aversion || 0) <= 0;
+  const engagedNow = (a.state === 'fighting' || a.order.kind === 'focus')
+    && (a.aversion || 0) <= 0 && a.reloadT <= 0;
   const wantPose = engagedNow ? 1 : 0;
   const before = a.poseT === undefined ? wantPose : a.poseT;
   const step = dt / 0.15;
@@ -618,7 +679,7 @@ function updateAgentInner(game, a, dt) {
     }
     a.aim = Math.atan2(game.input.y - a.y, game.input.x - a.x);
     // 亲手带的人不受「发现→停步」的自动流程限制，但枪口仍然要对着光标
-    a.acquire = ACQUIRE_TIME;
+    a.acquire = a.acquireTime || ACQUIRE_TIME;
     a.settle = AIM_HOLD;
     if (game.input.down && !(game.suppressFire > 0)) fire(game, a, { x: game.input.x, y: game.input.y });
     return;
@@ -655,7 +716,7 @@ function updateAgentInner(game, a, dt) {
     if (target) {
       trackTarget(a, target, dt, false);
       const twist = Math.abs(shortAngle(a.aim - a.facing));
-      if (twist >= TWIST_MAX - 0.01 && (a.acquire || 0) >= ACQUIRE_TIME) {
+      if (twist >= TWIST_MAX - 0.01 && (a.acquire || 0) >= (a.acquireTime || ACQUIRE_TIME)) {
         // 侧后方有人：不边走边拧腰，站住把身体转过去
         a.state = 'fighting';
         a.facing = turnToward(a.facing, a.aim, dt * BODY_TURN);
@@ -721,7 +782,7 @@ function updateAgentInner(game, a, dt) {
     a.state = 'fighting';
     trackTarget(a, target, dt, true);
     // 先停、再瞄：刚发现人时不走位，枪口按角速度转过去
-    if ((a.acquire || 0) < ACQUIRE_TIME) {
+    if ((a.acquire || 0) < (a.acquireTime || ACQUIRE_TIME)) {
       brake(a, dt);
       return;
     }
@@ -731,7 +792,8 @@ function updateAgentInner(game, a, dt) {
       return;
     }
     const dist = Math.hypot(target.x - a.x, target.y - a.y);
-    const want = Math.min(a.range * 0.72, 200);
+    const gun = WEAPONS[a.weapon] || WEAPONS.rifle;
+    const want = Math.min(a.range, gun.want || 200);
     const visible = lineClear(a.x, a.y, target.x, target.y, 4);
     if (!visible) {
       // no line: close the distance and let the path find the door
@@ -1035,6 +1097,23 @@ function updateThrall(game, t, dt) {
     t.step += dt * 0.8;
     return;
   }
+  // 信号枪点着了：烧三秒，火自己会把人烧死
+  if (t.burn > 0) {
+    t.burn = Math.max(0, t.burn - dt);
+    t.hp -= dt * 1.8;
+    t.hitFlash = Math.max(t.hitFlash || 0, 0.12);
+    if (t.hp <= 0) {
+      t.hp = 0;
+      t.dead = true;
+      game.kills += 1;
+      game.shake = Math.max(game.shake, 3);
+      game.sound.kill();
+      if (t.kind === 'spider') t.death = { kind: 'kneel', t: 0.45, dur: 0.45 };
+      else if (t.kind === 'thrall') t.death = { kind: 'fall', t: 0.55, dur: 0.55 };
+      maybeDrop(game, t);
+      return;
+    }
+  }
   if (t.kind === 'hachi') {
     updateHachi(game, t, dt);
     return;
@@ -1213,6 +1292,7 @@ export function updateBullets(game, dt) {
           }
           t.hp -= b.damage;
           t.hitFlash = 1;
+          if (b.burn) t.burn = Math.max(t.burn || 0, b.burn);
           for (let k = 0; k < 4; k += 1) {
             game.spatter.push({
               x: nx,
@@ -1230,6 +1310,7 @@ export function updateBullets(game, dt) {
             // 死不是一瞬间的事：土蜘蛛先跪落，电视头先向前栽倒，然后才散/留残渣。
             if (t.kind === 'spider') t.death = { kind: 'kneel', t: 0.45, dur: 0.45 };
             else if (t.kind === 'thrall') t.death = { kind: 'fall', t: 0.55, dur: 0.55 };
+            maybeDrop(game, t);
             for (let k = 0; k < 10; k += 1) {
               game.spatter.push({
                 x: t.x,
@@ -1264,10 +1345,86 @@ export function updateBullets(game, dt) {
   }
 }
 
+// ---- 掉落 -----------------------------------------------------------------
+// 敌人死的时候，地上留下一点东西：灯油、弹药、余烬，或者案子自己的道具。
+function maybeDrop(game, t) {
+  if (t.kind === 'mirror' || t.kind === 'hachi' || t.kind === 'kune' || t.kind === 'spiderling') return;
+  if (!game.drops) game.drops = [];
+  const r = Math.random();
+  let kind = null;
+  if (r < DROPS.oil) kind = 'oil';
+  else if (r < DROPS.oil + DROPS.ammo) kind = 'ammo';
+  else if (r < DROPS.oil + DROPS.ammo + DROPS.ember) kind = 'ember';
+  else if (r < DROPS.oil + DROPS.ammo + DROPS.ember + DROPS.part) kind = 'part';
+  else if (r < DROPS.oil + DROPS.ammo + DROPS.ember + DROPS.part + DROPS.scrap) kind = 'scrap';
+  else if (r < DROPS.oil + DROPS.ammo + DROPS.ember + DROPS.part + DROPS.scrap + DROPS.item) {
+    const rule = game.case.rule.kind;
+    if (rule === 'timetable') kind = 'ticket';
+    else if (rule === 'gaze') kind = 'match';
+  }
+  if (!kind) return;
+  game.drops.push({
+    x: t.x + (Math.random() - 0.5) * 10,
+    y: t.y + (Math.random() - 0.5) * 10,
+    kind,
+    life: 28,
+    at: game.clock,
+  });
+}
+
+function applyDrop(game, a, d) {
+  const gun = WEAPONS[a.weapon] || WEAPONS.rifle;
+  game.picked = game.picked || { oil: 0, ammo: 0, ember: 0, item: 0 };
+  if (d.kind === 'oil') {
+    a.oil = Math.min(1, (a.oil === undefined ? 1 : a.oil) + 0.3);
+    game.picked.oil += 1;
+  } else if (d.kind === 'ammo') {
+    a.reserve += gun.mag;
+    game.picked.ammo += 1;
+  } else if (d.kind === 'ember') {
+    a.ember = 8;
+    game.picked.ember += 1;
+  } else if (d.kind === 'part') {
+    game.parts = (game.parts || 0) + DROPS.partAmount;
+    game.picked.part = (game.picked.part || 0) + 1;
+  } else if (d.kind === 'scrap') {
+    game.scrap = (game.scrap || 0) + DROPS.scrapAmount;
+    game.picked.scrap = (game.picked.scrap || 0) + 1;
+  } else if (d.kind === 'ticket') {
+    a.ticket = true;
+    game.picked.item += 1;
+  } else if (d.kind === 'match') {
+    game.matches = (game.matches || 0) + 1;
+    game.picked.item += 1;
+  }
+  game.log('pickup', a.role, d.kind);
+}
+
+// 路过就捡：不按键，不读条。
+function updateDrops(game, dt) {
+  if (!game.drops || !game.drops.length) return;
+  for (let i = game.drops.length - 1; i >= 0; i -= 1) {
+    const d = game.drops[i];
+    d.life -= dt;
+    if (d.life <= 0) {
+      game.drops.splice(i, 1);
+      continue;
+    }
+    for (const a of game.agents) {
+      if (a.down || a.taken || a.extracted) continue;
+      if (Math.hypot(a.x - d.x, a.y - d.y) > 16) continue;
+      applyDrop(game, a, d);
+      game.drops.splice(i, 1);
+      break;
+    }
+  }
+}
+
 export function updateUnits(game, dt) {
   for (const a of game.agents) updateAgent(game, a, dt);
   for (const t of game.thralls) updateThrall(game, t, dt);
   updateBullets(game, dt);
+  updateDrops(game, dt);
 
   // 队长走过的路留一串脚印：复制品照这个走，晚两三秒。
   game.trailClock = (game.trailClock || 0) + dt;

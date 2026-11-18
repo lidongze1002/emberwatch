@@ -98,6 +98,19 @@ function fileRow(ctx, agent, x, y, w, gaze, member, charm) {
   label(ctx, agent.id.replace('a', '0'), x + 40, y + 11, 8, INK_FAINT, 1);
   label(ctx, name, x + 66, y + 12, 13, down ? INK_SOFT : INK, 1.5, 'left', fonts.display);
   label(ctx, `${postName(agent.role)} · ${traitName(agent.trait)}`, x + 40, y + 24, 8.5, INK_SOFT, 0);
+  // the weapon and what is left in it: right-aligned, monospaced, with a reload tick
+  const gunName = (L.hud.weapon && L.hud.weapon[agent.weapon]) || agent.weapon || '';
+  const oil = agent.role === 'lamp' ? ` · 油 ${Math.round((agent.oil ?? 1) * 100)}%` : '';
+  label(ctx, `${gunName} ${L.hud.ammo(agent.ammo ?? 0, agent.reserve ?? 0)}${oil}`, x + w, y + 27, 7.5,
+    agent.reloadT > 0 ? 'rgba(201, 162, 90, 0.7)' : INK_FAINT, 1.2, 'right');
+  if (agent.reloadT > 0) {
+    const gun = agent.weapon === 'shotgun' ? 0.9 : agent.weapon === 'flare' ? 1.1 : 0.9;
+    const p = Math.max(0, Math.min(1, 1 - agent.reloadT / gun));
+    ctx.fillStyle = 'rgba(201, 162, 90, 0.25)';
+    ctx.fillRect(x + w - 22, y + 31, 22, 1);
+    ctx.fillStyle = 'rgba(201, 162, 90, 0.8)';
+    ctx.fillRect(x + w - 22, y + 31, 22 * p, 1);
+  }
   condition(ctx, agent, x + 40, y + 30, 92, gaze, charm);
   label(ctx, `${Math.max(0, Math.ceil(agent.hp))}`, x + 138, y + 33, 8, INK_SOFT, 0.5);
   const stateText = agent.taken ? L.state.charmed : down ? L.state.down : L.state[agent.state] || '';
@@ -232,6 +245,8 @@ export function drawHud(ctx, game, time) {
   });
 
   // ---- footer ----------------------------------------------------------
+  const picked = game.picked || { oil: 0, ammo: 0, ember: 0, item: 0 };
+  label(ctx, L.hud.pickupLine(picked.oil, picked.ammo, picked.ember, picked.item, picked.part || 0, picked.scrap || 0), left, VIEW.height - 70, 7.5, INK_FAINT, 1.1);
   label(ctx, game.possessed ? L.hud.possessHint : (meta.hint || L.hud.hint), left, VIEW.height - 52, 8, game.possessed ? 'rgba(214, 198, 172, 0.75)' : INK_FAINT, 1.2);
   label(ctx, timecode(game.clock), right, VIEW.height - 52, 8.5, INK_SOFT, 1.4, 'right');
   if (game.auto) label(ctx, L.hud.auto, right, VIEW.height - 66, 7.5, RED_SOFT, 3, 'right');

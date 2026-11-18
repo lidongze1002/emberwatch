@@ -37,6 +37,32 @@ export const AGENTS = {
   lamp: { hp: 16, speed: 104, range: 360, damage: 5, fireRate: 0.46, spread: 0.04, colour: '#ffd9a0' },
 };
 
+// 三件武器：步枪中距单发，霰弹近距扇形，信号枪远距点燃。弹药与换弹都在 units.js。
+export const WEAPONS = {
+  rifle: {
+    name: 'rifle', range: 300, damage: 6, fireRate: 0.42, spread: 0.05,
+    pellets: 1, mag: 12, reload: 0.9, want: 200,
+  },
+  shotgun: {
+    name: 'shotgun', range: 165, damage: 3.4, fireRate: 0.82, spread: 0.2,
+    pellets: 5, mag: 6, reload: 0.9, want: 108,
+  },
+  flare: {
+    name: 'flare', range: 380, damage: 5, fireRate: 1.1, spread: 0.02,
+    pellets: 1, mag: 4, reload: 1.1, burn: 3, want: 280,
+  },
+};
+
+export const DEFAULT_WEAPON = { veteran: 'rifle', rookie: 'shotgun', lamp: 'flare' };
+
+// 掉落：概率与数量只在这里改。
+export const DROPS = {
+  oil: 0.2, ammo: 0.2, ember: 0.1, part: 0.1, scrap: 0.14, item: 0.08,
+  oilAmount: 0.3, ammoMags: 1, partAmount: 1, scrapAmount: 2,
+};
+
+export const UPGRADE_MATERIALS = { parts: 0, scrap: 0 };
+
 export const POSSESS_SECONDS = 8;
 
 export const SPIDER = { hp: 80, speed: 18, damage: 14, reach: 48, cooldown: 1.3, radius: 40 };
