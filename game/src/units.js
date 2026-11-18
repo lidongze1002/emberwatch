@@ -99,21 +99,6 @@ export function freeSpot(x, y, radius = 11, from = 10, to = 80) {
   return { x, y };
 }
 
-// 一处「站得开」的地方：比身体半径多留一圈余量。卡在座椅缝里的人，位置上不算撞墙，
-// 但四周都不够宽，路径永远拉不出去，必须退到真正空的地方。
-function roomySpot(x, y, radius) {
-  if (!solid(x, y, radius + 7)) return { x, y };
-  for (let r = 14; r <= 90; r += 7) {
-    for (let k = 0; k < 16; k += 1) {
-      const a = (k / 16) * Math.PI * 2 + r * 0.07;
-      const px = x + Math.cos(a) * r;
-      const py = y + Math.sin(a) * r;
-      if (!solid(px, py, radius + 7)) return { x: px, y: py };
-    }
-  }
-  return freeSpot(x, y, radius);
-}
-
 // 她死的时候从裙下散出三只蜘蛛子：不清理干净就不算清场
 function spawnSpiderlings(game, x, y) {
   for (let i = 0; i < 3; i += 1) {
@@ -385,6 +370,99 @@ const ACQUIRE_TIME = 0.22;      // 先停、再瞄
 const AIM_HOLD = 0.25;          // 收枪前还瞄一会儿
 const TWIST_MAX = 1.2;          // 腰能拧多少
 
+// 人与人之间的走位：26 是「想保持」，18 是「再近就必须推开」。
+// 关键不是把人推开，是让要走的人提前侧身：两个人都不改指令，也不互相挡住。
+const BODY_KEEP = 26;
+const BODY_TOUCH = 18;
+
+function laneRoom(game, a, ang, d = 20) {
+  const x = a.x + Math.cos(ang) * d;
+  const y = a.y + Math.sin(ang) * d;
+  return solid(x, y, TUNING.agentRadius + 3) ? 0 : 1;
+}
+
+// 前面有人：往空的一侧绕，按距离减速；对方也在走就跟在他后面，不顶他。
+// 这是「走位」，不是「碰撞」：位置不跳，指令不变。
+function makeWay(game, a, want, speed) {
+  let side = a.lane || (a.role === 'lamp' ? -1 : 1);
+  let slow = 1;
+  for (const b of game.agents) {
+    if (b === a || b.down || b.extracted || b.taken) continue;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const d = Math.hypot(dx, dy);
+    if (d > 56 || d < 0.01) continue;
+    const ang = Math.atan2(dy, dx);
+    const diff = shortAngle(ang - want);
+    if (Math.abs(diff) > 1.05) continue;
+    const ahead = 1 - d / 56;
+    // 两边哪边空就往哪边让；一样空就按自己的道走，别两个人往同一边挤
+    const left = laneRoom(game, a, ang - Math.PI / 2);
+    const right = laneRoom(game, a, ang + Math.PI / 2);
+    if (left !== right) side = left ? 1 : -1;
+    a.lane = side;
+    want = shortAngle(want + side * (0.5 + 0.45 * ahead));
+    // 跟车：只对「正前方、比自己慢」的人减速，最低留 45% 速度——
+    // 排队可以，停死不行；真过不去由站定的人让半步（yieldStep）。
+    const theirs = Math.hypot(b.vx || 0, b.vy || 0);
+    if (d < 30 && Math.abs(diff) < 0.45 && theirs < speed) {
+      const follow = Math.max(speed * 0.45, theirs * 0.94);
+      slow = Math.min(slow, follow / Math.max(speed, 1));
+    }
+  }
+  return { want: shortAngle(want), speed: speed * Math.max(0.45, slow) };
+}
+
+// 站定的人给要走的人让半步：0.8 px/帧，一次最多让 30 px，不读指令，也不瞬移。
+function yieldStep(game, a, dt) {
+  if (a.yieldLeft === undefined) a.yieldLeft = 30;
+  if (a.state !== 'idle' && a.state !== 'hold') return;
+  if (Math.hypot(a.vx || 0, a.vy || 0) > 6) return;
+  if (a.aversion > 0) return;
+  // 有敌人在附近就不让：让位只在行军时做，交火中站住比让路重要
+  for (const t of game.thralls) {
+    if (t.dead) continue;
+    if (Math.hypot(t.x - a.x, t.y - a.y) < 300) return;
+  }
+  let nx = 0;
+  let ny = 0;
+  let press = 0;
+  for (const b of game.agents) {
+    if (b === a || b.down || b.extracted || b.taken) continue;
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    const d = Math.hypot(dx, dy);
+    if (d > 30 || d < 0.01) continue;
+    const closing = (b.vx || 0) * (b.x - a.x) + (b.vy || 0) * (b.y - a.y);
+    if (closing <= 12) continue;
+    press = 1;
+    nx += (-dy / d) * (a.lane || 1);
+    ny += (dx / d) * (a.lane || 1);
+    break;
+  }
+  if (!press) {
+    // 没人挤：这一小步慢慢走回来（不是瞬移，也不改变岗哨朝向）
+    a.yieldLeft = Math.min(30, a.yieldLeft + 20 * dt);
+    return;
+  }
+  if (a.yieldLeft <= 0.1) return;
+  const len = Math.hypot(nx, ny) || 1;
+  const step = Math.min(0.8, a.yieldLeft);
+  const px = a.x + (nx / len) * step;
+  const py = a.y + (ny / len) * step;
+  if (!solid(px, py, TUNING.agentRadius)) {
+    a.x = px;
+    a.y = py;
+    a.yieldLeft -= step;
+  } else if (!solid(px, a.y, TUNING.agentRadius)) {
+    a.x = px;
+    a.yieldLeft -= step;
+  } else if (!solid(a.x, py, TUNING.agentRadius)) {
+    a.y = py;
+    a.yieldLeft -= step;
+  }
+}
+
 function shortAngle(v) {
   let d = v;
   while (d > Math.PI) d -= Math.PI * 2;
@@ -436,45 +514,34 @@ function walkTo(game, a, x, y, dt) {
     a.pathAt = now;
     a.goal = { x, y };
   }
-  // 不走路的「走路」：三十帧没挪出八步、离目标还远，说明脚卡在座椅/门框的缝里，
-  // 路径怎么拉都会穿过实体。把人放回最近的空地，再重新找路。
+  // 不走路的「走路」：0.9 秒没挪出 8 px、离目标还远，才认为脚卡在墙角或家具缝里。
+  // 修法是「挪半步」，不是瞬移：最多 10 px，往目标方向或两侧的空地，且要连续卡三次。
   if (!a.stallAt) a.stallAt = { x: a.x, y: a.y, t: 0 };
   a.stallAt.t += dt;
   const travelled = Math.hypot(a.x - a.stallAt.x, a.y - a.stallAt.y);
   if (travelled > 8) {
     a.stallAt = { x: a.x, y: a.y, t: 0 };
-  } else if (a.stallAt.t > 0.6) {
+    a.stallN = 0;
+  } else if (a.stallAt.t > 0.9) {
     a.stallAt = { x: a.x, y: a.y, t: 0 };
-    if (Math.hypot(x - a.x, y - a.y) > 40) {
-      const seat = roomySpot(a.x, a.y, r);
-      if (Math.hypot(seat.x - a.x, seat.y - a.y) > 1) {
-        a.x = seat.x;
-        a.y = seat.y;
-        a.path = null;
-        a.pathAt = 0;
-        a.vx = 0;
-        a.vy = 0;
-      } else {
-        // The body is rubbing the outside of a corner: the seat is where it already stands, and
-        // the same path keeps coming back. Step off the corner sideways, then re-plan from there.
-        const side = -(a.sideSign || 1);
-        a.sideSign = side;
-        const away = Math.atan2(y - a.y, x - a.x) + side * Math.PI / 2;
-        for (const d of [9, 14, 20, 28]) {
-          const px = a.x + Math.cos(away) * d;
-          const py = a.y + Math.sin(away) * d;
-          if (!solid(px, py, r)) {
-            a.x = px;
-            a.y = py;
-            break;
-          }
+    a.stallN = (a.stallN || 0) + 1;
+    if (a.stallN >= 3 && Math.hypot(x - a.x, y - a.y) > 40) {
+      a.stallN = 0;
+      const away = Math.atan2(y - a.y, x - a.x);
+      for (const turn of [0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8]) {
+        const px = a.x + Math.cos(away + turn) * 10;
+        const py = a.y + Math.sin(away + turn) * 10;
+        if (!solid(px, py, r) && walkClear(a.x, a.y, px, py, r)) {
+          a.x = px;
+          a.y = py;
+          break;
         }
-        a.path = null;
-        a.pathAt = 0;
-        a.vx = 0;
-        a.vy = 0;
       }
     }
+    a.path = null;
+    a.pathAt = 0;
+    a.vx = 0;
+    a.vy = 0;
   }
   const step = a.path && a.path[0];
   if (!step) {
@@ -493,13 +560,21 @@ function walkTo(game, a, x, y, dt) {
   const dx = step.x - a.x;
   const dy = step.y - a.y;
   const dist = Math.hypot(dx, dy);
-  // 三个人会抢同一个路点。挤在同一个点前 0.6 秒还没进去，就说明那里站了人：放弃这个点。
+  // 路点被人占了：别丢路点，也别挤——绕过去；真绕不过去才换一条路。
   if (dist < 34) {
-    a.wayT = (a.wayT || 0) + dt;
-    if (a.wayT > 0.6) {
+    let held = false;
+    for (const b of game.agents) {
+      if (b === a || b.down || b.extracted || b.taken) continue;
+      if (Math.hypot(b.x - step.x, b.y - step.y) < 22) {
+        held = true;
+        break;
+      }
+    }
+    a.wayT = held ? (a.wayT || 0) + dt : 0;
+    if (a.wayT > 1.1) {
       a.wayT = 0;
-      a.path.shift();
-      a.pathAt = now + 0.05;
+      a.path = null;
+      a.pathAt = now + 0.15;
       return false;
     }
   } else {
@@ -514,15 +589,17 @@ function walkTo(game, a, x, y, dt) {
       return true;
     }
   }
-  const want = Math.atan2(dy, dx);
+  const raw = Math.atan2(dy, dx);
   // the last leg is the only one that brakes: a body that arrives at full speed skates
   const braking = a.path.length <= 1 ? Math.max(0.2, Math.min(1, dist / 30)) : 1;
   // 灯一亮，全队的步子就压下来：火不能灭。这不是负重，是规矩。
   const carrying = game.case.rule.kind === 'gaze' && (game.rule.lit || (game.rule.lights > 0));
-  const speed = a.speed * braking * (carrying ? 0.36 : 1);
+  const baseSpeed = a.speed * braking * (carrying ? 0.36 : 1);
+  // 前面有人：先侧身、必要时跟在后面，不顶、不停死
+  const route = makeWay(game, a, raw, baseSpeed);
   const k = Math.min(1, dt * 8);
-  a.vx += (Math.cos(want) * speed - a.vx) * k;
-  a.vy += (Math.sin(want) * speed - a.vy) * k;
+  a.vx += (Math.cos(route.want) * route.speed - a.vx) * k;
+  a.vy += (Math.sin(route.want) * route.speed - a.vy) * k;
 
   const nx = a.x + a.vx * dt;
   const ny = a.y + a.vy * dt;
@@ -1427,6 +1504,8 @@ export function updateUnits(game, dt) {
   for (const t of game.thralls) updateThrall(game, t, dt);
   updateBullets(game, dt);
   updateDrops(game, dt);
+  // 站定警戒的人给要走的人让半步（0.8 px/帧，不是瞬移）
+  for (const a of game.agents) yieldStep(game, a, dt);
 
   // 队长走过的路留一串脚印：复制品照这个走，晚两三秒。
   game.trailClock = (game.trailClock || 0) + dt;
@@ -1440,17 +1519,24 @@ export function updateUnits(game, dt) {
     }
   }
 
-  // 被推挤/刷新进墙里的东西不会再自己走回来，也没人打得到它。半秒还没脱身就放回空地。
+  // 被推进墙里的东西不会再自己走回来，也没人打得到它。每 0.5 秒往最近的空地挪 12 px，
+  // 几步就出来了——不再一帧瞬移半个房间。
   for (const t of game.thralls) {
     if (t.dead || t.kind === 'kune') continue;
     if (solid(t.x, t.y, 9)) {
       t.stuckT = (t.stuckT || 0) + dt;
       if (t.stuckT > 0.5) {
         const s = freeSpot(t.x, t.y, 9);
-        t.x = s.x;
-        t.y = s.y;
+        const dx = s.x - t.x;
+        const dy = s.y - t.y;
+        const d = Math.hypot(dx, dy);
+        if (d > 0.1) {
+          const stepD = Math.min(12, d);
+          t.x += (dx / d) * stepD;
+          t.y += (dy / d) * stepD;
+        }
         t.path = null;
-        t.stuckT = 0;
+        t.stuckT = 0.25;
       }
     } else {
       t.stuckT = 0;
@@ -1475,11 +1561,30 @@ export function updateUnits(game, dt) {
     body._py = body.y;
   }
 
-  // bodies have volume: nothing stands inside anything else
+  // 身体有体积：真叠上了才推开，而且只推「硬重叠」的那一点。
+  // 想让开的距离（26）交给走位；这里只处理 18 px 以内的挤压，且一帧最多 1.2 px，
+  // 推不进墙就顺着墙滑，不做瞬间位移。
   const bodies = [
     ...game.agents.filter((a) => !a.down && !a.taken && !a.extracted),
     ...game.thralls.filter((t) => !t.dead && t.kind !== 'kune'),
   ];
+  const slide = (body, ux, uy, push, sign) => {
+    const r = TUNING.agentRadius;
+    if (!solid(body.x + sign * ux * push, body.y + sign * uy * push, r)) {
+      body.x += sign * ux * push;
+      body.y += sign * uy * push;
+      return;
+    }
+    for (const turn of [Math.PI / 2, -Math.PI / 2]) {
+      const sx = ux * Math.cos(turn) - uy * Math.sin(turn);
+      const sy = ux * Math.sin(turn) + uy * Math.cos(turn);
+      if (!solid(body.x + sign * sx * push, body.y + sign * sy * push, r)) {
+        body.x += sign * sx * push;
+        body.y += sign * sy * push;
+        return;
+      }
+    }
+  };
   for (let i = 0; i < bodies.length; i += 1) {
     for (let j = i + 1; j < bodies.length; j += 1) {
       const a = bodies[i];
@@ -1487,20 +1592,15 @@ export function updateUnits(game, dt) {
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const d = Math.hypot(dx, dy);
-      const min = 26;
-      if (d > 0.001 && d < min) {
-        const push = (min - d) / 2;
-        const ux = dx / d;
-        const uy = dy / d;
-        if (!solid(a.x - ux * push, a.y - uy * push, TUNING.agentRadius)) {
-          a.x -= ux * push;
-          a.y -= uy * push;
-        }
-        if (!solid(b.x + ux * push, b.y + uy * push, TUNING.agentRadius)) {
-          b.x += ux * push;
-          b.y += uy * push;
-        }
-      }
+      if (d <= 0.001 || d >= BODY_TOUCH) continue;
+      const push = Math.min(1.2, (BODY_TOUCH - d) / 2);
+      const ux = dx / d;
+      const uy = dy / d;
+      // 谁在走谁让得多：站定的人不被拖走
+      const aMoving = Math.hypot(a.vx || 0, a.vy || 0) > 8;
+      const bMoving = Math.hypot(b.vx || 0, b.vy || 0) > 8;
+      if (aMoving || !bMoving) slide(a, ux, uy, push, -1);
+      if (bMoving || !aMoving) slide(b, ux, uy, push, 1);
     }
   }
 
