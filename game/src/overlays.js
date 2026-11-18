@@ -5,6 +5,7 @@ import { L, fonts, personName, postName, traitLine, traitName } from './text.js'
 import { label } from './hud.js';
 import { squadOf } from './roster.js';
 import { CASES } from './cases.js';
+import { drawPortrait } from './portraits.js';
 
 export const TITLE_LINK = { x: 104, y: 676, w: 160, h: 40 };
 export const SETTINGS_BTN = { x: 1004, y: 690, w: 158, h: 34 };
@@ -323,29 +324,22 @@ function scenePlate(ctx, x, y, w, h, id) {
   ctx.restore();
 }
 
-// A photograph on a file: bone paper, a dark window, and — until the art exists — a pencil line
-// instead of a face. Never a fake portrait.
-function photoFrame(ctx, x, y, w, h, caption, number) {
-  ctx.fillStyle = 'rgba(206, 198, 182, 0.9)';
-  ctx.fillRect(x, y, w, h);
-  const ix = x + 3;
-  const iy = y + 3;
-  const iw = w - 6;
-  const ih = h - 11;
-  ctx.fillStyle = 'rgba(14, 16, 21, 0.95)';
-  ctx.fillRect(ix, iy, iw, ih);
-  const g = ctx.createLinearGradient(0, iy, 0, iy + ih);
-  g.addColorStop(0, 'rgba(150, 136, 116, 0.14)');
-  g.addColorStop(0.55, 'rgba(60, 56, 50, 0.05)');
-  g.addColorStop(1, 'rgba(6, 7, 10, 0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(ix, iy, iw, ih);
-  if (caption) {
-    const size = Math.min(6.4, Math.max(4.4, iw / Math.max(6, caption.length) * 1.55));
-    label(ctx, caption, x + w / 2, iy + ih / 2 + size * 0.35, size, 'rgba(206, 198, 184, 0.5)', 0.5, 'center');
+// A photograph on a file: the programmatic portrait, a bone caption strip and a pencil number.
+// No data is still a valid file — an empty print with a number, never a crash.
+function photoFrame(ctx, x, y, w, h, caption, number, person) {
+  const size = Math.min(w, h);
+  const band = Math.max(0, h - size);
+  drawPortrait(ctx, x, y, size, person || null, null);
+  if (band > 0) {
+    ctx.fillStyle = 'rgba(206, 198, 182, 0.92)';
+    ctx.fillRect(x, y + size, w, band);
+  }
+  if (!person && caption) {
+    const size2 = Math.min(6.4, Math.max(4.4, (w / Math.max(6, caption.length)) * 1.55));
+    label(ctx, caption, x + w / 2, y + size / 2 + size2 * 0.35, size2, 'rgba(206, 198, 184, 0.5)', 0.5, 'center');
   }
   if (number) {
-    ctx.fillStyle = 'rgba(206, 198, 184, 0.6)';
+    ctx.fillStyle = 'rgba(60, 48, 34, 0.82)';
     ctx.font = `6px ${fonts.mono}`;
     ctx.textAlign = 'left';
     ctx.fillText(number, x + 4, y + h - 3);
@@ -466,7 +460,7 @@ export function drawRoster(ctx, game, time) {
       label(ctx, L.roster.empty, x + cw / 2, y + 90, 7, INK_FAINT, 2, 'center');
       continue;
     }
-    photoFrame(ctx, x + 18, y + 22, 74, 92, m.dead ? null : L.roster.noPhoto, `#${String(i + 1).padStart(3, '0')}`);
+    photoFrame(ctx, x + 18, y + 22, 74, 92, L.roster.noPhoto, `#${String(i + 1).padStart(3, '0')}`, m);
     if (m.dead) {
       ctx.strokeStyle = 'rgba(158, 62, 54, 0.7)';
       ctx.lineWidth = 1.4;
@@ -590,7 +584,7 @@ export function drawHire(ctx, game, time) {
     ctx.strokeStyle = hot ? 'rgba(201, 162, 90, 0.4)' : 'rgba(206, 200, 186, 0.14)';
     ctx.lineWidth = 1;
     ctx.strokeRect(x + 0.5, y + 0.5, HIRE_CARD.w - 1, HIRE_CARD.h - 1);
-    photoFrame(ctx, x + 32, y + 26, 92, 116, L.hire.noPhoto, `#${String(i + 1).padStart(2, '0')}`);
+    photoFrame(ctx, x + 32, y + 26, 92, 116, L.hire.noPhoto, `#${String(i + 1).padStart(2, '0')}`, c);
     label(ctx, personName(c), x + HIRE_CARD.w - 22, y + 44, 15, INK, L.cjk ? 1.2 : 0.9, 'right', fonts.display);
     label(ctx, postName(c.post), x + HIRE_CARD.w - 22, y + 62, 7.5, AMBER, 2.4, 'right');
     rule(ctx, x + 22, x + HIRE_CARD.w - 22, y + 168, 'rgba(186, 180, 168, 0.1)');
@@ -672,7 +666,7 @@ export function drawSelect(ctx, game, time) {
   squad.forEach((m, i) => {
     const x = bx + i * 190;
     const y = by + 14;
-    photoFrame(ctx, x, y, 40, 50, L.roster.noPhoto, null);
+    photoFrame(ctx, x, y, 40, 50, L.roster.noPhoto, `#0${i + 1}`, m || null);
     if (m) {
       label(ctx, personName(m), x + 48, y + 12, 10, INK, 0.8);
       label(ctx, `${postName(m.post)} · ${traitName(m.trait)}`, x + 48, y + 28, 7, INK_SOFT, 1.2);
@@ -760,7 +754,7 @@ export function drawBrief(ctx, game, time) {
   squad.forEach((m, i) => {
     const fx = px + i * 64;
     const fy = y + 396;
-    photoFrame(ctx, fx, fy, 56, 70, L.brief.noPhoto, null);
+    photoFrame(ctx, fx, fy, 56, 70, L.brief.noPhoto, `#0${i + 1}`, m || null);
     label(ctx, m && m.nameIdx >= 0 ? L.names[m.nameIdx % L.names.length] : L.roster.substitute, fx + 28, fy + 84, 7, INK_SOFT, 0.4, 'center');
     label(ctx, postName(m ? m.post : ['veteran', 'rookie', 'lamp'][i]), fx + 28, fy + 96, 6.5, INK_FAINT, 1.6, 'center');
   });
@@ -825,10 +819,11 @@ export function drawResult(ctx, game, time) {
     const m = game.squad && game.squad[i];
     const name = m && m.nameIdx >= 0 ? L.names[m.nameIdx % L.names.length] : L.roster.substitute;
     const alive = a.extracted;
-    label(ctx, `0${i + 1}`, x, 632, 7.5, INK_FAINT, 1.2);
-    label(ctx, name, x + 20, 634, 13, alive ? INK : INK_SOFT, L.cjk ? 1.2 : 0.8, 'left', fonts.display);
-    label(ctx, alive ? L.result.cameOut : L.result.stayed, x + 20, 650, 7.5, alive ? AMBER : RED, 1.4);
-    if (m) label(ctx, traitName(m.trait), x + 20, 664, 7, INK_FAINT, 0.8);
+    drawPortrait(ctx, x, 620, 26, m || null, null);
+    label(ctx, `0${i + 1}`, x + 34, 632, 7.5, INK_FAINT, 1.2);
+    label(ctx, name, x + 52, 634, 13, alive ? INK : INK_SOFT, L.cjk ? 1.2 : 0.8, 'left', fonts.display);
+    label(ctx, alive ? L.result.cameOut : L.result.stayed, x + 52, 650, 7.5, alive ? AMBER : RED, 1.4);
+    if (m) label(ctx, traitName(m.trait), x + 52, 664, 7, INK_FAINT, 0.8);
   });
 
   if (won && game.caseIndex === 4) {

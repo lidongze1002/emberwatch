@@ -536,6 +536,19 @@
 **结论**：保留。1:1 下人物仍是 30 px 的剪影，但「肩—腰—下摆—靴」四段读得出来；电视人的提手与天线关节、土蜘蛛的腰结与八条腿在 1:1 下都在。
 截图：`screenshots/gallery/45-agents-layers.jpg`、`46-tv-head.jpg`、`47-tsuchigumo-obi.jpg`、`48-opera-house.jpg`、`49-door-frame.jpg`
 
+## 轮 75 — 六张证件照全都是同一个空相框
+**看**：值班室、招聘、简报、结案四个页面的照片位全是 `NO PHOTO ON FILE` / `无照片`。`META.md` §5 说这些位置是一寸照；拖到轮 74 之后，人物与屋子都有第二层了，纸面上却还是没有脸。
+**改**：不引入外部图片，新建 `game/src/portraits.js`（`drawPortrait(ctx, x, y, size, person, number)`），用 canvas 画 256×256 的证件照并缓存：
+- **七种轮廓**：老兵（大檐帽 + 风衣领 + 眉疤）、新兵（雨衣兜帽 + 湿发）、提灯人（低束黑发 + 高领，**光从下往上**）、老警（宽檐雨帽 + 哨绳）、学生（乱发 + 圆眼镜）、修女（白头巾 + 黑纱 + 十字架）、码头工（油布帽 + 极宽肩 + 盐霜）；第八格是空相纸 + 编号。
+- 稳定的面部参数（脸宽/脸长/眼距/眉/嘴/鼻/疤/胡茬）由 `hash(轮廓|id|姓名号)` 决定，刷新不变。
+- 近黑底、一盏暖主光 + 冷环境反光、斜向暖光、颗粒、暗角、骨白相纸边 + 铅笔编号。
+- 候选人带 `look`（`roster.js`），招聘页不再三张同一张脸；没有数据时退化成空相纸，不崩。
+- 替换：局内卷宗卡 30×38、值班室 74×92、招聘 92×116、简报 56×70、选案出勤 40×50、结案点名 26×26。
+**测**：`tools/nw-portraits.mjs` 生成八格联络表与四个页面截图；`nw-cases` 5/5 WON、3/3、meta 通过；`nw-perf` median 16.7 ms；`nw-locale` 形状一致；无 pageerror。
+**结论**：保留。证件照是光与轮廓的练习，不是写实绘画；七种轮廓在 40 px 上也能一眼分开。
+截图：`screenshots/gallery/50-portraits-sheet.jpg`、`51-roster-portraits.jpg`、`52-hire-portraits.jpg`、`53-brief-portraits.jpg`、`54-rollcall-portraits.jpg`
+
+
 
 
 

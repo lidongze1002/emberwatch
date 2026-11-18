@@ -5,6 +5,7 @@ import { TUNING, VIEW } from './config.js';
 import { L, fonts, personName, postName, traitName } from './text.js';
 import { objectives, readout } from './rules.js';
 import { worldToScreen } from './render.js';
+import { drawPortrait } from './portraits.js';
 
 const INK = 'rgba(233, 227, 214, 0.92)';
 const INK_SOFT = 'rgba(206, 200, 186, 0.62)';
@@ -39,23 +40,21 @@ function timecode(seconds) {
   return `T+${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 }
 
-// A photograph slot, not a portrait: the frame, the unit number under it, and the light that
-// would have fallen across the print. The face is redacted — it is a file, not a mugshot.
-function photo(ctx, agent, x, y, w, h) {
-  ctx.fillStyle = 'rgba(9, 11, 15, 0.9)';
-  ctx.fillRect(x, y, w, h);
-  const g = ctx.createLinearGradient(x, y, x + w, y + h);
-  g.addColorStop(0, 'rgba(236, 230, 216, 0.06)');
-  g.addColorStop(0.5, 'rgba(236, 230, 216, 0.015)');
-  g.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
-  ctx.fillStyle = g;
-  ctx.fillRect(x, y, w, h);
+// A photograph on the in-game file: the same print as the duty room, with the unit number under it.
+function photo(ctx, agent, x, y, w, h, member) {
+  const size = Math.min(w, h);
+  drawPortrait(ctx, x, y, size, member || null, null);
+  if (h > size) {
+    ctx.fillStyle = 'rgba(206, 198, 182, 0.9)';
+    ctx.fillRect(x, y + size, w, h - size);
+  }
+  if (agent.down || agent.taken) {
+    ctx.fillStyle = 'rgba(120, 48, 44, 0.22)';
+    ctx.fillRect(x, y, w, size);
+  }
   ctx.strokeStyle = 'rgba(206, 200, 186, 0.24)';
   ctx.lineWidth = 1;
   ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-  const down = agent.down || agent.taken;
-  ctx.fillStyle = down ? 'rgba(120, 48, 44, 0.5)' : 'rgba(206, 200, 186, 0.14)';
-  ctx.fillRect(x + 4, y + 7, w - 8, h - 14);
   label(ctx, agent.id.replace('a', '0'), x + w / 2, y + h - 3.5, 7, INK_SOFT, 0.5, 'center');
 }
 
@@ -95,7 +94,7 @@ function fileRow(ctx, agent, x, y, w, gaze, member, charm) {
   const meta = L.agent[agent.role];
   const down = agent.down || agent.taken;
   const name = member ? personName(member) : meta.name;
-  photo(ctx, agent, x, y, 30, 38);
+  photo(ctx, agent, x, y, 30, 38, member);
   label(ctx, agent.id.replace('a', '0'), x + 40, y + 11, 8, INK_FAINT, 1);
   label(ctx, name, x + 66, y + 12, 13, down ? INK_SOFT : INK, 1.5, 'left', fonts.display);
   label(ctx, `${postName(agent.role)} · ${traitName(agent.trait)}`, x + 40, y + 24, 8.5, INK_SOFT, 0);

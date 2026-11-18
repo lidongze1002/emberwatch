@@ -20,13 +20,14 @@ export const PENSION = 800;
 export const BENCH_FEE = 200;
 
 let seq = 0;
-function member(post, nameIdx, trait) {
+function member(post, nameIdx, trait, look) {
   seq += 1;
   return {
     id: `m${seq}`,
     post,
     nameIdx,
     trait,
+    look: look || post,
     wounds: 0,
     cases: 0,
     dead: false,
@@ -40,9 +41,9 @@ export function createRoster() {
     cash: 0,
     closed: {},
     members: [
-      member('veteran', 0, 'steady'),
-      member('rookie', 1, 'quick'),
-      member('lamp', 2, 'deaf'),
+      member('veteran', 0, 'steady', 'veteran'),
+      member('rookie', 1, 'quick', 'rookie'),
+      member('lamp', 2, 'deaf', 'lamp'),
     ],
     // 谁值这一班：三个岗位各一个 id。空着的岗位由临时工顶。
     active: {},
@@ -89,6 +90,7 @@ export function squadForRun(roster) {
       post: POSTS[i],
       nameIdx: -1,
       trait: 'green',
+      look: POSTS[i],
       wounds: 0,
       cases: 0,
       dead: false,
@@ -161,6 +163,9 @@ export function settle(roster, game) {
 }
 
 // 每次结案刷新 2–3 个候选人：岗位、特质、要价。招一个，其余的就散了。
+// 候选人还有一张「脸」：老警 / 学生 / 修女 / 码头工，轮着来，这样招聘页不是三张同一张照片。
+const LOOKS = ['constable', 'student', 'sister', 'docker'];
+
 export function refreshCandidates(roster) {
   const traits = ['steady', 'deaf', 'quick', 'nighteyes'].filter(
     (t) => !roster.members.some((m) => !m.dead && m.trait === t),
@@ -171,11 +176,13 @@ export function refreshCandidates(roster) {
     const post = POSTS[(Math.floor(Math.random() * 3) + i) % 3];
     const trait = traits.length ? traits.splice(Math.floor(Math.random() * traits.length), 1)[0] : 'green';
     const base = 600 + Math.round(Math.random() * 6) * 100;
+    const look = LOOKS[(roster.hired + i + Math.floor(Math.random() * LOOKS.length)) % LOOKS.length];
     seq += 1;
     roster.candidates.push({
       id: `c${seq}`,
       post,
       trait,
+      look,
       nameIdx: 3 + Math.floor(Math.random() * 9),
       price: Math.min(1400, base + (TRAITS[trait] ? TRAITS[trait].price : 0)),
     });
@@ -189,7 +196,7 @@ export function hire(roster, candidateId) {
   if (roster.cash < c.price) return false;
   if (roster.members.filter((m) => !m.dead).length >= 6) return false;
   roster.cash -= c.price;
-  const m = member(c.post, c.nameIdx, c.trait);
+  const m = member(c.post, c.nameIdx, c.trait, c.look);
   roster.members.push(m);
   roster.hired += 1;
   payLine(roster, L.ledger.hired(L.trait[c.trait] || c.trait), -c.price);

@@ -53,6 +53,7 @@
 - **立绘**（768×1024，透明或深底）：值班室与简报页用的半身/全身像，冷光 + 一盏暖灯。
 - 每案简报左侧放**本案情报照片**（场景黑白剧照），右侧放三名上阵者的头像。
 - 结案页用**红章**盖在照片上（`CASE CLOSED` / `NO ONE CAME BACK`）。
+- 立绘目前是**程序化证件照**（`game/src/portraits.js`，256×256，七种轮廓 + 空相纸），生成规则见 `PORTRAITS.md` §6。
 
 ## 6. 界面
 
@@ -84,7 +85,7 @@
 | 招聘 2–3 人、要价、不招 | `overlays.js` `drawHire()` | 完成 |
 | 特质（手稳／耳背／老练／夜眼）改一条规则 | `units.js` / `rules.js` | 完成 |
 | 阵亡撤出名册、页脚黑框一行 | `roster.js` `memorial` | 完成 |
-| 档案照片位（`NO PHOTO ON FILE`）、情报照片（程序生成） | `overlays.js` | 占位（无美术） |
+| 档案照片位（`NO PHOTO ON FILE`）、情报照片（程序生成） | `overlays.js` | 完成：程序化证件照，见 `PORTRAITS.md` §6 |
 | 存档（roster/cash/closed/upgrades） | `saveRoster()` / `loadRoster()` | 完成 |
 | 装备：好灯 ¥900（光锥 +8%、灯油 −10%） | `buyLamp()` / `units.js` / `render.js` | 完成 |
 | 标题页设置：亮度／主音量／颗粒／语言／全屏 | `settings.js` / `overlays.js` `drawSettings()` | 完成，见 `SETTINGS.md` |
