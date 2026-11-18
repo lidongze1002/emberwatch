@@ -559,6 +559,19 @@
 **结论**：保留。光第一次是从那根管子里出来的。
 截图：`screenshots/gallery/55-muzzle-light.jpg`
 
+## 轮 77 — 仓库首页、在线游玩与 14 张画廊
+**看**：`nightwatch` 已经领先 `master` 一百多个提交，但默认分支还是旧灯塔的 README；线上没有可以点开就玩的地址；截图只有四张参赛图。
+**改**：
+- `master` 以 `--no-ff` 合入 `nightwatch`，旧灯塔版打标签 `emberwatch-final`（`c34ef0f`）。
+- 重写默认分支 `README.md`：标题、一句话、五宗案子各一行（地点 / 规矩 / 对手）、玩法与键位、`node serve.ts`、14 张画廊表（中英各一句）、四张参赛图、两版语言、代码结构；三个 make.fun 徽章原样保留在最上面。
+- 新增 `.github/workflows/pages.yml`：checkout → `actions/upload-pages-artifact`（`path: game`）→ `actions/deploy-pages`；Pages 的 `build_type` 设为 `workflow`。
+- 线上地址 <https://lidongze1002.github.io/emberwatch/> 与 `/zh.html`；Playwright 打开后断言 `window.__nightwatch` 存在、无 pageerror。
+- 画廊 14 张（标题、目录、简报、歌剧院、土蜘蛛、公寓、八尺様、车站、稻田、十三楼、值班室、招聘、设置、结案），`screenshots/gallery/01–14`，每张 25–96 KiB。
+**测**：`nw-cases` 5/5 WON、3/3、meta 通过；`nw-perf` median 16.7 ms；`nw-muzzle` 80 帧 0.00 px / 0.00°；`nw-gallery` 14 张无报错。提交 `01a1ed21-f375-75e4-b4dc-1f9cecda7209`（commit `afb0f94`）已受理，validity checks 全过。
+**结论**：保留。仓库首页、在线版和截图第一次指向同一个游戏。
+截图：`screenshots/gallery/01-title.jpg` … `14-case-closed.jpg`
+
+
 
 
 
