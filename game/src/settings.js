@@ -80,7 +80,7 @@ export function maybeRedirectLanguage() {
   } catch {
     /* if sessionStorage is gone, still try the redirect once */
   }
-  window.location.replace(want === 'zh' ? '/zh.html' : '/');
+  window.location.replace(want === 'zh' ? new URL('zh.html', window.location.href).href : new URL('index.html', window.location.href).href);
   return true;
 }
 

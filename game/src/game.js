@@ -667,7 +667,7 @@ export class Game {
     const now = L.cjk ? 'zh' : 'en';
     if (lang === now) return;
     setLanguage(lang);
-    this.onNavigate?.(lang === 'zh' ? '/zh.html' : '/');
+    this.onNavigate?.(lang === 'zh' ? new URL('zh.html', window.location.href).href : new URL('index.html', window.location.href).href);
   }
 
   handleSettings(clicks, typed) {
