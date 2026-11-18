@@ -87,6 +87,7 @@
 | 档案照片位（`NO PHOTO ON FILE`）、情报照片（程序生成） | `overlays.js` | 占位（无美术） |
 | 存档（roster/cash/closed/upgrades） | `saveRoster()` / `loadRoster()` | 完成 |
 | 装备：好灯 ¥900（光锥 +8%、灯油 −10%） | `buyLamp()` / `units.js` / `render.js` | 完成 |
+| 标题页设置：亮度／主音量／颗粒／语言／全屏 | `settings.js` / `overlays.js` `drawSettings()` | 完成，见 `SETTINGS.md` |
 | 选案页只显示已解锁的案子 | —— | **未做**：五案一开始全开，便于评审一次看全 |
 
 数值都在 `roster.js` 顶部（`MEDICAL` / `PENSION` / `BENCH_FEE` / `LAMP_PRICE` / `TRAITS[].price`），要调只改这一处。

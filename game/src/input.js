@@ -36,6 +36,8 @@ export class Input {
     });
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
+      // 画布是这一页唯一的焦点：设置面板开着时，Tab 也不许把焦点带到画布外面去
+      if (e.code === 'Tab' && this.trapTab) e.preventDefault();
       if (e.repeat) return;
       this.held.add(e.code);
       this.typed.push(e.code);

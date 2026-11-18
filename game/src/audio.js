@@ -7,6 +7,7 @@ export class Sound {
     this.noise = null;
     this.lastShot = 0;
     this.muted = false;
+    this.volume = 85;
   }
 
   start() {
@@ -15,13 +16,19 @@ export class Sound {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       this.ctx = new Ctx();
       this.master = this.ctx.createGain();
-      this.master.gain.value = 0.85;
+      this.master.gain.value = this.muted ? 0 : this.volume / 100;
       this.master.connect(this.ctx.destination);
       this.noise = this.makeNoise();
       this.buildAria();
     } catch {
       this.ctx = null;
     }
+  }
+
+  // 设置里的主音量：0–100 直接写 master.gain；静音时只记住数值，不自己解除静音。
+  setVolume(percent) {
+    this.volume = Math.max(0, Math.min(100, Number(percent) || 0));
+    if (this.master) this.master.gain.value = this.muted ? 0 : this.volume / 100;
   }
 
   // the house singing: two voices through a lowpass, louder the nearer the squad is to the stage

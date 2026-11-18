@@ -6,12 +6,13 @@ import { CASES } from './cases.js';
 import { buildLevel, setWorld, solid } from './level.js';
 import { createAgents, createThralls, updateUnits } from './units.js';
 import { overwatchTick } from './tactics.js';
-import { drawFrame, drawBars, screenToWorld } from './render.js';
+import { drawFrame, drawBars, drawBrightness, screenToWorld } from './render.js';
 import { drawHud } from './hud.js';
-import { drawBrief, drawHire, drawResult, drawRoster, drawSelect, drawTitle, tCaseAt, tHireAt, tHireNoneAt, tRosterCardAt, tRosterCasesAt, tRosterFreshAt, tRosterHireAt, tRosterLampAt, tSelectRosterAt, tTitleLinkAt } from './overlays.js';
+import { drawBrief, drawHire, drawResult, drawRoster, drawSelect, drawSettings, drawTitle, tCaseAt, tHireAt, tHireNoneAt, tRosterCardAt, tRosterCasesAt, tRosterFreshAt, tRosterHireAt, tRosterLampAt, tSelectRosterAt, tSettingsAt, tSettingsCloseAt, tSettingsFullAt, tSettingsLangAt, tSettingsResetAt, tSettingsRowAt, tSettingsButtonAt, tTitleLinkAt, SETTINGS_TRACK } from './overlays.js';
 import { actionA, afterRules, directRules, initRules, updateRules, verdict } from './rules.js';
 import { createRoster, buyLamp, clearRoster, dismissCandidates, hire, loadRoster, saveRoster, setDuty, squadForRun, settle } from './roster.js';
 import { L } from './text.js';
+import { LIMITS, loadSettings, nudge, resetSettings, saveSettings, setLanguage } from './settings.js';
 
 export class Game {
   constructor(sound, input) {
@@ -26,6 +27,10 @@ export class Game {
     this.level = buildLevel();
     this.state = 'title';
     this.paused = false;
+    this.settings = loadSettings();
+    this.settingsOpen = false;
+    this.settingsRow = 0;
+    this.settingsDrag = null;
     this.reset();
   }
 
@@ -343,6 +348,10 @@ export class Game {
   }
 
   handleInput(clicks, typed) {
+    if (this.settingsOpen) {
+      this.handleSettings(clicks, typed);
+      return;
+    }
     for (const code of typed) {
       if (this.state === 'title' && (code === 'Enter' || code === 'Space')) {
         this.state = 'select';
@@ -394,6 +403,10 @@ export class Game {
 
     for (const click of clicks) {
       if (this.state === 'title') {
+        if (tSettingsButtonAt(click.x, click.y)) {
+          this.openSettings();
+          continue;
+        }
         if (tTitleLinkAt(click.x, click.y)) {
           this.onNavigate?.(L.otherHref);
           continue;
@@ -468,6 +481,130 @@ export class Game {
 
       const w = screenToWorld(click.x, click.y);
       this.clickWorld(w.x, w.y);
+    }
+  }
+
+  // ---- 设置面板 ------------------------------------------------------------
+  // 只改「看见的样子」与「听见的音量」；不改案子，也不改名册。
+
+  openSettings() {
+    this.settingsOpen = true;
+    this.settingsRow = 0;
+    this.settingsDrag = null;
+  }
+
+  closeSettings() {
+    this.settingsOpen = false;
+    this.settingsDrag = null;
+  }
+
+  settingRows() {
+    return ['brightness', 'volume', 'grain'];
+  }
+
+  setSetting(key, value) {
+    const [lo, hi] = LIMITS[key];
+    this.settings[key] = Math.max(lo, Math.min(hi, Math.round(value * 100) / 100));
+    if (key === 'volume') this.sound.setVolume(this.settings.volume);
+    saveSettings(this.settings);
+  }
+
+  setSettingFromX(row, x) {
+    const key = this.settingRows()[row];
+    if (!key) return;
+    const track = SETTINGS_TRACK;
+    const [lo, hi] = LIMITS[key];
+    const t = Math.max(0, Math.min(1, (x - track.x) / track.w));
+    this.setSetting(key, lo + (hi - lo) * t);
+  }
+
+  toggleFullscreen() {
+    try {
+      if (document.fullscreenElement) {
+        const out = document.exitFullscreen?.();
+        if (out && out.catch) out.catch(() => {});
+      } else {
+        const into = document.documentElement.requestFullscreen?.();
+        if (into && into.catch) into.catch(() => {});
+      }
+    } catch {
+      /* 失败就什么也不做 */
+    }
+  }
+
+  chooseLanguage(lang) {
+    const now = L.cjk ? 'zh' : 'en';
+    if (lang === now) return;
+    setLanguage(lang);
+    this.onNavigate?.(lang === 'zh' ? '/zh.html' : '/');
+  }
+
+  handleSettings(clicks, typed) {
+    const rows = this.settingRows();
+    for (const code of typed) {
+      if (code === 'Escape') {
+        this.closeSettings();
+        continue;
+      }
+      if (code === 'Tab' || code === 'ArrowDown') {
+        this.settingsRow = (this.settingsRow + 1) % 5;
+        continue;
+      }
+      if (code === 'ArrowUp') {
+        this.settingsRow = (this.settingsRow + 4) % 5;
+        continue;
+      }
+      const row = rows[this.settingsRow];
+      if (row && (code === 'ArrowLeft' || code === 'ArrowRight')) {
+        this.setSetting(row, nudge(row, this.settings[row], code === 'ArrowRight' ? 1 : -1));
+        continue;
+      }
+      if (this.settingsRow === 3 && (code === 'Enter' || code === 'ArrowLeft' || code === 'ArrowRight')) {
+        this.chooseLanguage(L.cjk ? 'en' : 'zh');
+        continue;
+      }
+      if (this.settingsRow === 4 && (code === 'Enter' || code === 'Space')) {
+        this.toggleFullscreen();
+      }
+    }
+
+    for (const click of clicks) {
+      if (tSettingsCloseAt(click.x, click.y)) {
+        this.closeSettings();
+        continue;
+      }
+      if (tSettingsResetAt(click.x, click.y)) {
+        this.settings = resetSettings();
+        this.sound.setVolume(this.settings.volume);
+        saveSettings(this.settings);
+        continue;
+      }
+      const lang = tSettingsLangAt(click.x, click.y);
+      if (lang) {
+        this.chooseLanguage(lang);
+        continue;
+      }
+      if (tSettingsFullAt(click.x, click.y)) {
+        this.toggleFullscreen();
+        continue;
+      }
+      const row = tSettingsRowAt(click.x, click.y);
+      if (row >= 0) {
+        this.settingsRow = row;
+        this.settingsDrag = rows[row];
+        this.setSettingFromX(row, click.x);
+        continue;
+      }
+    }
+
+    // 按住不放，数值跟着指针走；松手就停
+    if (this.settingsDrag) {
+      if (!this.input.down) {
+        this.settingsDrag = null;
+      } else {
+        const row = rows.indexOf(this.settingsDrag);
+        if (row >= 0) this.setSettingFromX(row, this.input.x);
+      }
     }
   }
 
@@ -549,6 +686,9 @@ export class Game {
     else if (this.state === 'brief') drawBrief(ctx, this, time);
     else if (this.state === 'play') drawHud(ctx, this, time);
     else if (this.state === 'result') drawResult(ctx, this, time);
+    // 亮度在后期之后、遮幅之前；设置面板画在亮度上面，暗下来也读得清
+    drawBrightness(ctx, this);
+    if (this.settingsOpen) drawSettings(ctx, this, time);
     drawBars(ctx);
   }
 }

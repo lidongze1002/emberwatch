@@ -512,6 +512,20 @@
 **结论**：保留。五案时长 37 / 81.7 / 58.6 / 82.8 / 71.3 秒，都在原来的档位里。
 截图：无（行为轮）
 
+## 轮 73 — 标题页没有一个地方能调亮度
+**看**：整页是 1970 年代胶片的调子，可玩家连「太暗了」都只能改显示器。也没有语言开关（英文版靠一个 `ENGLISH →` 链接，中文版反过来），没有音量，没有全屏。
+**改**：标题页右下角一枚细线按钮，打开一页纸的设置：
+- **亮度** 0.6–1.4：`drawBrightness()` 在后期之后、遮幅之前盖一层（暗＝黑，亮＝`lighter` 白），设置面板本身画在亮度之上，暗下来也读得清。
+- **主音量** 0–100：写 `Sound.master.gain`；`muted` 时只记数值，不解除静音。
+- **胶片颗粒** 0–100：`drawPost` 的 alpha 随它走，0 就不铺。
+- **语言**：`localStorage['nightwatch.lang']` + 跳 `/` 或 `/zh.html`；加载时只重定向一次（`sessionStorage['nightwatch.langGuard']`）。英文页的 `中文` 全部改成 `CHINESE`，`en.js` 里不再有一个中日韩字符。
+- **全屏**：`requestFullscreen` / `exitFullscreen`，失败静默。
+- 键盘：`Esc` 关、`Tab/↑↓` 换项、`←→` 微调；指针可拖；面板开着时标题页其它按钮不响应，`Tab` 不出画布。
+**测**：`tools/nw-settings.mjs`——面板出现、面板开着点标题不跳页；亮度拖到 1.30、刷新仍 1.30；点 English → URL `/`、`lang="en"`、DOM 与 `en.js` 词条 CJK 计数 0；点 CHINESE → `/zh.html`、`lang="zh-CN"`；`Tab Tab ←` 把颗粒改成 45、`Esc` 关闭。`nw-locale` 形状一致；`nw-cases` 5/5、3/3、meta 通过；`nw-perf` median 16.7 ms；无 pageerror。
+**结论**：保留。键名与默认值见 `docs/SETTINGS.md`。
+截图：`tools/nw/settings-zh.jpg`、`settings-en.jpg`
+
+
 
 
 ## 备注

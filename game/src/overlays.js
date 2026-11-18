@@ -7,6 +7,18 @@ import { squadOf } from './roster.js';
 import { CASES } from './cases.js';
 
 export const TITLE_LINK = { x: 104, y: 676, w: 160, h: 40 };
+export const SETTINGS_BTN = { x: 1004, y: 690, w: 158, h: 34 };
+export const SETTINGS_PANEL = { x: 356, y: 118, w: 568, h: 548 };
+export const SETTINGS_TRACK = { x: 646, y: 0, w: 190, h: 14 };
+export const SETTINGS_ROWS = [
+  { key: 'brightness', y: 252 },
+  { key: 'volume', y: 316 },
+  { key: 'grain', y: 380 },
+];
+export const SETTINGS_LANG = { y: 438, zh: { x: 646, y: 426, w: 82, h: 26 }, en: { x: 736, y: 426, w: 96, h: 26 } };
+export const SETTINGS_FULL = { x: 646, y: 484, w: 86, h: 28 };
+export const SETTINGS_RESET = { x: 584, y: 560, w: 134, h: 34 };
+export const SETTINGS_CLOSE = { x: 736, y: 560, w: 134, h: 34 };
 export const SELECT_ROW = { x: 176, top: 176, w: VIEW.width - 352, h: 82, gap: 12 };
 export const ROSTER_BTN = { hire: { x: 852, y: 700, w: 140, h: 34 }, cases: { x: 1006, y: 700, w: 140, h: 34 }, fresh: { x: 148, y: 700, w: 140, h: 34 }, lamp: { x: 400, y: 700, w: 168, h: 34 } };
 export const SELECT_ROSTER_BTN = { x: 1006, y: 690, w: 140, h: 34 };
@@ -69,6 +81,41 @@ const RED = 'rgba(158, 62, 54, 0.82)';
 
 export function tTitleLinkAt(x, y) {
   return x >= TITLE_LINK.x && x <= TITLE_LINK.x + TITLE_LINK.w && y >= TITLE_LINK.y && y <= TITLE_LINK.y + TITLE_LINK.h;
+}
+
+export function tSettingsButtonAt(x, y) {
+  return inRect(SETTINGS_BTN, x, y);
+}
+
+export function tSettingsAt(x, y) {
+  return inRect(SETTINGS_PANEL, x, y);
+}
+
+export function tSettingsRowAt(x, y) {
+  for (let i = 0; i < SETTINGS_ROWS.length; i += 1) {
+    const row = SETTINGS_ROWS[i];
+    if (x >= SETTINGS_TRACK.x - 16 && x <= SETTINGS_TRACK.x + SETTINGS_TRACK.w + 16
+      && y >= row.y - 18 && y <= row.y + 18) return i;
+  }
+  return -1;
+}
+
+export function tSettingsLangAt(x, y) {
+  if (inRect(SETTINGS_LANG.zh, x, y)) return 'zh';
+  if (inRect(SETTINGS_LANG.en, x, y)) return 'en';
+  return null;
+}
+
+export function tSettingsFullAt(x, y) {
+  return inRect(SETTINGS_FULL, x, y);
+}
+
+export function tSettingsResetAt(x, y) {
+  return inRect(SETTINGS_RESET, x, y);
+}
+
+export function tSettingsCloseAt(x, y) {
+  return inRect(SETTINGS_CLOSE, x, y);
 }
 
 export function tCaseAt(x, y, count) {
@@ -372,6 +419,15 @@ export function drawTitle(ctx, game, time) {
 
   label(ctx, `${L.otherLabel} →`, TITLE_LINK.x, TITLE_LINK.y + 20, 9, INK_SOFT, 2.4);
   rule(ctx, TITLE_LINK.x, TITLE_LINK.x + 78, TITLE_LINK.y + 27, 'rgba(186, 180, 168, 0.22)');
+
+  // 右下角：设置。一条细线，不进卷宗正文。
+  const hot = inRect(SETTINGS_BTN, game.input ? game.input.x : -1, game.input ? game.input.y : -1);
+  ctx.fillStyle = hot ? 'rgba(201, 162, 90, 0.07)' : 'rgba(9, 11, 15, 0.3)';
+  ctx.fillRect(SETTINGS_BTN.x, SETTINGS_BTN.y, SETTINGS_BTN.w, SETTINGS_BTN.h);
+  ctx.strokeStyle = hot ? 'rgba(201, 162, 90, 0.48)' : 'rgba(206, 200, 186, 0.2)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(SETTINGS_BTN.x + 0.5, SETTINGS_BTN.y + 0.5, SETTINGS_BTN.w - 1, SETTINGS_BTN.h - 1);
+  label(ctx, L.settings.button, SETTINGS_BTN.x + 16, SETTINGS_BTN.y + 21, 8, hot ? '#efe3ca' : INK_SOFT, 3.4);
 }
 
 export function drawRoster(ctx, game, time) {
@@ -784,4 +840,94 @@ export function drawResult(ctx, game, time) {
   const goW = ctx.measureText(L.result.again).width;
   label(ctx, L.result.again, cx - goW / 2, 578, 10, INK, 3);
   caret(ctx, cx + goW / 2, 578, time, 10);
+}
+
+// ---- 设置：一页纸，五个开关 --------------------------------------------------
+const SETTINGS_RANGE = { brightness: [0.6, 1.4], volume: [0, 100], grain: [0, 100] };
+const SETTINGS_DEFAULT = { brightness: 1, volume: 85, grain: 50 };
+
+export function drawSettings(ctx, game, time) {
+  const s = game.settings || SETTINGS_DEFAULT;
+  const hover = game.input && game.input.inside ? game.input : { x: -1, y: -1 };
+  const p = SETTINGS_PANEL;
+
+  ctx.fillStyle = 'rgba(2, 4, 8, 0.74)';
+  ctx.fillRect(0, 0, VIEW.width, VIEW.height);
+  ctx.fillStyle = 'rgba(8, 10, 14, 0.97)';
+  ctx.fillRect(p.x, p.y, p.w, p.h);
+  ctx.strokeStyle = 'rgba(206, 200, 186, 0.18)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(p.x + 0.5, p.y + 0.5, p.w - 1, p.h - 1);
+  ctx.fillStyle = AMBER;
+  ctx.fillRect(p.x, p.y, 2, 72);
+
+  label(ctx, L.settings.form, p.x + p.w - 32, p.y + 26, 7.5, INK_FAINT, 2.4, 'right');
+  label(ctx, L.settings.title, p.x + 32, p.y + 58, 26, '#efe3ca', 4, 'left', fonts.display);
+  rule(ctx, p.x + 32, p.x + p.w - 32, p.y + 74, 'rgba(201, 162, 90, 0.2)');
+
+  const names = [L.settings.brightness, L.settings.volume, L.settings.grain];
+  const values = [
+    Number(s.brightness).toFixed(2),
+    `${Math.round(s.volume)}`,
+    `${Math.round(s.grain)}`,
+  ];
+  SETTINGS_ROWS.forEach((row, i) => {
+    const active = game.settingsRow === i;
+    const key = row.key;
+    const [lo, hi] = SETTINGS_RANGE[key];
+    const t = Math.max(0, Math.min(1, (s[key] - lo) / (hi - lo)));
+    const defT = Math.max(0, Math.min(1, (SETTINGS_DEFAULT[key] - lo) / (hi - lo)));
+    // the row's own band lights up on hover, so the slider is a target, not a line
+    if (inRect({ x: p.x + 32, y: row.y - 20, w: p.w - 64, h: 40 }, hover.x, hover.y)) {
+      ctx.fillStyle = 'rgba(201, 162, 90, 0.04)';
+      ctx.fillRect(p.x + 32, row.y - 20, p.w - 64, 40);
+    }
+    label(ctx, names[i], p.x + 44, row.y + 4, 10, active ? '#efe3ca' : INK_SOFT, 2.4);
+    label(ctx, values[i], SETTINGS_TRACK.x + SETTINGS_TRACK.w + 78, row.y + 4, 11, active ? 'rgba(240, 226, 198, 0.95)' : INK_SOFT, 1, 'right', fonts.mono);
+    ctx.fillStyle = 'rgba(186, 180, 168, 0.16)';
+    ctx.fillRect(SETTINGS_TRACK.x, row.y, SETTINGS_TRACK.w, 2);
+    ctx.fillStyle = active ? AMBER : 'rgba(201, 162, 90, 0.5)';
+    ctx.fillRect(SETTINGS_TRACK.x, row.y, SETTINGS_TRACK.w * t, 2);
+    // the default is a small tick on the track; reset means something visible
+    ctx.fillStyle = 'rgba(206, 200, 186, 0.28)';
+    ctx.fillRect(SETTINGS_TRACK.x + SETTINGS_TRACK.w * defT, row.y - 3, 1, 8);
+    ctx.fillStyle = active ? '#efe3ca' : 'rgba(226, 220, 206, 0.66)';
+    ctx.beginPath();
+    ctx.arc(SETTINGS_TRACK.x + SETTINGS_TRACK.w * t, row.y + 1, active ? 4 : 3.2, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // language: two segments, the current one inked in
+  const langY = SETTINGS_LANG.y;
+  label(ctx, L.settings.language, p.x + 44, langY + 4, 10, game.settingsRow === 3 ? '#efe3ca' : INK_SOFT, 2.4);
+  const now = L.cjk ? 'zh' : 'en';
+  for (const [lang, text] of [['zh', L.settings.langZh], ['en', L.settings.langEn]]) {
+    const r = SETTINGS_LANG[lang];
+    const on = lang === now;
+    const hot = inRect(r, hover.x, hover.y);
+    ctx.fillStyle = on ? 'rgba(201, 162, 90, 0.12)' : hot ? 'rgba(201, 162, 90, 0.06)' : 'rgba(9, 11, 15, 0.5)';
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+    ctx.strokeStyle = on ? 'rgba(201, 162, 90, 0.55)' : 'rgba(206, 200, 186, 0.18)';
+    ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+    label(ctx, text, r.x + r.w / 2, r.y + 18, 8.5, on ? '#efe3ca' : INK_SOFT, 1.2, 'center', L.cjk ? fonts.ui : fonts.mono);
+  }
+
+  // fullscreen
+  const fullOn = !!(typeof document !== 'undefined' && document.fullscreenElement);
+  const fullHot = inRect(SETTINGS_FULL, hover.x, hover.y);
+  label(ctx, L.settings.fullscreen, p.x + 44, SETTINGS_FULL.y + 19, 10, game.settingsRow === 4 ? '#efe3ca' : INK_SOFT, 2.4);
+  ctx.fillStyle = fullHot ? 'rgba(201, 162, 90, 0.07)' : 'rgba(9, 11, 15, 0.5)';
+  ctx.fillRect(SETTINGS_FULL.x, SETTINGS_FULL.y, SETTINGS_FULL.w, SETTINGS_FULL.h);
+  ctx.strokeStyle = fullOn ? 'rgba(201, 162, 90, 0.5)' : 'rgba(206, 200, 186, 0.18)';
+  ctx.strokeRect(SETTINGS_FULL.x + 0.5, SETTINGS_FULL.y + 0.5, SETTINGS_FULL.w - 1, SETTINGS_FULL.h - 1);
+  ctx.fillStyle = fullOn ? AMBER : 'rgba(186, 180, 168, 0.3)';
+  ctx.beginPath();
+  ctx.arc(fullOn ? SETTINGS_FULL.x + SETTINGS_FULL.w - 18 : SETTINGS_FULL.x + 18, SETTINGS_FULL.y + SETTINGS_FULL.h / 2, 6, 0, Math.PI * 2);
+  ctx.fill();
+  label(ctx, fullOn ? L.settings.on : L.settings.off, SETTINGS_FULL.x + SETTINGS_FULL.w / 2 + (fullOn ? -9 : 9), SETTINGS_FULL.y + 19, 8, INK_SOFT, 1.4, 'center');
+
+  button(ctx, SETTINGS_RESET, L.settings.reset, inRect(SETTINGS_RESET, hover.x, hover.y));
+  button(ctx, SETTINGS_CLOSE, L.settings.close, inRect(SETTINGS_CLOSE, hover.x, hover.y));
+  label(ctx, L.settings.hint, p.x + p.w / 2, p.y + p.h - 54, 7.5, INK_FAINT, 1.2, 'center');
+  label(ctx, L.settings.note, p.x + p.w / 2, p.y + p.h - 36, 7.5, 'rgba(206, 190, 160, 0.5)', 1.2, 'center');
 }

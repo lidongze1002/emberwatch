@@ -6,7 +6,7 @@ export const en = {
   cjk: false,
   htmlLang: 'en',
   otherHref: './zh.html',
-  otherLabel: '中文',
+  otherLabel: 'CHINESE',
   fonts: {
     display: '"Palatino Linotype", "Book Antiqua", Georgia, serif',
     ui: '"Trebuchet MS", "Segoe UI", Tahoma, sans-serif',
@@ -17,10 +17,28 @@ export const en = {
     name: 'NIGHT WATCH',
     line: 'Five floors, five legends, three agents who do not wait for you.',
     cta: 'CLICK TO OPEN THE FILES',
-    other: '中文',
+    other: 'CHINESE',
     foot: 'FIVE OPEN CASES · ONE WATCH',
     form: 'FORM N-7 / WATCH LOG',
     resume: (n, cash) => `Still on the desk: ${n} closed · ${cash}`,
+  },
+  settings: {
+    button: 'SETTINGS',
+    title: 'SETTINGS',
+    form: 'FORM N-7 / SETTINGS',
+    brightness: 'BRIGHTNESS',
+    volume: 'MASTER',
+    grain: 'FILM GRAIN',
+    language: 'LANGUAGE',
+    fullscreen: 'FULLSCREEN',
+    on: 'ON',
+    off: 'OFF',
+    reset: 'RESET',
+    close: 'CLOSE',
+    hint: 'DRAG A SLIDER · ARROWS NUDGE · TAB MOVES · ESC CLOSES',
+    note: 'Picture and sound only. No rule changes.',
+    langZh: 'CHINESE',
+    langEn: 'English',
   },
   select: {
     title: 'CASE FILES',
@@ -210,10 +228,10 @@ export const en = {
     toSwitch: 'TO THE SWITCHBOARD',
     music: 'THE HOUSE IS SINGING',
     quiet: 'THE HOUSE IS QUIET',
-    // 第一案
+    // case one
     stampLive: 'IN PROGRESS',
     stampCut: 'POWER CUT',
-    // 第二案
+    // case two
     stampNight: 'NIGHT WATCH',
     stampKnock: 'KNOCKING',
     dawnIn: (s) => `DAWN IN ${s}s`,
@@ -225,7 +243,7 @@ export const en = {
     refused: 'NOBODY ANSWERS',
     cutOff: 'SHE IS ALREADY AT THE NEXT DOOR',
     remembers: (n) => `SHE REMEMBERS DOOR ${n}`,
-    // 第三案
+    // case three
     stampGate: 'TIMETABLE',
     gates: { west: 'WEST', east: 'EAST', south: 'SOUTH' },
     nextGate: (g, s) => `${g} · ${s}s LEFT`,
@@ -238,7 +256,7 @@ export const en = {
     gateAdmit: (g) => `ONE THROUGH THE ${g} GATE`,
     oneThrough: 'THE SHUTTER IS DOWN',
     secondsLeft: (s) => `${s}s`,
-    // 第四案
+    // case four
     stampGaze: 'GAZE',
     stampAvert: 'EYES AWAY',
     gazePct: (n) => `${n}% · DO NOT LOOK`,
@@ -250,7 +268,7 @@ export const en = {
     lampLit: 'THE LAMP IS LIT',
     lampHalf: 'ONE LANTERN · THE OTHER IS STILL DARK',
     lampStage: (n, total) => `LIT ${n}/${total}`,
-    // 第五案
+    // case five
     stampFloor: 'FLOOR',
     doorNo: (n) => `DOOR ${n}`,
     floorLine: (n, total, door) => `FLOOR ${n}/${total} · DOOR ${door}`,

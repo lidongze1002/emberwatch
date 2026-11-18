@@ -3211,6 +3211,21 @@ export function drawBars(ctx) {
   ctx.fillRect(0, VIEW.height - 48, VIEW.width, 8);
 }
 
+// 亮度：只在后期之后、遮幅之前乘一层。暗用黑、亮用 lighter 的低 alpha 白，不改任何规则。
+export function drawBrightness(ctx, game) {
+  const b = game && game.settings ? game.settings.brightness : 1;
+  if (!(b < 0.995) && !(b > 1.005)) return;
+  ctx.save();
+  if (b < 1) {
+    ctx.fillStyle = `rgba(0, 0, 0, ${Math.min(0.5, ((1 - b) / 0.4) * 0.5)})`;
+  } else {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = `rgba(255, 246, 228, ${Math.min(0.12, ((b - 1) / 0.4) * 0.12)})`;
+  }
+  ctx.fillRect(0, 0, VIEW.width, VIEW.height);
+  ctx.restore();
+}
+
 // The print: a grade, a vignette, grain, and 2.2:1 bars.
 function drawPost(ctx, game, time) {
   // 每一案一张不同的印片：歌剧院暖、公寓土黄、车站青、稻田冷、后室芥末
@@ -3275,18 +3290,22 @@ function drawPost(ctx, game, time) {
     ctx.fillRect(0, VIEW.height - h, VIEW.width, h);
   }
 
-  const g = grainTile();
-  ctx.save();
-  ctx.globalAlpha = 0.5;
-  ctx.globalCompositeOperation = 'overlay';
-  const ox = Math.floor(Math.random() * 160);
-  const oy = Math.floor(Math.random() * 160);
-  for (let y = -160; y < VIEW.height + 160; y += 160) {
-    for (let x = -160; x < VIEW.width + 160; x += 160) {
-      ctx.drawImage(g, x + ox, y + oy);
+  // 胶片颗粒：设置里 0–100，0 就不铺，100 是默认的两倍
+  const grainAmount = game.settings ? Math.max(0, Math.min(100, game.settings.grain)) : 50;
+  if (grainAmount > 0.5) {
+    const g = grainTile();
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, (grainAmount / 50) * 0.5);
+    ctx.globalCompositeOperation = 'overlay';
+    const ox = Math.floor(Math.random() * 160);
+    const oy = Math.floor(Math.random() * 160);
+    for (let y = -160; y < VIEW.height + 160; y += 160) {
+      for (let x = -160; x < VIEW.width + 160; x += 160) {
+        ctx.drawImage(g, x + ox, y + oy);
+      }
     }
+    ctx.restore();
   }
-  ctx.restore();
 
   // letterbox is drawn last, over the interface, so the frame is the frame
   if (game.flashWhite > 0.01) {
