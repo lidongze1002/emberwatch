@@ -238,9 +238,11 @@ export function drawWorld(ctx, game, time) {
   ctx.translate(Math.sin(time * 71) * shake, Math.cos(time * 53) * shake);
 
   drawFloor(ctx, game, time);
+  drawDust(ctx, game);
   drawDecor(ctx, game, time);
   drawProps(ctx, game, time);
   drawWalls(ctx, game);
+  drawCobwebs(ctx, game);
   drawDoors(ctx, game, time);
 
   ctx.save();
@@ -264,6 +266,62 @@ export function drawWorld(ctx, game, time) {
 }
 
 // ---- the floor of each floor ---------------------------------------------
+
+// 尘土与蛛网：一点「很久没人打扫」的证据。种子跟着案子走，所以每一帧都在同一处，不闪。
+function dustSeed(game) {
+  let seed = 0;
+  for (const ch of game.case.id) seed = (seed * 31 + ch.charCodeAt(0)) % 100000;
+  return seed;
+}
+
+function drawDust(ctx, game) {
+  const c = game.case;
+  let seed = dustSeed(game);
+  const rnd = () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed / 2147483648;
+  };
+  const x0 = c.bounds.x0 + 12;
+  const y0 = c.bounds.y0 + 12;
+  const x1 = c.bounds.x1 - 12;
+  const y1 = c.bounds.y1 - 12;
+  for (let i = 0; i < 26; i += 1) {
+    const x = x0 + rnd() * (x1 - x0);
+    const y = y0 + rnd() * (y1 - y0);
+    const a = 0.035 + rnd() * 0.09;
+    ctx.fillStyle = `rgba(226, 220, 202, ${a})`;
+    ctx.fillRect(x, y, 1, 1);
+  }
+}
+
+function drawCobwebs(ctx, game) {
+  const c = game.case;
+  const x0 = c.bounds.x0 + 8;
+  const y0 = c.bounds.y0 + 8;
+  const x1 = c.bounds.x1 - 8;
+  ctx.strokeStyle = 'rgba(214, 218, 210, 0.08)';
+  ctx.lineWidth = 0.6;
+  for (const [wx, wy, sx, sy] of [[x0, y0, 1, 1], [x1, y0, -1, 1]]) {
+    for (let k = 0; k <= 3; k += 1) {
+      const a = (Math.PI / 2) * (k / 3);
+      ctx.beginPath();
+      ctx.moveTo(wx, wy);
+      ctx.lineTo(wx + sx * Math.cos(a) * 48, wy + sy * Math.sin(a) * 48);
+      ctx.stroke();
+    }
+    for (const r of [16, 30]) {
+      ctx.beginPath();
+      for (let k = 0; k <= 3; k += 1) {
+        const a = (Math.PI / 2) * (k / 3);
+        const px = wx + sx * Math.cos(a) * r;
+        const py = wy + sy * Math.sin(a) * r;
+        if (k === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+  }
+}
 
 function drawFloor(ctx, game, time) {
   const c = game.case;
@@ -660,6 +718,25 @@ function drawStation(ctx, game, time) {
     ctx.beginPath();
     ctx.ellipse(lx, ly, 14, 9, 0, 0, Math.PI * 2);
     ctx.stroke();
+    // the porcelain shade: an inner ring, a hot filament, a rim that catches the room light
+    ctx.strokeStyle = 'rgba(236, 250, 244, 0.28)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.ellipse(lx, ly, 10.5, 6.6, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255, 252, 238, 0.5)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(lx, ly, 13.4, 8.6, 0, -2.5, -0.7);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255, 252, 238, 0.85)';
+    ctx.beginPath();
+    ctx.arc(lx - 0.6, ly - 0.8, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+    ctx.beginPath();
+    ctx.ellipse(lx + 1.2, ly + 2.2, 12, 6.4, 0, 0, Math.PI);
+    ctx.fill();
   }
   // 站台钟：秒针在走，没人看
   const cx = 350;
@@ -851,27 +928,56 @@ function drawBackroomsDecor(ctx, game, time) {
 // 俯视下的门是一块装进门框的板，不是一个洞：门缝、门板、合页边的暗部、门槛，再加一块门牌。
 // 两处案子共用，只换材质。
 function doorPanel(ctx, x, y, w, h, tone) {
-  // the gap the leaf sits in
+  // the opening, the casing, the gap, and the leaf: four pieces, not one dark rectangle.
   ctx.fillStyle = 'rgba(3, 3, 4, 0.7)';
-  ctx.fillRect(x - 1.5, y - 1.5, w + 3, h + 3);
+  ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
+  // the casing: a separate frame, with a lit outer edge on the stage side
+  const frame = ctx.createLinearGradient(x - 2, y - 2, x + w + 2, y + h + 2);
+  frame.addColorStop(0, tone.frameLight || tone.light);
+  frame.addColorStop(0.6, tone.frame || tone.mid);
+  frame.addColorStop(1, tone.dark);
+  ctx.fillStyle = frame;
+  ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
+  ctx.fillStyle = 'rgba(255, 246, 226, 0.2)';
+  ctx.fillRect(x - 2, y - 2, w + 4, 1);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+  ctx.fillRect(x - 2, y + h + 1, w + 4, 1);
+  // the shadow slot between casing and leaf
+  ctx.fillStyle = 'rgba(2, 2, 3, 0.58)';
+  ctx.fillRect(x + 0.4, y + 0.4, w - 0.8, h - 0.8);
+  // the leaf itself, inset so the frame has thickness
   const g = ctx.createLinearGradient(x, y, x + w, y + h);
   g.addColorStop(0, tone.light);
   g.addColorStop(0.55, tone.mid);
   g.addColorStop(1, tone.dark);
   ctx.fillStyle = g;
-  ctx.fillRect(x + 1, y + 1, w - 2, h - 2);
+  ctx.fillRect(x + 1.6, y + 1.6, w - 3.2, h - 3.2);
   // the leaf's own thickness: a lit edge on the top/left, a shadow on the other side
-  ctx.fillStyle = 'rgba(255, 246, 226, 0.16)';
-  ctx.fillRect(x + 1, y + 1, w - 2, 1);
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-  ctx.fillRect(x + 1, y + h - 2, w - 2, 1);
+  ctx.fillStyle = 'rgba(255, 246, 226, 0.18)';
+  ctx.fillRect(x + 1.6, y + 1.6, w - 3.2, 0.9);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+  ctx.fillRect(x + 1.6, y + h - 2.4, w - 3.2, 0.8);
   // the two panels pressed into the leaf
   ctx.strokeStyle = tone.groove;
   ctx.lineWidth = 0.8;
+  ctx.strokeRect(x + 5, y + 5, w - 10, h - 10);
+  // a scored line inside the stile: the leaf is boards, not a slab
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.22)';
+  ctx.lineWidth = 0.6;
   if (w > h) {
-    ctx.strokeRect(x + 5.5, y + 5.5, w - 11, h - 11);
+    ctx.beginPath();
+    ctx.moveTo(x + 3.2, y + 3);
+    ctx.lineTo(x + 3.2, y + h - 3);
+    ctx.moveTo(x + w - 3.2, y + 3);
+    ctx.lineTo(x + w - 3.2, y + h - 3);
+    ctx.stroke();
   } else {
-    ctx.strokeRect(x + 5.5, y + 5.5, w - 11, h - 11);
+    ctx.beginPath();
+    ctx.moveTo(x + 3, y + 3.2);
+    ctx.lineTo(x + w - 3, y + 3.2);
+    ctx.moveTo(x + 3, y + h - 3.2);
+    ctx.lineTo(x + w - 3, y + h - 3.2);
+    ctx.stroke();
   }
 }
 
@@ -898,6 +1004,17 @@ function drawDoors(ctx, game, time) {
       const plateY = along ? d.y : d.y + 13;
       ctx.fillStyle = 'rgba(186, 152, 88, 0.7)';
       ctx.fillRect(plateX - 6, plateY - 4, 12, 8);
+      // brass is a hard, narrow specular and a dark underside
+      ctx.fillStyle = 'rgba(255, 240, 190, 0.55)';
+      ctx.fillRect(plateX - 5.4, plateY - 3.4, 10.8, 0.7);
+      ctx.fillStyle = 'rgba(46, 30, 12, 0.55)';
+      ctx.fillRect(plateX - 5.4, plateY + 2.6, 10.8, 0.8);
+      ctx.fillStyle = 'rgba(40, 26, 10, 0.5)';
+      for (const sx of [-4.6, 4.6]) {
+        ctx.beginPath();
+        ctx.arc(plateX + sx, plateY - 2.4, 0.45, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.fillStyle = 'rgba(24, 18, 10, 0.85)';
       ctx.save();
       ctx.font = `6px ${L.fonts.mono}`;
@@ -912,6 +1029,15 @@ function drawDoors(ctx, game, time) {
       ctx.beginPath();
       ctx.arc(hx, hy, 1.8, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillStyle = 'rgba(255, 244, 206, 0.65)';
+      ctx.beginPath();
+      ctx.arc(hx - 0.5, hy - 0.4, 0.7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(30, 20, 8, 0.55)';
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.arc(hx + 0.2, hy + 0.3, 1.7, 0.2, 1.8);
+      ctx.stroke();
       // 她记住的门：门槛外面用红粉笔划一个叉，这一夜它就是个陷阱
       const hachi = game.thralls.find((t) => t.kind === 'hachi');
       if (hachi && hachi.remember === i) {
@@ -1300,6 +1426,14 @@ function drawStage(ctx, game, time) {
 
 function drawSeats(ctx, seats) {
   for (const s of seats) {
+    // deterministic wear: each seat ages differently, but the same way every frame
+    let h = (Math.round(s.x) * 7349 + Math.round(s.y) * 1931 + s.w * 31) >>> 0;
+    const rnd = () => {
+      h = (h * 1103515245 + 12345) & 0x7fffffff;
+      return h / 0x7fffffff;
+    };
+    const worn = rnd();
+    const scuff = rnd();
     // contact shadow under the row
     ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
     ctx.fillRect(s.x - 2, s.y + s.h - 2, s.w + 6, 5);
@@ -1316,6 +1450,31 @@ function drawSeats(ctx, seats) {
     ctx.fillStyle = ctx.createPattern(velvetTile(), 'repeat');
     ctx.fillRect(s.x, s.y, s.w, s.h);
     ctx.restore();
+
+    // the velvet rubs thin where people sit down and push back
+    if (worn > 0.25) {
+      ctx.fillStyle = `rgba(196, 122, 104, ${0.05 + worn * 0.06})`;
+      ctx.beginPath();
+      ctx.ellipse(s.x + s.w * 0.5, s.y + s.h * (0.22 + worn * 0.1), s.w * 0.3, s.h * 0.15, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // scratches and a thread pull near the front edge
+    ctx.strokeStyle = `rgba(214, 160, 140, ${0.1 + scuff * 0.1})`;
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(s.x + s.w * (0.2 + scuff * 0.3), s.y + s.h * 0.78);
+    ctx.lineTo(s.x + s.w * (0.34 + scuff * 0.4), s.y + s.h * 0.92);
+    ctx.moveTo(s.x + s.w * (0.62 + worn * 0.2), s.y + s.h * 0.7);
+    ctx.lineTo(s.x + s.w * (0.5 + worn * 0.3), s.y + s.h * 0.9);
+    ctx.stroke();
+    if (scuff > 0.82) {
+      ctx.strokeStyle = 'rgba(16, 6, 8, 0.7)';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(s.x + s.w * 0.46, s.y + s.h * 0.6);
+      ctx.lineTo(s.x + s.w * 0.54, s.y + s.h * 0.9);
+      ctx.stroke();
+    }
 
     // piping: a bright bead along the lit edge, a dark one at the foot
     ctx.fillStyle = 'rgba(232, 190, 150, 0.35)';
@@ -1711,6 +1870,15 @@ function drawWalls(ctx, game) {
     g.addColorStop(1, '#0b0e13');
     ctx.fillStyle = g;
     ctx.fillRect(x, y, w, h);
+    // skirting board: a trim strip inset along the foot of the wall, with its own shadow
+    if (!big) {
+      ctx.strokeStyle = 'rgba(184, 198, 216, 0.07)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x + 2.5, y + 2.5, w - 5, h - 5);
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.32)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 4.5, y + 4.5, w - 9, h - 9);
+    }
     if (big) {
       // 一块楼板，不是一个洞：顶面、女儿墙、分格缝，几处屋顶设备
       ctx.fillStyle = 'rgba(120, 134, 150, 0.045)';
@@ -1764,6 +1932,15 @@ function drawWalls(ctx, game) {
     } else if (c.decor === 'station') {
       ctx.fillStyle = 'rgba(160, 200, 200, 0.12)';
       ctx.fillRect(x, y + h * 0.5, w, 1);
+      // glazed brick: courses every 12 px, joints staggered by half a brick
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
+      for (let yy = y + 10; yy < y + h - 4; yy += 12) ctx.fillRect(x + 2, yy, w - 4, 0.8);
+      ctx.fillStyle = 'rgba(184, 204, 204, 0.05)';
+      for (let yy = y + 11; yy < y + h - 4; yy += 12) ctx.fillRect(x + 2, yy, w - 4, 0.4);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+      for (let yy = y + 10; yy < y + h - 16; yy += 24) {
+        for (let xx = x + 18; xx < x + w - 8; xx += 30) ctx.fillRect(xx, yy, 0.7, 11);
+      }
     } else if (c.decor === 'corridor') {
       // 走廊下半墙的护墙板
       ctx.fillStyle = 'rgba(120, 96, 66, 0.16)';
@@ -1927,6 +2104,23 @@ function drawThralls(ctx, game, time) {
     ctx.quadraticCurveTo(9.2, 2.4, 8, 8.4);
     ctx.stroke();
 
+    // lapels: two dark wedges on the shoulders, only their outer halves survive under the set
+    for (const side of [-1, 1]) {
+      ctx.fillStyle = 'rgba(34, 30, 24, 0.95)';
+      ctx.beginPath();
+      ctx.moveTo(side * 3.4, -5.6);
+      ctx.lineTo(side * 7.2, -3.4);
+      ctx.lineTo(side * 6.4, 1.4);
+      ctx.lineTo(side * 2.8, 0.2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(232, 224, 208, 0.14)';
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(side * 3.6, -5.4);
+      ctx.lineTo(side * 6.9, -3.3);
+      ctx.stroke();
+    }
     // the arms come forward to carry the set: both forearms under its front corners
     for (const side of [-1, 1]) {
       ctx.strokeStyle = suit;
@@ -1942,10 +2136,36 @@ function drawThralls(ctx, game, time) {
       ctx.moveTo(side * 8.7, -1.2);
       ctx.lineTo(side * 9.1, -5.2);
       ctx.stroke();
+      // the cuff: the sleeve turns back before the glove
+      ctx.strokeStyle = 'rgba(24, 21, 16, 0.55)';
+      ctx.lineWidth = 3.4;
+      ctx.beginPath();
+      ctx.moveTo(side * 7.4, -4.4);
+      ctx.lineTo(side * 9.5, -4.9);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(240, 232, 214, 0.18)';
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(side * 7.5, -4.8);
+      ctx.lineTo(side * 9.4, -5.3);
+      ctx.stroke();
       ctx.fillStyle = '#8d7a63';
       ctx.beginPath();
       ctx.arc(side * 6.6, -6.6, 2.4, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillStyle = 'rgba(255, 234, 202, 0.2)';
+      ctx.beginPath();
+      ctx.arc(side * 6.4, -6.9, 1.1, 0, Math.PI * 2);
+      ctx.fill();
+      // fingers wrapped round the corner of the set
+      ctx.strokeStyle = 'rgba(30, 24, 18, 0.45)';
+      ctx.lineWidth = 0.45;
+      for (const k of [-0.7, 0.5]) {
+        ctx.beginPath();
+        ctx.moveTo(side * 6.6 + k * side, -8.6);
+        ctx.lineTo(side * 6.6 + k * side, -4.8);
+        ctx.stroke();
+      }
     }
 
     // the set on the shoulders, from above: a plastic top, the bevel, vents at the back,
@@ -1968,6 +2188,15 @@ function drawThralls(ctx, game, time) {
     ctx.beginPath();
     ctx.roundRect(-6.1, -9.7, 12.2, 11.6, 1.2);
     ctx.stroke();
+    // the four corner chamfers: the plastic turns away from the top face
+    ctx.strokeStyle = 'rgba(255, 250, 236, 0.14)';
+    ctx.lineWidth = 0.6;
+    for (const [cx, cy, sx, sy] of [[-6.6, -10.2, 1, 1], [6.6, -10.2, -1, 1], [-6.6, 2.6, 1, -1], [6.6, 2.6, -1, -1]]) {
+      ctx.beginPath();
+      ctx.moveTo(cx + sx * 1.1, cy);
+      ctx.lineTo(cx, cy + sy * 1.1);
+      ctx.stroke();
+    }
     // the bevel: lit along the front top edge, dark where the case turns away
     ctx.fillStyle = 'rgba(255, 250, 236, 0.2)';
     ctx.beginPath();
@@ -1975,19 +2204,34 @@ function drawThralls(ctx, game, time) {
     ctx.fill();
     ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
     ctx.fillRect(-6.6, 2.2, 13.2, 1.2);
-    // vents at the back of the top face
-    ctx.strokeStyle = 'rgba(18, 18, 15, 0.5)';
-    ctx.lineWidth = 0.8;
+    // vents at the back of the top face: a groove with a lip, so they have depth
     for (let i = 0; i < 3; i += 1) {
-      ctx.beginPath();
-      ctx.moveTo(-4.4, 0.4 + i * 1.5);
-      ctx.lineTo(4.4, 0.4 + i * 1.5);
-      ctx.stroke();
+      const vy = 0.4 + i * 1.5;
+      ctx.fillStyle = 'rgba(10, 10, 8, 0.62)';
+      ctx.fillRect(-4.6, vy, 9.2, 1.1);
+      ctx.fillStyle = 'rgba(255, 248, 232, 0.13)';
+      ctx.fillRect(-4.6, vy + 1.1, 9.2, 0.4);
     }
-    ctx.fillStyle = '#38352d';
+    // the carry handle: two mounts and a bar standing off the case, with its own shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
     ctx.beginPath();
-    ctx.roundRect(-2.8, 2.6, 5.6, 1.6, 0.6);
+    ctx.roundRect(-4.6, 2.2, 9.2, 2.4, 1.1);
     ctx.fill();
+    ctx.strokeStyle = '#4a4739';
+    ctx.lineWidth = 1.7;
+    ctx.beginPath();
+    ctx.moveTo(-4.2, 2.8);
+    ctx.quadraticCurveTo(0, 5.1, 4.2, 2.8);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255, 246, 220, 0.3)';
+    ctx.lineWidth = 0.55;
+    ctx.beginPath();
+    ctx.moveTo(-3.9, 2.6);
+    ctx.quadraticCurveTo(0, 4.7, 3.9, 2.6);
+    ctx.stroke();
+    ctx.fillStyle = '#2b2922';
+    ctx.fillRect(-4.9, 2.1, 1.4, 1.4);
+    ctx.fillRect(3.5, 2.1, 1.4, 1.4);
     // the channel dial and the volume knob, along the right of the top face
     ctx.fillStyle = '#1d1c17';
     ctx.beginPath();
@@ -2018,6 +2262,23 @@ function drawThralls(ctx, game, time) {
     const flick = 0.55 + Math.sin(time * 24 + t.step * 3) * 0.3;
     ctx.fillStyle = `rgba(168, 244, 228, ${0.9 * flick})`;
     ctx.fillRect(-7.8, -10.9, 15.6, 1.5);
+    // the glass over it: a cool sheet and a highlight that slides along the front edge
+    const sheen = ((Math.sin(time * 1.7 + t.step) + 1) / 2) * 12 - 6.5;
+    const glass = ctx.createLinearGradient(-7.8, 0, 7.8, 0);
+    glass.addColorStop(0, 'rgba(220, 255, 248, 0.04)');
+    glass.addColorStop(0.5, 'rgba(232, 255, 250, 0.16)');
+    glass.addColorStop(1, 'rgba(220, 255, 248, 0.04)');
+    ctx.fillStyle = glass;
+    ctx.fillRect(-7.8, -10.9, 15.6, 1.5);
+    ctx.fillStyle = `rgba(255, 255, 250, ${0.35 + 0.2 * flick})`;
+    ctx.fillRect(sheen, -11, 2, 1.7);
+    // a sliver of collar under the screen's chin: one pale line and a dark knot, not a face
+    ctx.fillStyle = 'rgba(220, 214, 198, 0.42)';
+    ctx.fillRect(-3.2, -9.2, 6.4, 0.65);
+    ctx.fillStyle = 'rgba(24, 20, 16, 0.75)';
+    ctx.fillRect(-0.85, -9.35, 1.7, 1.15);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+    ctx.fillRect(-3.2, -8.4, 6.4, 0.35);
     const spill = ctx.createLinearGradient(0, -10, 0, -38);
     spill.addColorStop(0, `rgba(140, 235, 215, ${0.24 * flick})`);
     spill.addColorStop(1, 'rgba(140, 235, 215, 0)');
@@ -2030,28 +2291,65 @@ function drawThralls(ctx, game, time) {
     ctx.closePath();
     ctx.fill();
 
-    // antennas out of the back of the case: rabbit ears, long and thin, with a bead at the tip
-    ctx.strokeStyle = '#47453a';
-    ctx.lineWidth = 1.1;
-    ctx.beginPath();
-    ctx.moveTo(-5, 2.6);
-    ctx.lineTo(-9.4, 12.6);
-    ctx.moveTo(5, 2.6);
-    ctx.lineTo(9.4, 12.6);
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(255, 246, 220, 0.28)';
-    ctx.lineWidth = 0.5;
-    ctx.beginPath();
-    ctx.moveTo(-4.8, 2.8);
-    ctx.lineTo(-9.1, 12.2);
-    ctx.moveTo(5.2, 2.8);
-    ctx.lineTo(9.7, 12.2);
-    ctx.stroke();
-    ctx.fillStyle = '#5d5a4c';
-    ctx.beginPath();
-    ctx.arc(-9.4, 12.6, 1.1, 0, Math.PI * 2);
-    ctx.arc(9.4, 12.6, 1.1, 0, Math.PI * 2);
-    ctx.fill();
+    // antennas out of the back of the case: two joints each, a bead at the knee, a bead at the tip
+    ctx.lineCap = 'round';
+    for (const side of [-1, 1]) {
+      const bx = side * 5;
+      const by = 2.6;
+      const jx = side * 7.5;
+      const jy = 8.2;
+      const tx = side * 9.8;
+      const ty = 13.2;
+      // shadow of the rod on the boards behind him
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.28)';
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.moveTo(bx + 1.1, by + 1.2);
+      ctx.lineTo(jx + 1.2, jy + 1.3);
+      ctx.lineTo(tx + 1.3, ty + 1.4);
+      ctx.stroke();
+      ctx.strokeStyle = '#47453a';
+      ctx.lineWidth = 1.05;
+      ctx.beginPath();
+      ctx.moveTo(bx, by);
+      ctx.lineTo(jx, jy);
+      ctx.lineTo(tx, ty);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255, 246, 220, 0.26)';
+      ctx.lineWidth = 0.45;
+      ctx.beginPath();
+      ctx.moveTo(bx + 0.2, by + 0.2);
+      ctx.lineTo(jx + 0.2, jy + 0.2);
+      ctx.moveTo(jx + 0.2, jy + 0.2);
+      ctx.lineTo(tx + 0.2, ty + 0.2);
+      ctx.stroke();
+      // the joint: a knuckle of brass, lit on one side
+      ctx.fillStyle = '#5b5747';
+      ctx.beginPath();
+      ctx.arc(jx, jy, 0.9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255, 246, 220, 0.4)';
+      ctx.beginPath();
+      ctx.arc(jx - 0.2, jy - 0.2, 0.36, 0, Math.PI * 2);
+      ctx.fill();
+      // a spring coil where the rod meets the case
+      ctx.strokeStyle = 'rgba(206, 198, 176, 0.25)';
+      ctx.lineWidth = 0.5;
+      for (let k = 0; k < 2; k += 1) {
+        ctx.beginPath();
+        ctx.moveTo(bx - 1 + k * 0.5, by + 1.2 + k * 0.9);
+        ctx.lineTo(bx + 1 - k * 0.3, by + 1.4 + k * 0.9);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#5d5a4c';
+      ctx.beginPath();
+      ctx.arc(tx, ty, 1.05, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255, 246, 220, 0.34)';
+      ctx.beginPath();
+      ctx.arc(tx - 0.25, ty - 0.25, 0.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     if (t.hitFlash > 0.02) {
       // a short bloom on the set, not a white disc over the whole body
@@ -2142,29 +2440,51 @@ function drawSpider(ctx, t, time, dim = 1) {
       footY: baseY + 15 + phase * 7,
     });
   }
-  // contact: each foot puts a small dark knot on the boards, offset with the main light
-  ctx.fillStyle = 'rgba(6, 4, 6, 0.4)';
+  // contact: each foot puts a soft pool on the boards and a hard little knot at the toe
   for (const leg of legs) {
+    ctx.fillStyle = 'rgba(6, 4, 6, 0.14)';
+    ctx.beginPath();
+    ctx.ellipse(leg.footX + 1.2, leg.footY + 2.4, 7, 2.7, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(6, 4, 6, 0.42)';
     ctx.beginPath();
     ctx.ellipse(leg.footX + 1.4, leg.footY + 2, 3.2, 1.5, 0, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.lineCap = 'round';
-  // thigh thicker than shin: the joint reads as a joint, not as two straight wires
-  ctx.strokeStyle = 'rgba(38, 30, 35, 0.96)';
-  ctx.lineWidth = 3.2;
+  // thigh and shin are tapered: a joint that is the same width as the wire is not a joint
   for (const leg of legs) {
+    const bx = leg.side * 14;
+    const by = leg.baseY;
+    const tx = leg.kneeX;
+    const ty = leg.kneeY;
+    const nx = -(ty - by);
+    const ny = tx - bx;
+    const len = Math.hypot(nx, ny) || 1;
+    const ux = nx / len;
+    const uy = ny / len;
+    ctx.fillStyle = 'rgba(38, 30, 35, 0.97)';
     ctx.beginPath();
-    ctx.moveTo(leg.side * 14, leg.baseY);
-    ctx.lineTo(leg.kneeX, leg.kneeY);
-    ctx.stroke();
-  }
-  ctx.lineWidth = 1.9;
-  for (const leg of legs) {
+    ctx.moveTo(bx + ux * 2.1, by + uy * 2.1);
+    ctx.lineTo(tx + ux * 1.35, ty + uy * 1.35);
+    ctx.lineTo(tx - ux * 1.35, ty - uy * 1.35);
+    ctx.lineTo(bx - ux * 2.1, by - uy * 2.1);
+    ctx.closePath();
+    ctx.fill();
+    const fx = leg.footX;
+    const fy = leg.footY;
+    const snx = -(fy - ty);
+    const sny = fx - tx;
+    const slen = Math.hypot(snx, sny) || 1;
+    const sux = snx / slen;
+    const suy = sny / slen;
     ctx.beginPath();
-    ctx.moveTo(leg.kneeX, leg.kneeY);
-    ctx.lineTo(leg.footX, leg.footY);
-    ctx.stroke();
+    ctx.moveTo(tx + sux * 1.25, ty + suy * 1.25);
+    ctx.lineTo(fx + sux * 0.55, fy + suy * 0.55);
+    ctx.lineTo(fx - sux * 0.55, fy - suy * 0.55);
+    ctx.lineTo(tx - sux * 1.25, ty - suy * 1.25);
+    ctx.closePath();
+    ctx.fill();
   }
   // the lit side of each segment: a hair of warm light where the stage lamp catches the joint
   ctx.strokeStyle = 'rgba(232, 196, 164, 0.2)';
@@ -2186,6 +2506,24 @@ function drawSpider(ctx, t, time, dim = 1) {
     ctx.beginPath();
     ctx.arc(leg.kneeX + litX * 0.8, leg.kneeY + litY * 0.8, 0.7, 0, Math.PI * 2);
     ctx.fill();
+    // the shin's last third gets a thinner specular than the thigh
+    const mx = leg.kneeX + (leg.footX - leg.kneeX) * 0.45;
+    const my = leg.kneeY + (leg.footY - leg.kneeY) * 0.45;
+    ctx.strokeStyle = 'rgba(240, 210, 180, 0.28)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(mx + litX * 0.8, my + litY * 0.8);
+    ctx.lineTo(leg.footX + litX * 0.8, leg.footY + litY * 0.8);
+    ctx.stroke();
+    // the foot: a bead of its own, so the leg lands on something
+    ctx.fillStyle = 'rgba(20, 16, 20, 0.96)';
+    ctx.beginPath();
+    ctx.ellipse(leg.footX, leg.footY, 1.5, 1.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(240, 199, 166, 0.4)';
+    ctx.beginPath();
+    ctx.arc(leg.footX + litX * 0.5, leg.footY + litY * 0.5, 0.45, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   // the dress: broad shoulders under the head, a kimono collar crossing at the nape, and a hem
@@ -2196,16 +2534,26 @@ function drawSpider(ctx, t, time, dim = 1) {
   dress.addColorStop(0.55, '#cfc8ba');
   dress.addColorStop(1, '#a8a195');
   ctx.fillStyle = dress;
-  ctx.beginPath();
-  ctx.moveTo(-12, -30);
-  ctx.bezierCurveTo(-16, -23, -19, -8, -21, 8);
-  ctx.lineTo(-21, 26);
-  ctx.bezierCurveTo(-10, 32, 10, 32, 21, 26);
-  ctx.lineTo(21, 8);
-  ctx.bezierCurveTo(19, -8, 16, -23, 12, -30);
-  ctx.bezierCurveTo(6, -33, -6, -33, -12, -30);
-  ctx.closePath();
-  ctx.fill();
+  const dressPath = new Path2D();
+  dressPath.moveTo(-12, -30);
+  dressPath.bezierCurveTo(-16, -23, -19, -8, -21, 8);
+  dressPath.lineTo(-21, 26);
+  dressPath.bezierCurveTo(-10, 32, 10, 32, 21, 26);
+  dressPath.lineTo(21, 8);
+  dressPath.bezierCurveTo(19, -8, 16, -23, 12, -30);
+  dressPath.bezierCurveTo(6, -33, -6, -33, -12, -30);
+  dressPath.closePath();
+  ctx.fill(dressPath);
+  // 布的两面：朝台口的一侧有一层暖光，背光的一侧压一层冷影。缺这一层，裙子就是一张纸。
+  ctx.save();
+  ctx.clip(dressPath);
+  const skirtLit = ctx.createLinearGradient(litX * 26, -6, -litX * 26, 4);
+  skirtLit.addColorStop(0, 'rgba(255, 236, 204, 0.2)');
+  skirtLit.addColorStop(0.5, 'rgba(255, 236, 204, 0.02)');
+  skirtLit.addColorStop(1, 'rgba(12, 14, 22, 0.22)');
+  ctx.fillStyle = skirtLit;
+  ctx.fillRect(-26, -36, 52, 72);
+  ctx.restore();
   // kimono sleeves: two pale wings hanging off the shoulders, so the top of the figure is not a
   // bare teardrop. The cuff fold is the only dark line on them.
   for (const side of [-1, 1]) {
@@ -2246,26 +2594,73 @@ function drawSpider(ctx, t, time, dim = 1) {
   ctx.lineTo(0, -26.4);
   ctx.lineTo(8.2, -31.6);
   ctx.stroke();
-  ctx.fillStyle = 'rgba(120, 30, 36, 0.9)';
+  ctx.fillStyle = 'rgba(120, 28, 34, 0.95)';
   ctx.fillRect(-17, -2, 34, 5.5);
-  // the folds of the skirt falling from the obi
-  ctx.strokeStyle = 'rgba(96, 90, 82, 0.42)';
-  ctx.lineWidth = 0.9;
-  for (let i = -2; i <= 2; i += 1) {
+  // the obi is cloth too: a lit top edge, a dark under-edge, a seam where it wraps
+  ctx.fillStyle = 'rgba(206, 118, 104, 0.34)';
+  ctx.fillRect(-17, -2, 34, 0.8);
+  ctx.fillStyle = 'rgba(44, 10, 14, 0.55)';
+  ctx.fillRect(-17, 3, 34, 0.9);
+  ctx.fillStyle = 'rgba(70, 16, 22, 0.35)';
+  ctx.fillRect(-17, 0.6, 1.2, 4.2);
+  // the folds of the skirt falling from the obi: each fold has a dark side and a lit side
+  for (const i of [-2, -1, 0, 1, 2]) {
+    const x = i * 7;
+    ctx.strokeStyle = 'rgba(88, 82, 76, 0.42)';
+    ctx.lineWidth = 0.9;
     ctx.beginPath();
-    ctx.moveTo(i * 7, 1);
-    ctx.quadraticCurveTo(i * 9, 12, i * 6.4, 25);
+    ctx.moveTo(x, 1);
+    ctx.quadraticCurveTo(x * 1.28, 12, x * 0.92, 25);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(250, 244, 230, 0.34)';
+    ctx.lineWidth = 0.65;
+    ctx.beginPath();
+    ctx.moveTo(x + litX * 1.3, 2);
+    ctx.quadraticCurveTo(x * 1.28 + litX * 1.4, 12, x * 0.92 + litX * 1.2, 24.5);
     ctx.stroke();
   }
-  // the obi knot at the back, over the folds
-  ctx.fillStyle = 'rgba(132, 34, 40, 1)';
+  // the obi knot at the back: two loops, a knot, two tails — over the folds
+  ctx.save();
+  ctx.translate(0, 8);
+  for (const side of [-1, 1]) {
+    ctx.fillStyle = 'rgba(102, 22, 28, 0.98)';
+    ctx.beginPath();
+    ctx.ellipse(side * 3.9, -0.5, 3.1, 2.1, side * 0.42, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(150, 52, 54, 0.55)';
+    ctx.beginPath();
+    ctx.ellipse(side * 3.5, -1.1, 1.8, 1, side * 0.42, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // tails hanging from the knot, lit on one side
+  for (const side of [-1, 1]) {
+    ctx.fillStyle = 'rgba(104, 24, 30, 0.96)';
+    ctx.beginPath();
+    ctx.moveTo(side * 1, 1.2);
+    ctx.quadraticCurveTo(side * 2, 6.4, side * 3.2, 11.8);
+    ctx.lineTo(side * 1.1, 10.8);
+    ctx.quadraticCurveTo(side * 0.4, 5.6, side * 0.2, 1.6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(178, 80, 76, 0.4)';
+    ctx.beginPath();
+    ctx.moveTo(side * 1.2, 2);
+    ctx.quadraticCurveTo(side * 2.1, 6.6, side * 3, 10.8);
+    ctx.lineTo(side * 2.2, 10.4);
+    ctx.quadraticCurveTo(side * 1.2, 6, side * 0.8, 2);
+    ctx.closePath();
+    ctx.fill();
+  }
+  // the knot itself
+  ctx.fillStyle = 'rgba(132, 36, 42, 1)';
   ctx.beginPath();
-  ctx.ellipse(0, 8, 5.5, 4.5, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 0.4, 2.3, 2.6, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = 'rgba(158, 58, 60, 0.8)';
+  ctx.fillStyle = 'rgba(204, 122, 108, 0.4)';
   ctx.beginPath();
-  ctx.ellipse(-1.4, 7.2, 3.2, 2.2, -0.4, 0, Math.PI * 2);
+  ctx.ellipse(-0.7, -0.6, 1.1, 0.8, -0.4, 0, Math.PI * 2);
   ctx.fill();
+  ctx.restore();
   // long black hair: from the crown to the obi. One tapered mass with a single sheen, no interior
   // lines — at this size a few dark locks read as eyes on the back of the dress.
   ctx.fillStyle = 'rgba(22, 17, 20, 0.94)';
@@ -2283,6 +2678,33 @@ function drawSpider(ctx, t, time, dim = 1) {
   ctx.moveTo(-5.4, -31);
   ctx.bezierCurveTo(-5.4, -22, -4, -12, -2.2, -6);
   ctx.stroke();
+  // 分束：三束头发各有一条暗缝与一条受光边。发丝不是一块黑，是几束并在一起。
+  ctx.strokeStyle = 'rgba(5, 4, 6, 0.55)';
+  ctx.lineWidth = 0.8;
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(s * 2.4, -32.6);
+    ctx.bezierCurveTo(s * 3.4, -23, s * 2.6, -13, s * 1.2, -6.2);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(230, 210, 198, 0.1)';
+  ctx.lineWidth = 0.5;
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(s * 4.4, -30.4);
+    ctx.bezierCurveTo(s * 5.2, -22, s * 4.2, -13, s * 2.4, -7.4);
+    ctx.stroke();
+  }
+  // 发梢收成三个尖，不是一个平底
+  ctx.fillStyle = 'rgba(18, 14, 17, 0.95)';
+  for (const s of [-1, 0, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(s * 2.6 - 1, -6.2);
+    ctx.lineTo(s * 2.6 + 1, -6.2);
+    ctx.lineTo(s * 2.6 + s * 0.6, s === 0 ? -3.1 : -4.1);
+    ctx.closePath();
+    ctx.fill();
+  }
 
   // arms forward, pale, hands at the ends
   ctx.strokeStyle = '#d8d2c6';
@@ -2755,19 +3177,47 @@ function drawAgents(ctx, game, time) {
       ctx.beginPath();
       ctx.ellipse(1.2, 2, 3.3, 4.2, 0, 0, Math.PI * 2);
       ctx.fill();
-      // the boot from above: a leather shell, a toe, a heel
-      ctx.fillStyle = '#0a0d12';
+      // the boot from above: a leather shell, a toe cap, laces, a heel
+      const shell = ctx.createLinearGradient(0, -3.6, 0, 3.8);
+      shell.addColorStop(0, '#1b232d');
+      shell.addColorStop(0.45, '#101620');
+      shell.addColorStop(1, '#070a0e');
+      ctx.fillStyle = shell;
       ctx.beginPath();
-      ctx.roundRect(-2.2, -3.4, 4.4, 7, 2.1);
+      ctx.roundRect(-2.3, -3.6, 4.6, 7.3, 2.2);
       ctx.fill();
-      ctx.fillStyle = 'rgba(150, 168, 190, 0.16)';
+      // the toe is the one surface the lamp finds
+      const toe = ctx.createLinearGradient(0, -3.4, 0, 0.2);
+      toe.addColorStop(0, 'rgba(176, 196, 220, 0.34)');
+      toe.addColorStop(1, 'rgba(120, 140, 166, 0.04)');
+      ctx.fillStyle = toe;
       ctx.beginPath();
-      ctx.roundRect(-1.7, -3, 3.4, 3.1, 1.5);
+      ctx.roundRect(-1.9, -3.2, 3.8, 3.5, 1.7);
       ctx.fill();
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      // laces: two crossings on the instep
+      ctx.strokeStyle = 'rgba(190, 206, 226, 0.2)';
+      ctx.lineWidth = 0.5;
+      for (const y of [-1.1, -0.1]) {
+        ctx.beginPath();
+        ctx.moveTo(-1.5, y);
+        ctx.lineTo(1.5, y + 0.55);
+        ctx.moveTo(1.5, y);
+        ctx.lineTo(-1.5, y + 0.55);
+        ctx.stroke();
+      }
+      // the ankle seam and the heel block
+      ctx.strokeStyle = 'rgba(4, 6, 10, 0.6)';
+      ctx.lineWidth = 0.5;
       ctx.beginPath();
-      ctx.roundRect(-1.8, 1.9, 3.6, 1.4, 0.7);
+      ctx.moveTo(-2.1, 1.4);
+      ctx.lineTo(2.1, 1.4);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.62)';
+      ctx.beginPath();
+      ctx.roundRect(-1.9, 2.1, 3.8, 1.7, 0.7);
       ctx.fill();
+      ctx.fillStyle = 'rgba(150, 168, 190, 0.13)';
+      ctx.fillRect(-1.7, 2.3, 3.4, 0.45);
       ctx.restore();
     }
 
@@ -2776,20 +3226,29 @@ function drawAgents(ctx, game, time) {
     ctx.translate(cloth.x * 0.5, cloth.y * 0.5);
     ctx.fillStyle = '#0c0f14';
     ctx.beginPath();
-    ctx.moveTo(-9.4, 1);
-    ctx.quadraticCurveTo(-11, 6, -8.2, 9.2);
-    ctx.quadraticCurveTo(0, 11.2, 8.2, 9.2);
-    ctx.quadraticCurveTo(11, 6, 9.4, 1);
+    ctx.moveTo(-8.4, 1);
+    ctx.quadraticCurveTo(-9.8, 5.6, -7.2, 8.6);
+    ctx.quadraticCurveTo(0, 10.4, 7.2, 8.6);
+    ctx.quadraticCurveTo(9.8, 5.6, 8.4, 1);
     ctx.closePath();
     ctx.fill();
     ctx.fillStyle = coatGrad;
     ctx.beginPath();
-    ctx.moveTo(-8.8, -1);
-    ctx.quadraticCurveTo(-10.2, 5.4, -7.6, 8);
-    ctx.quadraticCurveTo(0, 9.6, 7.6, 8);
-    ctx.quadraticCurveTo(10.2, 5.4, 8.8, -1);
+    ctx.moveTo(-8.2, -1);
+    ctx.quadraticCurveTo(-9.6, 5.2, -7.2, 7.8);
+    ctx.quadraticCurveTo(0, 9.2, 7.2, 7.8);
+    ctx.quadraticCurveTo(9.6, 5.2, 8.2, -1);
     ctx.closePath();
     ctx.fill();
+    // the front panel lies over this hem: a lit lip along the top edge, and a seam where it ends
+    ctx.strokeStyle = 'rgba(255, 226, 182, 0.1)';
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(-7.2, -0.6);
+    ctx.quadraticCurveTo(0, -2.2, 7.2, -0.6);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+    ctx.fillRect(-7.4, 7, 14.8, 1.5);
     ctx.restore();
 
     // shoulders and back: 22 px across at the shoulder line, tapering to the hips
@@ -2811,6 +3270,22 @@ function drawAgents(ctx, game, time) {
     ctx.fillStyle = woolPattern;
     ctx.fill(bodyPath);
     ctx.restore();
+    // two more layers of the same cloth: the panel that faces the stage catches a soft wash,
+    // the panel turned away keeps a deeper shadow. Volume, not a brighter flat colour.
+    ctx.save();
+    ctx.clip(bodyPath);
+    const panelLit = ctx.createRadialGradient(litX * 7, litY * 7 + 1, 1, litX * 7, litY * 7 + 1, 15);
+    panelLit.addColorStop(0, mirror ? 'rgba(198, 218, 226, 0.1)' : 'rgba(255, 222, 172, 0.13)');
+    panelLit.addColorStop(1, 'rgba(255, 220, 170, 0)');
+    ctx.fillStyle = panelLit;
+    ctx.fillRect(-14, -9, 28, 21);
+    const panelDark = ctx.createLinearGradient(-litX * 11, -litY * 11, litX * 3, litY * 3);
+    panelDark.addColorStop(0, 'rgba(3, 5, 9, 0.4)');
+    panelDark.addColorStop(0.7, 'rgba(3, 5, 9, 0.08)');
+    panelDark.addColorStop(1, 'rgba(3, 5, 9, 0)');
+    ctx.fillStyle = panelDark;
+    ctx.fillRect(-14, -9, 28, 21);
+    ctx.restore();
     // three folds down the back of the coat, lit side first
     ctx.strokeStyle = 'rgba(6, 9, 13, 0.28)';
     ctx.lineWidth = 1;
@@ -2820,6 +3295,44 @@ function drawAgents(ctx, game, time) {
       ctx.quadraticCurveTo(i * 6.6 + 1, 4, i * 5.4, 8);
       ctx.stroke();
     }
+    // the waist seam: the coat is cut in two, and the hem hangs from it
+    ctx.strokeStyle = 'rgba(7, 10, 15, 0.45)';
+    ctx.lineWidth = 0.9;
+    ctx.beginPath();
+    ctx.moveTo(-8.8, 2.1);
+    ctx.quadraticCurveTo(0, 4.1, 8.8, 2.1);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(206, 220, 240, 0.07)';
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(-8.4, 3.1);
+    ctx.quadraticCurveTo(0, 5, 8.4, 3.1);
+    ctx.stroke();
+    // the front flap: a seam from the collar down the left of the buttons, pressing over the hem
+    ctx.strokeStyle = 'rgba(5, 8, 12, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-3.1, -4.6);
+    ctx.quadraticCurveTo(-4.6, 0.6, -4.2, 8.2);
+    ctx.stroke();
+    ctx.strokeStyle = mirror ? 'rgba(200, 216, 224, 0.12)' : 'rgba(255, 226, 182, 0.14)';
+    ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(-2.4, -4.4);
+    ctx.quadraticCurveTo(-3.9, 0.6, -3.5, 8);
+    ctx.stroke();
+    // the back vent: the hem is split so the legs can move, and the split holds a shadow
+    ctx.fillStyle = 'rgba(4, 6, 10, 0.55)';
+    ctx.beginPath();
+    ctx.moveTo(-0.5, 4.6);
+    ctx.lineTo(0.5, 4.6);
+    ctx.lineTo(0.9, 9.4);
+    ctx.lineTo(-0.9, 9.4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(210, 224, 242, 0.08)';
+    ctx.fillRect(0.5, 4.8, 0.5, 4.2);
+
     // shoulder pads: two domes, lit from the stage side and dark on the other
     for (const side of [-1, 1]) {
       const pad = ctx.createRadialGradient(
@@ -2833,6 +3346,17 @@ function drawAgents(ctx, game, time) {
       ctx.beginPath();
       ctx.ellipse(side * 7.4, -1.4, 4.6, 4.9, side * 0.22, 0, Math.PI * 2);
       ctx.fill();
+      // the pad is stitched on: a crease at its inner edge, a bead of light along the crown
+      ctx.strokeStyle = 'rgba(6, 9, 14, 0.4)';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.arc(side * 7.4, -1.4, 3.4, side > 0 ? 2.2 : 4.1, side > 0 ? 3.6 : 5.5);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255, 232, 192, 0.22)';
+      ctx.lineWidth = 0.7;
+      ctx.beginPath();
+      ctx.ellipse(side * 7.4, -1.4, 3.6, 3.9, side * 0.22, lightAngle - 1.2, lightAngle + 0.35);
+      ctx.stroke();
     }
     // the seam down the spine
     ctx.strokeStyle = 'rgba(8, 10, 14, 0.45)';
@@ -2917,18 +3441,76 @@ function drawAgents(ctx, game, time) {
       ctx.stroke();
     };
     sleeve(shoulderR, elbowR, 5.8);
-    sleeve(elbowR, grip, 4.2);
+    sleeve(elbowR, grip, 3.9);
     sleeve(shoulderL, elbowL, 5.8);
-    sleeve(elbowL, support, 4.2);
-    // hands: leather gloves, working in the dark
-    for (const h of [grip, support]) {
-      ctx.fillStyle = '#6f5746';
+    sleeve(elbowL, support, 3.9);
+    // the elbow is where a coat wears first: a lit patch with a crease under it
+    for (const elbow of [elbowR, elbowL]) {
+      ctx.fillStyle = coatLight;
+      ctx.globalAlpha = 0.26;
       ctx.beginPath();
-      ctx.arc(h.x, h.y, 2.7, 0, Math.PI * 2);
+      ctx.ellipse(elbow.x, elbow.y, 2.2, 2.4, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = 'rgba(255, 228, 192, 0.24)';
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = 'rgba(6, 9, 13, 0.42)';
+      ctx.lineWidth = 0.6;
       ctx.beginPath();
-      ctx.arc(h.x + 0.5, h.y - 0.7, 1.5, 0, Math.PI * 2);
+      ctx.arc(elbow.x, elbow.y, 2.2, lightAngle + 1.4, lightAngle + 3.6);
+      ctx.stroke();
+    }
+    // hands: leather gloves, working in the dark. A cuff turns out of the sleeve, the glove is
+    // stitched into fingers, and the thumb sits on the inside of the grip.
+    for (const arm of [{ from: elbowR, to: grip }, { from: elbowL, to: support }]) {
+      const dx = arm.to.x - arm.from.x;
+      const dy = arm.to.y - arm.from.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const ux = dx / len;
+      const uy = dy / len;
+      const nx = -uy;
+      const ny = ux;
+      const cuff = { x: arm.to.x - ux * 3, y: arm.to.y - uy * 3 };
+      // the cuff: a band of the coat turned back over the wrist
+      ctx.lineCap = 'butt';
+      ctx.strokeStyle = 'rgba(7, 10, 15, 0.6)';
+      ctx.lineWidth = 3.1;
+      ctx.beginPath();
+      ctx.moveTo(cuff.x + nx * 1.65, cuff.y + ny * 1.65);
+      ctx.lineTo(cuff.x - nx * 1.65, cuff.y - ny * 1.65);
+      ctx.stroke();
+      ctx.strokeStyle = coatLight;
+      ctx.globalAlpha = 0.55;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cuff.x + nx * 1.7 + ux * 0.5, cuff.y + ny * 1.7 + uy * 0.5);
+      ctx.lineTo(cuff.x - nx * 1.7 + ux * 0.5, cuff.y - ny * 1.7 + uy * 0.5);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.lineCap = 'round';
+      // the hand
+      ctx.fillStyle = '#5f4c3e';
+      ctx.beginPath();
+      ctx.arc(arm.to.x, arm.to.y, 2.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255, 228, 192, 0.2)';
+      ctx.beginPath();
+      ctx.arc(arm.to.x + litX * 0.7, arm.to.y + litY * 0.7, 1.4, 0, Math.PI * 2);
+      ctx.fill();
+      // four fingers and a thumb's root: two grooves across the glove, one line down it
+      ctx.strokeStyle = 'rgba(24, 17, 13, 0.55)';
+      ctx.lineWidth = 0.45;
+      for (const t of [-0.55, 0.55]) {
+        ctx.beginPath();
+        ctx.moveTo(arm.to.x + ux * t + nx * 1.7, arm.to.y + uy * t + ny * 1.7);
+        ctx.lineTo(arm.to.x + ux * t - nx * 1.6, arm.to.y + uy * t - ny * 1.6);
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.moveTo(arm.to.x + ux * 0.2, arm.to.y + uy * 0.2);
+      ctx.lineTo(arm.to.x - ux * 0.2 + nx * 1.9, arm.to.y - uy * 0.2 + ny * 1.9);
+      ctx.stroke();
+      ctx.fillStyle = '#6b5546';
+      ctx.beginPath();
+      ctx.arc(arm.to.x + nx * 1.9, arm.to.y + ny * 1.9, 0.85, 0, Math.PI * 2);
       ctx.fill();
     }
 
@@ -2977,6 +3559,24 @@ function drawAgents(ctx, game, time) {
     ctx.beginPath();
     ctx.roundRect(gunX - 1.9, -3.4, 3.8, 4.6, 1.2);
     ctx.fill();
+    // the butt plate: a steel heel, brighter than the wood because it is the one hard edge
+    ctx.fillStyle = '#1b2026';
+    ctx.beginPath();
+    ctx.roundRect(gunX - 1.85, 0.4, 3.7, 1.2, 0.5);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(210, 226, 244, 0.22)';
+    ctx.fillRect(gunX - 1.6, 0.55, 3.2, 0.35);
+    // wooden fore-end under the barrel: only its two lips show either side of the steel
+    const foreGrad = ctx.createLinearGradient(gunX - 1.7, 0, gunX + 1.7, 0);
+    foreGrad.addColorStop(0, '#5c4128');
+    foreGrad.addColorStop(0.5, '#3a2818');
+    foreGrad.addColorStop(1, '#1f150e');
+    ctx.fillStyle = foreGrad;
+    ctx.beginPath();
+    ctx.roundRect(gunX - 1.7, -20.2, 3.4, 7.4, 1.2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(238, 210, 168, 0.16)';
+    ctx.fillRect(gunX - 1.45, -19.8, 0.55, 6.6);
     // receiver: parkerised steel, flat top face lit from the stage
     const steel = ctx.createLinearGradient(gunX - 2.4, 0, gunX + 2.4, 0);
     steel.addColorStop(0, '#4a5563');
@@ -2988,6 +3588,15 @@ function drawAgents(ctx, game, time) {
     ctx.fill();
     ctx.fillStyle = 'rgba(236, 244, 255, 0.5)';
     ctx.fillRect(gunX - 1.9, -12.2, 0.8, 8.4);
+    // the bolt handle, turned out to the right of the receiver
+    ctx.fillStyle = '#2b333d';
+    ctx.beginPath();
+    ctx.arc(gunX + 2.5, -9, 0.95, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(226, 238, 250, 0.4)';
+    ctx.beginPath();
+    ctx.arc(gunX + 2.3, -9.3, 0.38, 0, Math.PI * 2);
+    ctx.fill();
     // magazine, angled out of the receiver
     ctx.save();
     ctx.translate(gunX - 1.4, -11.2);
@@ -2996,6 +3605,11 @@ function drawAgents(ctx, game, time) {
     ctx.beginPath();
     ctx.roundRect(-1.4, 0, 2.8, 6.2, 0.8);
     ctx.fill();
+    // its floorplate, catching the last of the lamp
+    ctx.fillStyle = 'rgba(200, 216, 236, 0.22)';
+    ctx.fillRect(-1.25, 5.3, 2.5, 0.55);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(0.2, 0.4, 0.6, 4.8);
     ctx.restore();
     // optic on the flat top, with a cold lens
     ctx.fillStyle = '#1a2129';
@@ -3004,6 +3618,10 @@ function drawAgents(ctx, game, time) {
     ctx.fill();
     ctx.fillStyle = 'rgba(150, 220, 224, 0.5)';
     ctx.fillRect(gunX - 0.8, -14.2, 1.6, 1.2);
+    ctx.fillStyle = 'rgba(140, 160, 180, 0.35)';
+    ctx.fillRect(gunX - 1.35, -13.9, 0.35, 3.1);
+    ctx.fillStyle = 'rgba(228, 240, 252, 0.28)';
+    ctx.fillRect(gunX - 1.35, -11.4, 2.7, 0.5);
     // barrel and muzzle
     const barrel = ctx.createLinearGradient(gunX - 1, 0, gunX + 1, 0);
     barrel.addColorStop(0, '#5a6675');
@@ -3037,63 +3655,126 @@ function drawAgents(ctx, game, time) {
     ctx.rotate(headTurn);
     ctx.translate(0, 1.2);
     const hair = a.role === 'veteran' ? '#37302a' : a.role === 'rookie' ? '#332c24' : '#2e291f';
-    // the head rests on the collar and drops its own small shadow away from the light.
-    // Flat crown + a hairline of rim on the lit edge reads better than a shaded ball at 11 px.
-    ctx.fillStyle = 'rgba(6, 8, 12, 0.2)';
+    // the head rests on the collar and drops its own shadow away from the light. Two stone
+    // layers: a crescent of shade under the jaw, then the crown with its own lit gradient.
+    ctx.fillStyle = 'rgba(5, 7, 11, 0.34)';
     ctx.beginPath();
-    ctx.ellipse(-litX * 1.4 + 0.4, -3.1 - litY * 1.4 + 0.7, 5.6, 5.2, 0, 0, Math.PI * 2);
+    ctx.ellipse(-litX * 2.6 + 0.4, -2.9 - litY * 2.6 + 0.9, 6.3, 5.4, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = hair;
+    const crown = ctx.createRadialGradient(litX * 2.2, -3.4 + litY * 2.2, 0.8, 0, -3.4, 6.2);
+    crown.addColorStop(0, '#40382f');
+    crown.addColorStop(0.55, hair);
+    crown.addColorStop(1, '#0e0e0c');
+    ctx.fillStyle = crown;
     ctx.beginPath();
     ctx.ellipse(0, -3.4, 5.2, 5.5, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 226, 186, 0.3)';
-    ctx.lineWidth = 1;
+    // the rim follows the lamp, not the sprite
+    ctx.strokeStyle = 'rgba(255, 226, 186, 0.32)';
+    ctx.lineWidth = 1.1;
     ctx.beginPath();
-    ctx.ellipse(0, -3.4, 4.7, 5, 0, lightAngle - 0.85, lightAngle + 0.85);
+    ctx.ellipse(0, -3.4, 4.6, 4.9, 0, lightAngle - 0.95, lightAngle + 0.95);
     ctx.stroke();
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
+    // hair strands: three hairs laid along the lit side, not an outline
+    ctx.strokeStyle = 'rgba(255, 232, 198, 0.13)';
+    ctx.lineWidth = 0.55;
+    for (let i = -1; i <= 1; i += 1) {
+      ctx.beginPath();
+      ctx.arc(0, -3.4, 3.4 + i * 0.55, lightAngle - 0.7, lightAngle + 0.5);
+      ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
     ctx.beginPath();
-    ctx.ellipse(-litX * 3, -3.4 - litY * 3, 3.6, 3.9, 0, 0, Math.PI * 2);
+    ctx.ellipse(-litX * 3.1, -3.4 - litY * 3.1, 3.3, 3.7, 0, 0, Math.PI * 2);
     ctx.fill();
 
     if (a.role === 'veteran') {
-      // a peaked cap: the crown, the band, then the visor toward the front
-      ctx.fillStyle = '#191e25';
+      // a peaked cap: the crown, the band, the visor in front of the face, and the shadow it throws
+      ctx.fillStyle = '#2a323c';
       ctx.beginPath();
-      ctx.ellipse(0, -3.4, 5.5, 5.5, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, -3.4, 5.4, 5.4, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#20262e';
+      // the band
+      ctx.fillStyle = '#141a21';
       ctx.beginPath();
-      ctx.roundRect(-5.1, -8.9, 10.2, 2.9, 1.4);
+      ctx.roundRect(-5.2, -8.6, 10.4, 2.5, 1.2);
       ctx.fill();
-      ctx.fillStyle = 'rgba(255, 232, 200, 0.18)';
-      ctx.fillRect(-4.3, -8.5, 8.6, 0.8);
+      ctx.fillStyle = 'rgba(210, 226, 244, 0.12)';
+      ctx.fillRect(-4.4, -8.3, 8.8, 0.55);
+      // the visor: a small trapezoid, lit along its leading edge
+      const visor = ctx.createLinearGradient(0, -10.4, 0, -7.9);
+      visor.addColorStop(0, '#4c5968');
+      visor.addColorStop(1, '#1a2028');
+      ctx.fillStyle = visor;
+      ctx.beginPath();
+      ctx.moveTo(-4.6, -8.2);
+      ctx.lineTo(4.6, -8.2);
+      ctx.lineTo(3.2, -10.3);
+      ctx.quadraticCurveTo(0, -11.1, -3.2, -10.3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 240, 210, 0.32)';
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(-4.3, -8.4);
+      ctx.quadraticCurveTo(0, -9.3, 4.3, -8.4);
+      ctx.stroke();
+      // the visor's shadow falls on the shoulders, away from the key
+      ctx.fillStyle = 'rgba(4, 6, 10, 0.22)';
+      ctx.beginPath();
+      ctx.ellipse(-litX * 3.6, -3.2 - litY * 3.6, 4.6, 2.6, lightAngle + Math.PI / 2, 0, Math.PI * 2);
+      ctx.fill();
     } else if (a.role === 'rookie') {
-      // a knit cap: a soft crown and a rolled band at the back
-      ctx.fillStyle = '#33444f';
+      // a knit cap: ribs, a rolled brim at the back, a knot on the crown
+      ctx.fillStyle = '#3a4d59';
       ctx.beginPath();
       ctx.ellipse(0, -3.5, 5.3, 5.3, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = 'rgba(12, 18, 22, 0.7)';
-      ctx.lineWidth = 1.3;
+      ctx.strokeStyle = 'rgba(9, 15, 19, 0.35)';
+      ctx.lineWidth = 0.7;
+      for (let i = -2; i <= 2; i += 1) {
+        ctx.beginPath();
+        ctx.moveTo(i * 1.6, -8.2);
+        ctx.quadraticCurveTo(i * 2.2, -3.5, i * 1.5, 1.2);
+        ctx.stroke();
+      }
+      // the rolled brim sits at the nape, not around the whole crown
+      ctx.strokeStyle = 'rgba(10, 16, 20, 0.5)';
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.arc(0, -3.5, 4.4, Math.PI * 0.1, Math.PI * 0.9);
+      ctx.arc(0, -3.5, 4.5, Math.PI * 0.34, Math.PI * 0.66);
       ctx.stroke();
-      ctx.fillStyle = 'rgba(255, 236, 210, 0.1)';
+      ctx.fillStyle = '#2c3b45';
       ctx.beginPath();
-      ctx.ellipse(litX * 2.6, -3.6 + litY * 2.6, 2.6, 2.2, lightAngle, 0, Math.PI * 2);
+      ctx.arc(0, -8.2, 1.1, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255, 236, 210, 0.2)';
+      ctx.beginPath();
+      ctx.arc(litX * 0.4, -8.2 + litY * 0.4, 0.5, 0, Math.PI * 2);
       ctx.fill();
     } else {
-      // a hood, wet with the cold: cloth around the skull
-      ctx.fillStyle = '#1e221b';
+      // a hood, wet with the cold: a thin ring of cloth, a dark mouth, one strand of hair
+      ctx.fillStyle = '#181c16';
       ctx.beginPath();
-      ctx.ellipse(0, -3.4, 5.2, 5.2, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, -3.4, 5.1, 5.1, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = 'rgba(104, 112, 94, 0.8)';
-      ctx.lineWidth = 1.4;
+      ctx.strokeStyle = 'rgba(116, 124, 104, 0.55)';
+      ctx.lineWidth = 0.8;
       ctx.beginPath();
-      ctx.arc(0, -3.4, 5, 0, Math.PI * 2);
+      ctx.arc(0, -3.4, 5.3, 0, Math.PI * 2);
+      ctx.stroke();
+      // the lit fold of the hood, a quarter of the ring
+      ctx.strokeStyle = 'rgba(198, 206, 176, 0.26)';
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.arc(0, -3.4, 5.2, lightAngle - 0.75, lightAngle + 0.2);
+      ctx.stroke();
+      // a wet strand at the front, tucked into the hood
+      ctx.strokeStyle = 'rgba(10, 10, 8, 0.8)';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(-1.6, -2.1);
+      ctx.quadraticCurveTo(-2.4, -4.6, -0.8, -6.8);
       ctx.stroke();
     }
     ctx.restore();
