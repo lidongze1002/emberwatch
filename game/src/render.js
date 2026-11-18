@@ -276,6 +276,13 @@ function buildLights(game) {
     });
   }
   game.lights = lights;
+  // 楼层自己的灯：街灯、走廊荧光灯、应急灯。灯下的地面是亮的，墙后还是黑的。
+  const lamps = [];
+  for (const lamp of game.case.lamps || []) {
+    const r = lamp.r || 150;
+    lamps.push({ ...lamp, r, poly: circle(lamp.x, lamp.y, r, rects, 28) });
+  }
+  game.lampLights = lamps;
   // 给测试与调试用：墙后到底是「看不见」还是「只是黑」
   game.seenAt = (x, y) => sightAt(game, x, y);
 }
@@ -305,12 +312,15 @@ function pathPoly(ctx, pts) {
 // 案一电闸还合着时，礼堂的灯是开的；拉下电闸，整层交给手电。
 // 案二天一亮，走廊也一点点亮回来。
 function nightAlpha(game) {
-  const kind = game.case.rule.kind;
+  const rule = game.case.rule;
+  const kind = rule.kind;
   if (kind === 'power') return game.power ? 0.12 : 0.9;
   if (kind === 'knock') {
     const age = Math.max(0, Math.min(1, (game.clock - (game.case.rule.dawn - 2)) / 6));
     return 0.88 - 0.6 * age;
   }
+  // 每一层自己的「底光」：街灯、应急灯、打烊后的商场灯。数值写在案子里。
+  if (typeof rule.alpha === 'number') return rule.alpha;
   if (kind === 'floors') return 0.9;
   return 0.86;
 }
@@ -372,6 +382,19 @@ function drawNight(ctx, game, time) {
       w.fillRect(light.a.x - 120, light.a.y - 120, 240, 240);
       w.restore();
     }
+  }
+  // 楼层自己的灯：照出一块块地面，边界同样被墙切
+  for (const lamp of game.lampLights || []) {
+    w.save();
+    pathPoly(w, lamp.poly);
+    w.clip();
+    const g = w.createRadialGradient(lamp.x, lamp.y, 6, lamp.x, lamp.y, lamp.r);
+    g.addColorStop(0, 'rgba(0, 0, 0, 0.92)');
+    g.addColorStop(0.55, 'rgba(0, 0, 0, 0.6)');
+    g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    w.fillStyle = g;
+    w.fillRect(lamp.x - lamp.r, lamp.y - lamp.r, lamp.r * 2, lamp.r * 2);
+    w.restore();
   }
   w.globalCompositeOperation = 'source-over';
   ctx.drawImage(m.canvas, 0, 0);
@@ -2435,6 +2458,23 @@ function drawFlashlights(ctx, game) {
     ctx.arc(m.x, m.y, 4.6, 0, Math.PI * 2);
     ctx.fill();
   }
+  // 楼层自己的灯：贴在地上的暖光/冷光，同样裁在被墙切出来的圆里
+  for (const lamp of game.lampLights || []) {
+    const col = lamp.color || '255, 205, 150';
+    const glow = typeof lamp.glow === 'number' ? lamp.glow : 0.09;
+    ctx.save();
+    pathPoly(ctx, lamp.poly);
+    ctx.clip();
+    const g = ctx.createRadialGradient(lamp.x, lamp.y, 8, lamp.x, lamp.y, lamp.r);
+    g.addColorStop(0, `rgba(${col}, ${glow})`);
+    g.addColorStop(0.55, `rgba(${col}, ${glow * 0.4})`);
+    g.addColorStop(1, `rgba(${col}, 0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(lamp.x, lamp.y, lamp.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
   // 提灯人身边的一团暖光（贴在身上，不投远）
   for (const a of game.agents) {
     if (a.role !== 'lamp' || a.down || a.taken || a.extracted) continue;
@@ -2460,173 +2500,353 @@ function drawMon2(ctx, t, time) {
   const k = t.kind;
   ctx.rotate(t.aim + Math.PI / 2);
   if (k === 'hanako') {
-    ctx.fillStyle = '#1a1418';
+    // 蹲在最后一格：黑发罩住整颗头，只露一条脸，红裙铺在地上，两只手撑着。
+    ctx.fillStyle = '#6e1f27';
     ctx.beginPath();
-    ctx.arc(0, -6, 4.4, 0, Math.PI * 2);
+    ctx.moveTo(-9, 6);
+    ctx.quadraticCurveTo(-10, -2, -5, -5);
+    ctx.lineTo(5, -5);
+    ctx.quadraticCurveTo(10, -2, 9, 6);
+    ctx.quadraticCurveTo(0, 10, -9, 6);
     ctx.fill();
     ctx.fillStyle = '#8f2f35';
     ctx.beginPath();
-    ctx.moveTo(-7, -2);
-    ctx.lineTo(7, -2);
-    ctx.lineTo(9, 8);
-    ctx.lineTo(-9, 8);
-    ctx.closePath();
+    ctx.ellipse(0, -1, 7, 5.2, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = 'rgba(226, 214, 196, 0.75)';
+    ctx.fillStyle = 'rgba(214, 198, 178, 0.8)';
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(s * 8, 3, 2.2, 3.3, s * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#141015';
     ctx.beginPath();
-    ctx.ellipse(0, -7.6, 2.6, 1.4, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, -7.4, 5.6, 6.2, 0, 0, Math.PI * 2);
     ctx.fill();
+    ctx.fillStyle = 'rgba(226, 214, 196, 0.72)';
+    ctx.beginPath();
+    ctx.ellipse(0, -5.2, 2.4, 1.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(10, 8, 10, 0.9)';
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(s * 1.3, -5.4, 0.55, 0, Math.PI * 2);
+      ctx.fill();
+    }
   } else if (k === 'slit') {
-    ctx.fillStyle = '#26252a';
+    // 长风衣、口罩、长剪刀。剪刀是她的标志，永远在右手。
+    ctx.fillStyle = '#232329';
     ctx.beginPath();
-    ctx.moveTo(-9, 9);
-    ctx.lineTo(-6, -8);
+    ctx.moveTo(-6, -8);
     ctx.lineTo(6, -8);
-    ctx.lineTo(9, 9);
+    ctx.lineTo(9, 12);
+    ctx.lineTo(-9, 12);
     ctx.closePath();
     ctx.fill();
+    ctx.strokeStyle = 'rgba(190, 196, 205, 0.25)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(0, -7);
+    ctx.lineTo(0, 11);
+    ctx.stroke();
     ctx.fillStyle = '#dbd3c2';
     ctx.beginPath();
-    ctx.ellipse(0, -8, 4.2, 3, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, -10, 4.6, 4.2, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#c8c2b4';
-    ctx.lineWidth = 1.4;
+    ctx.fillStyle = '#1a1719';
     ctx.beginPath();
-    ctx.moveTo(4, -10);
-    ctx.lineTo(13, -16);
-    ctx.moveTo(4, -7);
-    ctx.lineTo(13, -2);
+    ctx.ellipse(0, -12.4, 4.8, 3.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 口罩，中间一道红缝
+    ctx.fillStyle = '#e7e2d6';
+    ctx.fillRect(-3.8, -10.6, 7.6, 3.6);
+    ctx.fillStyle = '#9c2b31';
+    ctx.fillRect(-2.8, -9.2, 5.6, 0.9);
+    ctx.strokeStyle = '#cfd6dd';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(5, -2);
+    ctx.lineTo(15, -12);
+    ctx.moveTo(5, -1);
+    ctx.lineTo(15, 6);
+    ctx.stroke();
+    ctx.strokeStyle = '#8c2f33';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(10, -7);
+    ctx.lineTo(10.6, -3);
     ctx.stroke();
   } else if (k === 'facedog') {
-    ctx.fillStyle = '#6b5b4a';
+    // 四足、狗身、人的脸：先画身体，再在正前方安一张脸。
+    ctx.fillStyle = '#3a342e';
     ctx.beginPath();
-    ctx.ellipse(0, 0, 9, 13, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 1, 7, 12, 0, 0, Math.PI * 2);
     ctx.fill();
-    for (const s of [-1, 1]) {
-      ctx.strokeStyle = '#3a3028';
-      ctx.lineWidth = 2;
+    ctx.strokeStyle = '#2b2621';
+    ctx.lineWidth = 2;
+    for (const [sx, py] of [[-5, -5], [5, -5], [-5, 8], [5, 8]]) {
       ctx.beginPath();
-      ctx.moveTo(s * 6, -4);
-      ctx.lineTo(s * 10, 10);
+      ctx.moveTo(sx, py);
+      ctx.lineTo(sx + (sx > 0 ? 2 : -2), py + 5);
       ctx.stroke();
     }
-    ctx.fillStyle = '#d8c8ae';
+    ctx.strokeStyle = '#3a342e';
+    ctx.lineWidth = 1.6;
     ctx.beginPath();
-    ctx.arc(0, -6, 5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#171310';
-    ctx.beginPath();
-    ctx.arc(-1.8, -6.5, 0.8, 0, Math.PI * 2);
-    ctx.arc(1.8, -6.5, 0.8, 0, Math.PI * 2);
-    ctx.fill();
-  } else if (k === 'teketeke') {
-    ctx.fillStyle = '#2a2926';
-    ctx.beginPath();
-    ctx.ellipse(0, -2, 6, 9, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#2a2926';
-    ctx.lineWidth = 2.2;
-    ctx.beginPath();
-    ctx.moveTo(-4, -6);
-    ctx.lineTo(-10, 12);
-    ctx.moveTo(4, -6);
-    ctx.lineTo(10, 12);
+    ctx.arc(0, 12, 6, 0.2, Math.PI - 0.2);
     ctx.stroke();
-    ctx.fillStyle = 'rgba(220, 210, 196, 0.5)';
+    // 狗头 + 人脸
+    ctx.fillStyle = '#4a423a';
     ctx.beginPath();
-    ctx.arc(0, -8, 2.6, 0, Math.PI * 2);
+    ctx.ellipse(0, -10, 5.6, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#cdbfae';
+    ctx.beginPath();
+    ctx.ellipse(0, -11, 3.8, 4.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#221b17';
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(s * 1.5, -12, 0.7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = '#5c3430';
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.arc(0, -10.2, 1.6, 0.2, Math.PI - 0.2);
+    ctx.stroke();
+  } else if (k === 'teketeke') {
+    // 只剩上半身：裙子断在腰上，长发拖在身后，两只手向前爬。
+    ctx.fillStyle = '#5a1f24';
+    ctx.beginPath();
+    ctx.moveTo(-7, -6);
+    ctx.lineTo(7, -6);
+    ctx.lineTo(6, 6);
+    ctx.lineTo(-6, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#7c262c';
+    ctx.beginPath();
+    ctx.ellipse(0, 6, 6, 2.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#161218';
+    ctx.lineWidth = 1.5;
+    for (let i = -2; i <= 2; i += 1) {
+      ctx.beginPath();
+      ctx.moveTo(i * 2.6, 4);
+      ctx.quadraticCurveTo(i * 3.4, 12, i * 2 + Math.sin(time * 2 + i) * 1.5, 19);
+      ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(214, 198, 178, 0.9)';
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(s * 6, 12, 2.1, 3.2, s * 0.35, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(s * 4, 6, 1.4, 2.4, s * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#1a1216';
+    ctx.beginPath();
+    ctx.ellipse(0, -8, 4.6, 5.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(226, 214, 196, 0.6)';
+    ctx.beginPath();
+    ctx.ellipse(0, -6.6, 2.2, 1.3, 0, 0, Math.PI * 2);
     ctx.fill();
   } else if (k === 'mary') {
+    // 白裙、长发、怀里一只娃娃。她站在门口，不动。
     ctx.fillStyle = '#d5cec0';
     ctx.beginPath();
-    ctx.ellipse(0, 2, 8, 13, 0, 0, Math.PI * 2);
+    ctx.moveTo(-7, -6);
+    ctx.quadraticCurveTo(-10, 4, -8, 12);
+    ctx.lineTo(8, 12);
+    ctx.quadraticCurveTo(10, 4, 7, -6);
+    ctx.closePath();
     ctx.fill();
     ctx.fillStyle = '#151216';
     ctx.beginPath();
-    ctx.ellipse(0, -4, 5, 8, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, -1, 5.6, 12, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#b9a88f';
+    ctx.fillStyle = '#d8cfc0';
     ctx.beginPath();
-    ctx.arc(3, 3, 3.2, 0, Math.PI * 2);
+    ctx.arc(0, -8, 3.8, 0, Math.PI * 2);
+    ctx.fill();
+    // 娃娃
+    ctx.fillStyle = '#7c262c';
+    ctx.beginPath();
+    ctx.ellipse(0, -14, 2.6, 3.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#e0d6c4';
+    ctx.beginPath();
+    ctx.arc(0, -17, 2.2, 0, Math.PI * 2);
     ctx.fill();
   } else if (k === 'doll') {
-    ctx.fillStyle = '#b9a88f';
-    ctx.beginPath();
-    ctx.arc(0, 0, 7, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#171312';
-    ctx.beginPath();
-    ctx.arc(-2.4, -1, 1.1, 0, Math.PI * 2);
-    ctx.arc(2.4, -1, 1.1, 0, Math.PI * 2);
-    ctx.fill();
+    // 坐着的玩偶：纽扣眼、缝线嘴、身后拖着红线
     ctx.strokeStyle = '#8f2f35';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(0, 2, 3.2, 0.2, Math.PI - 0.2);
+    ctx.moveTo(0, 8);
+    ctx.quadraticCurveTo(8, 12, 6 + Math.sin(time * 1.6) * 2, 19);
+    ctx.stroke();
+    ctx.fillStyle = '#b9a88f';
+    ctx.beginPath();
+    ctx.ellipse(0, 3, 5, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#b9a88f';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-4, 6);
+    ctx.lineTo(-7, 11);
+    ctx.moveTo(4, 6);
+    ctx.lineTo(7, 11);
+    ctx.stroke();
+    ctx.fillStyle = '#cbbba1';
+    ctx.beginPath();
+    ctx.arc(0, -6, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#161212';
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(s * 2.2, -7, 1.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = '#3a2a24';
+    ctx.lineWidth = 0.9;
+    ctx.beginPath();
+    ctx.moveTo(-2, -3.4);
+    ctx.lineTo(2, -3.4);
+    ctx.stroke();
+    ctx.strokeStyle = '#8f2f35';
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(-2.2, -4.4);
+    ctx.lineTo(-1.2, -2.4);
+    ctx.moveTo(2.2, -4.4);
+    ctx.lineTo(1.2, -2.4);
     ctx.stroke();
   } else if (k === 'slender') {
-    ctx.fillStyle = '#101114';
+    // 极高、极窄、没有脸。手臂过膝，指尖是几根细线。
+    ctx.fillStyle = '#0e0f12';
     ctx.beginPath();
-    ctx.ellipse(0, 4, 7, 16, 0, 0, Math.PI * 2);
+    ctx.moveTo(-5, -6);
+    ctx.lineTo(5, -6);
+    ctx.lineTo(6, 16);
+    ctx.lineTo(-6, 16);
+    ctx.closePath();
     ctx.fill();
     ctx.fillStyle = '#d8d2c4';
     ctx.beginPath();
-    ctx.ellipse(0, -12, 4.4, 5.2, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, -10, 3.6, 4.4, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#101114';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(190, 200, 210, 0.25)';
+    ctx.lineWidth = 0.7;
     ctx.beginPath();
-    ctx.moveTo(-5, -6);
-    ctx.lineTo(-11, 14);
-    ctx.moveTo(5, -6);
-    ctx.lineTo(11, 14);
+    ctx.ellipse(0, -10, 3.6, 4.4, 0, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.strokeStyle = '#0e0f12';
+    ctx.lineWidth = 1.8;
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(s * 4, -4);
+      ctx.quadraticCurveTo(s * 9, 4, s * 7, 16);
+      ctx.stroke();
+      ctx.lineWidth = 0.8;
+      for (let i = -1; i <= 1; i += 1) {
+        ctx.beginPath();
+        ctx.moveTo(s * 7, 16);
+        ctx.lineTo(s * 7 + i * 1.6, 20);
+        ctx.stroke();
+      }
+      ctx.lineWidth = 1.8;
+    }
   } else if (k === 'smile') {
-    ctx.fillStyle = '#cdbfa6';
-    ctx.fillRect(-9, -12, 18, 24);
-    ctx.fillStyle = '#3b2c22';
+    // 一张狗脸，嘴咧到耳根。
+    ctx.fillStyle = '#6b5f4e';
     ctx.beginPath();
-    ctx.ellipse(0, 0, 6, 7, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, 9, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#4d4438';
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(s * 6, -6);
+      ctx.lineTo(s * 10, -12);
+      ctx.lineTo(s * 3, -9);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.fillStyle = '#2a231d';
+    ctx.beginPath();
+    ctx.ellipse(0, -6, 4.4, 3, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = '#e8ddc8';
     ctx.beginPath();
-    ctx.arc(-2, -2, 1, 0, Math.PI * 2);
-    ctx.arc(2, -2, 1, 0, Math.PI * 2);
+    ctx.ellipse(0, 2, 7.4, 4.2, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#8f2f35';
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.arc(0, 2, 4, 0.1, Math.PI - 0.1);
-    ctx.stroke();
+    ctx.strokeStyle = '#5c3430';
+    ctx.lineWidth = 0.8;
+    for (let i = -3; i <= 3; i += 1) {
+      ctx.beginPath();
+      ctx.moveTo(i * 2, -1.4);
+      ctx.lineTo(i * 2, 5.4);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#1a1412';
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(s * 2.6, -7.4, 0.9, 0, Math.PI * 2);
+      ctx.fill();
+    }
   } else if (k === 'mimic') {
+    // 镜子里的人：形状和别人一样，颜色像隔着玻璃，边缘一圈冷光。
     ctx.fillStyle = '#3b3238';
     ctx.beginPath();
-    ctx.ellipse(0, 0, 10, 12, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, 9.5, 11.5, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = '#8d7c84';
     ctx.beginPath();
-    ctx.arc(0, -9, 5, 0, Math.PI * 2);
+    ctx.arc(0, -9.5, 4.8, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(210, 220, 224, 0.3)';
+    ctx.strokeStyle = 'rgba(210, 220, 224, 0.45)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.arc(0, 0, 11, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.strokeStyle = 'rgba(230, 238, 240, 0.35)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(-4, -14);
+    ctx.lineTo(-2, 10);
+    ctx.stroke();
   } else if (k === 'mannequin') {
+    // 百货公司的模特：关节是球，脸是平的，身上有一道合模线。
     ctx.fillStyle = '#cfc6b4';
     ctx.beginPath();
-    ctx.ellipse(0, -1, 6.5, 13, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, 6.4, 10.5, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#a89f8e';
+    ctx.fillStyle = '#b7ae9c';
+    for (const [jx, jy] of [[-6, -5], [6, -5], [-4, 8], [4, 8]]) {
+      ctx.beginPath();
+      ctx.arc(jx, jy, 1.7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = '#a89f8e';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(0, -10, 4.4, 0, Math.PI * 2);
+    ctx.moveTo(-6.5, 1);
+    ctx.lineTo(-9, 9);
+    ctx.moveTo(6.5, 1);
+    ctx.lineTo(9, 9);
+    ctx.stroke();
+    ctx.fillStyle = '#d8d0be';
+    ctx.beginPath();
+    ctx.ellipse(0, -11, 4.2, 5, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(90, 80, 66, 0.5)';
-    ctx.lineWidth = 0.8;
+    ctx.strokeStyle = 'rgba(90, 80, 66, 0.55)';
+    ctx.lineWidth = 0.7;
     ctx.beginPath();
-    ctx.arc(0, 0, 3, 0, Math.PI * 2);
-    ctx.moveTo(-6, 4);
-    ctx.lineTo(6, 4);
+    ctx.moveTo(0, -6);
+    ctx.lineTo(0, 9);
     ctx.stroke();
   }
   if (burn > 0) {
