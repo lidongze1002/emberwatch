@@ -1,14 +1,21 @@
-// The interface drawn into the scene: hearts, the wave, the score, the combo, the overdrive
-// bar, the leviathan's shell, and the banner that carries a wave in or out. It reads game
-// state and writes nothing; every word comes from the page's word-book.
+// 值班界面：一份摊在桌上的现场卷宗，不是发光面板。骨白与琥珀的细线、等宽字、红色分类章、
+// 一个照片位，只放能用的信息。没有四角括号、没有扫描线、没有刻度尺。
 
-import { PALETTE, TUNING, VIEW } from './config.js';
-import { L, fonts, number } from './text.js';
+import { TUNING, VIEW } from './config.js';
+import { L, fonts, personName, postName, traitName } from './text.js';
+import { objectives, readout } from './rules.js';
+import { worldToScreen } from './render.js';
+import { drawPortrait } from './portraits.js';
 
-const M = 44;
-const TRACK = L.cjk ? 3 : 6;
+const INK = 'rgba(233, 227, 214, 0.92)';
+const INK_SOFT = 'rgba(206, 200, 186, 0.62)';
+const INK_FAINT = 'rgba(186, 180, 168, 0.4)';
+const AMBER = 'rgba(201, 162, 90, 0.75)';
+const AMBER_FAINT = 'rgba(201, 162, 90, 0.22)';
+const RED = 'rgba(158, 62, 54, 0.85)';
+const RED_SOFT = 'rgba(158, 62, 54, 0.5)';
 
-export function label(ctx, text, x, y, size, colour, spacing = 0, align = 'left', font = fonts.ui) {
+export function label(ctx, text, x, y, size, colour, spacing = 0, align = 'left', font = fonts.mono) {
   ctx.save();
   ctx.font = `${size}px ${font}`;
   ctx.fillStyle = colour;
@@ -19,172 +26,223 @@ export function label(ctx, text, x, y, size, colour, spacing = 0, align = 'left'
   ctx.restore();
 }
 
-function heartPath(ctx, x, y, s) {
-  ctx.beginPath();
-  ctx.moveTo(x, y + s * 0.42);
-  ctx.bezierCurveTo(x - s * 0.7, y - s * 0.05, x - s * 0.34, y - s * 0.62, x, y - s * 0.22);
-  ctx.bezierCurveTo(x + s * 0.34, y - s * 0.62, x + s * 0.7, y - s * 0.05, x, y + s * 0.42);
-  ctx.closePath();
-}
-
-function drawHearts(ctx, game, time) {
-  for (let i = 0; i < game.stats.maxHearts; i += 1) {
-    const x = M + 12 + i * 32;
-    const y = 52;
-    const full = i < game.hearts;
-    ctx.save();
-    if (full) {
-      const pulse = game.hurtPulse > 0 && i === game.hearts ? 1 + game.hurtPulse * 0.35 : 1;
-      ctx.translate(x, y);
-      ctx.scale(pulse, pulse);
-      ctx.translate(-x, -y);
-      ctx.shadowColor = 'rgba(255, 120, 50, 0.7)';
-      ctx.shadowBlur = 12;
-      ctx.fillStyle = PALETTE.fire;
-      heartPath(ctx, x, y, 20);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = 'rgba(255, 240, 205, 0.55)';
-      heartPath(ctx, x - 1, y - 2, 10);
-      ctx.fill();
-    } else {
-      ctx.strokeStyle = 'rgba(120, 140, 165, 0.4)';
-      ctx.lineWidth = 1.3;
-      heartPath(ctx, x, y, 20);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-  label(ctx, L.hud.lamp, M, 84, 10, PALETTE.textDim, TRACK - 3);
-}
-
-function drawWave(ctx, game) {
-  const centre = VIEW.width / 2;
-  const total = game.waveTotal || 1;
-  const done = Math.min(total, game.waveGone ?? 0);
-  label(ctx, L.hud.wave(Math.max(1, game.wave), game.waveCount), centre, 42, 13, PALETTE.textWarm, TRACK + 1, 'center');
-  const title = game.waveTitle || '';
-  if (title) label(ctx, title, centre, 66, 19, 'rgba(223, 230, 240, 0.62)', 2, 'center', fonts.display);
-  const pips = Math.min(24, total);
-  if (pips > 0) {
-    const shown = Math.round((done / total) * pips);
-    for (let i = 0; i < pips; i += 1) {
-      ctx.fillStyle = i < shown ? 'rgba(255, 160, 90, 0.75)' : 'rgba(120, 150, 180, 0.22)';
-      ctx.fillRect(centre - (pips * 7) / 2 + i * 7, 80, 3, 3);
-    }
-  }
-}
-
-function drawScore(ctx, game) {
-  const x = VIEW.width - M;
-  label(ctx, L.hud.score, x, 34, 10, PALETTE.textDim, TRACK - 3, 'right');
-  ctx.save();
-  ctx.font = `600 34px ${fonts.mono}`;
-  ctx.fillStyle = PALETTE.text;
-  ctx.textAlign = 'right';
-  ctx.letterSpacing = '1px';
-  ctx.fillText(number(game.score), x, 66);
-  ctx.restore();
-  label(ctx, L.hud.best(number(Math.max(game.best, game.score))), x, 88, 11, PALETTE.textDim, 2, 'right');
-}
-
-function drawCombo(ctx, game) {
-  if (game.comboMult <= 1) return;
-  const centre = VIEW.width / 2;
-  const heat = Math.min(1, game.comboTimer / TUNING.comboWindow);
-  ctx.save();
-  ctx.globalAlpha = 0.55 + heat * 0.45;
-  label(ctx, `×${game.comboMult}`, centre, 122, 26 + heat * 4, PALETTE.fire, 2, 'center', fonts.mono);
-  label(ctx, L.hud.combo, centre, 138, 9, 'rgba(255, 179, 71, 0.6)', 4, 'center');
-  ctx.restore();
-}
-
-function drawBoss(ctx, game) {
-  const boss = game.shadows.find((e) => e.type === 'boss' && !e.dead);
-  if (!boss) return;
-  const w = 420;
-  const x = (VIEW.width - w) / 2;
-  const y = 114;
-  label(ctx, L.hud.leviathan, x, y - 8, 11, 'rgba(255, 160, 90, 0.85)', 4);
-  label(ctx, boss.litTime >= TUNING.armour.leviathan ? L.hud.shellOpen : L.hud.shellClosed, x + w, y - 8, 9, PALETTE.textDim, 3, 'right');
-  ctx.fillStyle = 'rgba(9, 14, 22, 0.85)';
-  ctx.fillRect(x, y, w, 7);
-  const pct = Math.max(0, boss.hp / boss.maxHp);
-  const grad = ctx.createLinearGradient(x, 0, x + w, 0);
-  grad.addColorStop(0, PALETTE.fireDeep);
-  grad.addColorStop(1, PALETTE.fire);
-  ctx.fillStyle = grad;
-  ctx.fillRect(x, y, w * pct, 7);
-  ctx.strokeStyle = 'rgba(255, 190, 120, 0.35)';
+function rule(ctx, x1, y1, x2, y2, colour) {
+  ctx.strokeStyle = colour;
   ctx.lineWidth = 1;
-  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, 6);
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
 }
 
-function drawOverdrive(ctx, game, time) {
-  const x = M;
-  const y = VIEW.height - 58;
-  const w = 240;
-  const h = 9;
-  const pct = Math.min(1, game.overdrive / TUNING.overdriveMax);
-  const ready = pct >= 1;
-  label(ctx, L.hud.overdrive, x, y - 10, 10, ready ? PALETTE.fire : PALETTE.textDim, TRACK - 3);
-  ctx.fillStyle = 'rgba(10, 15, 24, 0.9)';
-  ctx.fillRect(x, y, w, h);
-  if (pct > 0) {
-    const grad = ctx.createLinearGradient(x, 0, x + w, 0);
-    grad.addColorStop(0, 'rgba(255, 106, 30, 0.85)');
-    grad.addColorStop(1, 'rgba(255, 214, 150, 0.95)');
-    ctx.save();
-    ctx.shadowColor = 'rgba(255, 140, 60, 0.8)';
-    ctx.shadowBlur = ready ? 16 : 8;
-    ctx.fillStyle = grad;
-    ctx.fillRect(x, y, Math.max(2, w * pct), h);
-    ctx.restore();
+function timecode(seconds) {
+  const s = Math.max(0, Math.floor(seconds));
+  return `T+${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// A photograph on the in-game file: the same print as the duty room, with the unit number under it.
+function photo(ctx, agent, x, y, w, h, member) {
+  const size = Math.min(w, h);
+  drawPortrait(ctx, x, y, size, member || null, null);
+  if (h > size) {
+    ctx.fillStyle = 'rgba(206, 198, 182, 0.9)';
+    ctx.fillRect(x, y + size, w, h - size);
   }
-  ctx.strokeStyle = ready ? 'rgba(255, 210, 150, 0.8)' : 'rgba(130, 155, 185, 0.35)';
+  if (agent.down || agent.taken) {
+    ctx.fillStyle = 'rgba(120, 48, 44, 0.22)';
+    ctx.fillRect(x, y, w, size);
+  }
+  ctx.strokeStyle = 'rgba(206, 200, 186, 0.24)';
   ctx.lineWidth = 1;
   ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-  // charge ticks at 25, 50, 75
-  ctx.fillStyle = 'rgba(4, 8, 14, 0.8)';
-  for (let i = 1; i < 4; i += 1) ctx.fillRect(x + (w * i) / 4, y, 1, h);
+  label(ctx, agent.id.replace('a', '0'), x + w / 2, y + h - 3.5, 7, INK_SOFT, 0.5, 'center');
+}
 
-  if (ready) {
-    const pulse = 0.55 + Math.sin(time * 6) * 0.25;
-    ctx.save();
-    ctx.globalAlpha = pulse;
-    label(ctx, L.hud.ready, x + w + 12, y + 9, 11, PALETTE.fireHot, 3);
-    ctx.restore();
-  } else if (game.odTimer > 0) {
-    label(ctx, L.hud.burning, x + w + 12, y + 9, 10, 'rgba(255, 190, 120, 0.8)', 3);
+function condition(ctx, agent, x, y, w, gaze, charm) {
+  const ratio = Math.max(0, Math.min(1, agent.hp / agent.maxHp));
+  const down = agent.down || agent.taken;
+  // a segmented readout: six cells, a hairline track, no glow
+  const cells = 6;
+  const gap = 2;
+  const cw = (w - gap * (cells - 1)) / cells;
+  for (let i = 0; i < cells; i += 1) {
+    const filled = i < Math.round(ratio * cells);
+    ctx.fillStyle = filled
+      ? down ? RED_SOFT : ratio <= 0.34 ? 'rgba(206, 108, 96, 0.9)' : 'rgba(226, 220, 206, 0.8)'
+      : 'rgba(150, 146, 136, 0.16)';
+    ctx.fillRect(x + i * (cw + gap), y, cw, 2.4);
+  }
+  // 第四案：注视条是另一根，长在血量下面
+  if (gaze !== null && gaze !== undefined) {
+    const pct = Math.max(0, Math.min(1, gaze));
+    ctx.fillStyle = 'rgba(150, 146, 136, 0.16)';
+    ctx.fillRect(x, y + 4.6, w, 1.4);
+    ctx.fillStyle = pct > 0.66 ? 'rgba(206, 108, 96, 0.95)' : 'rgba(190, 168, 108, 0.85)';
+    ctx.fillRect(x, y + 4.6, w * pct, 1.4);
+  }
+  // 第一案：礼堂的歌声在往上走，满了这个人就自己上台
+  if (charm !== null && charm !== undefined && charm > 0.01) {
+    const pct = Math.max(0, Math.min(1, charm));
+    ctx.fillStyle = 'rgba(150, 146, 136, 0.16)';
+    ctx.fillRect(x, y + 4.6, w, 1.4);
+    ctx.fillStyle = pct > 0.66 ? 'rgba(206, 96, 86, 0.95)' : 'rgba(186, 96, 84, 0.8)';
+    ctx.fillRect(x, y + 4.6, w * pct, 1.4);
   }
 }
 
-export function drawBanner(ctx, game) {
-  const b = game.banner;
-  if (!b) return;
-  const t = b.age / b.life;
-  const fade = t < 0.15 ? t / 0.15 : t > 0.72 ? Math.max(0, (1 - t) / 0.28) : 1;
-  const rise = t < 0.15 ? (1 - t / 0.15) * 12 : 0;
+function fileRow(ctx, agent, x, y, w, gaze, member, charm) {
+  const meta = L.agent[agent.role];
+  const down = agent.down || agent.taken;
+  const name = member ? personName(member) : meta.name;
+  photo(ctx, agent, x, y, 30, 38, member);
+  label(ctx, agent.id.replace('a', '0'), x + 40, y + 11, 8, INK_FAINT, 1);
+  label(ctx, name, x + 66, y + 12, 13, down ? INK_SOFT : INK, 1.5, 'left', fonts.display);
+  label(ctx, `${postName(agent.role)} · ${traitName(agent.trait)}`, x + 40, y + 24, 8.5, INK_SOFT, 0);
+  condition(ctx, agent, x + 40, y + 30, 92, gaze, charm);
+  label(ctx, `${Math.max(0, Math.ceil(agent.hp))}`, x + 138, y + 33, 8, INK_SOFT, 0.5);
+  const stateText = agent.taken ? L.state.charmed : down ? L.state.down : L.state[agent.state] || '';
+  label(ctx, stateText, x + w, y + 12, 8, down ? RED_SOFT : INK_SOFT, 1.5, 'right');
+  rule(ctx, x, y + 44, x + w, y + 44, 'rgba(186, 180, 168, 0.1)');
+}
+
+// The classified stamp: ink, not a panel. One red mark, slightly off square.
+function stamp(ctx, x, y, text, live) {
   ctx.save();
-  ctx.globalAlpha = fade;
-  ctx.translate(0, rise);
-  const centre = VIEW.width / 2;
-  label(ctx, b.text, centre, 246, 40, PALETTE.textWarm, 6, 'center', fonts.display);
-  if (b.sub) label(ctx, b.sub, centre, 276, 13, 'rgba(223, 230, 240, 0.7)', 4, 'center');
+  ctx.translate(x, y);
+  ctx.rotate(-0.045);
+  const w = Math.max(70, text.length * 8.4 + 18);
+  ctx.strokeStyle = live ? RED_SOFT : RED;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0.5, 0.5, w, 19);
+  label(ctx, text, 9.5, 13.5, 8.5, live ? RED_SOFT : RED, 3.4, 'left');
   ctx.restore();
+}
+
+function clampText(ctx, text, max, font) {
+  ctx.save();
+  ctx.font = font;
+  ctx.letterSpacing = '0.2px';
+  if (ctx.measureText(text).width <= max) {
+    ctx.restore();
+    return text;
+  }
+  let out = text;
+  while (out.length > 4 && ctx.measureText(`${out}…`).width > max) out = out.slice(0, -1);
+  ctx.restore();
+  return `${out}…`;
+}
+
+// 画外的东西：箭头落在中心外一圈，方向对着它，字在箭头外面一点。
+function edgeMarker(ctx, s, text, rgb, time) {
+  const a = Math.atan2(s.y - VIEW.height / 2, s.x - VIEW.width / 2);
+  const cx = VIEW.width / 2 + Math.cos(a) * 292;
+  const cy = VIEW.height / 2 + Math.sin(a) * 236;
+  const blink = 0.55 + Math.sin(time * 5) * 0.25;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(a);
+  ctx.fillStyle = `rgba(${rgb}, ${blink})`;
+  ctx.beginPath();
+  ctx.moveTo(11, 0);
+  ctx.lineTo(-7, 7);
+  ctx.lineTo(-7, -7);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+  label(ctx, text, cx + Math.cos(a) * 34, cy + Math.sin(a) * 26 + 3, 7.5, `rgba(${rgb}, ${blink})`, 1.2, 'center');
+}
+
+function offFrame(s) {
+  return s.x < 60 || s.x > VIEW.width - 60 || s.y < 130 || s.y > VIEW.height - 150;
 }
 
 export function drawHud(ctx, game, time) {
-  drawHearts(ctx, game, time);
-  drawWave(ctx, game);
-  drawScore(ctx, game);
-  drawCombo(ctx, game);
-  drawBoss(ctx, game);
-  drawOverdrive(ctx, game, time);
-  const weather = L.weather[game.weather] || '';
-  if (weather) label(ctx, weather, M, 106, 9, 'rgba(255, 186, 120, 0.75)', 3);
-  const flares = game.flares ?? 0;
-  label(ctx, L.hud.flares(flares), VIEW.width / 2, VIEW.height - 30, 10, flares > 0 ? 'rgba(255, 179, 71, 0.75)' : 'rgba(127, 142, 163, 0.45)', 3, 'center');
-  label(ctx, L.hud.mute, VIEW.width - M, VIEW.height - 30, 10, 'rgba(127, 142, 163, 0.7)', 3, 'right');
-  drawBanner(ctx, game);
+  const left = 34;
+  const right = VIEW.width - left;
+  const meta = L.cases[game.case.id];
+
+  // ---- the file header -------------------------------------------------
+  label(ctx, L.title.eyebrow, left, 72, 8, INK_FAINT, 3.2);
+  label(ctx, meta.no, left, 92, 15, INK, 1.6, 'left', fonts.display);
+  label(ctx, meta.name, left + 104, 92, 9, INK_SOFT, 1.6);
+  label(ctx, `${timecode(game.clock)}   ·   ${L.hud.team} ${game.agents.filter((a) => !a.taken && !a.extracted).length}/3`, left, 108, 8, INK_FAINT, 1.8);
+  rule(ctx, left, 116, left + 320, 116, AMBER_FAINT);
+
+  // the objective: typed lines, number, task, readout
+  label(ctx, L.hud.objective, left, 134, 7.5, AMBER, 3.4);
+  const steps = objectives(game);
+  const gazeCase = game.case.rule.kind === 'gaze';
+  const powerCase = game.case.rule.kind === 'power';
+  steps.forEach((step, i) => {
+    const y = 152 + i * 17;
+    label(ctx, `0${i + 1}`, left, y, 8, step.done ? AMBER : INK_FAINT, 1);
+    label(ctx, step.text, left + 22, y, 9, step.done ? INK_SOFT : INK, 1.2);
+    label(ctx, step.value, left + 320, y, 8.5, step.done ? AMBER : INK_SOFT, 1, 'right');
+    if (step.done) rule(ctx, left + 22, y - 3, left + 22 + ctx.measureText(step.text).width, y - 3, 'rgba(186, 180, 168, 0.3)');
+  });
+
+  // ---- the stamp, and the rule's own readout, on the right -------------
+  const ro = readout(game);
+  stamp(ctx, right - 168, 72, ro.stamp, ro.live);
+  label(ctx, meta.legend, right, 108, 8, INK_FAINT, 2.4, 'right');
+  label(ctx, ro.line, right, 124, 8.5, ro.live ? 'rgba(214, 198, 172, 0.8)' : 'rgba(168, 196, 182, 0.6)', 1.4, 'right');
+  if (ro.loops) label(ctx, `LOOP ${ro.loops}`, right, 140, 7.5, RED_SOFT, 2.4, 'right');
+
+  // ---- the watch log: what just happened, in the duty officer's hand ----
+  const logX = left;
+  const logY = 246;
+  label(ctx, L.hud.log, logX, logY, 7.5, AMBER, 3.4);
+  rule(ctx, logX, logY + 7, logX + 320, logY + 7, 'rgba(186, 180, 168, 0.08)');
+  const entries = game.logs.slice(-6);
+  if (!entries.length) label(ctx, '—', logX, logY + 26, 8, INK_FAINT, 1);
+  entries.forEach((entry, i) => {
+    const y = logY + 26 + i * 16;
+    label(ctx, timecode(entry.t), logX, y, 7, INK_FAINT, 0.4);
+    label(ctx, clampText(ctx, game.logText(entry), 250, `7.5px ${fonts.ui}`), logX + 48, y, 7.5, 'rgba(200, 194, 180, 0.6)', 0.2, 'left', fonts.ui);
+  });
+
+  // ---- off frame: the door that is knocking, and the switchboard that is still live ----
+  if (game.rule && game.rule.knock && game.case.doors) {
+    const d = game.case.doors[game.rule.knock.door];
+    if (d) {
+      const s = worldToScreen(d.x, d.y);
+      if (offFrame(s)) edgeMarker(ctx, s, L.hud.knockAt(game.rule.knock.door + 1), '186, 70, 60', time);
+    }
+  }
+  if (game.case.rule.kind === 'power' && game.power && game.case.spawns.switchboard) {
+    const sw = game.case.spawns.switchboard;
+    const s = worldToScreen(sw.x, sw.y);
+    if (offFrame(s)) edgeMarker(ctx, s, L.hud.toSwitch, '201, 162, 90', time);
+  }
+
+  // ---- the unit file, bottom left -------------------------------------
+  const fileX = left;
+  const fileW = 268;
+  const top = VIEW.height - 238;
+  label(ctx, L.hud.file, fileX, top - 8, 7.5, AMBER, 3.4);
+  rule(ctx, fileX, top, fileX + fileW, top, AMBER_FAINT);
+  const limit = game.case.rule.limit || 1;
+  game.agents.forEach((a, i) => {
+    fileRow(
+      ctx, a, fileX, top + 8 + i * 50, fileW,
+      gazeCase ? a.gaze / limit : null,
+      game.squad && game.squad[i],
+      powerCase ? Math.min(1, a.charm / TUNING.charmSeconds) : null,
+    );
+  });
+
+  // ---- footer ----------------------------------------------------------
+  label(ctx, game.possessed ? L.hud.possessHint : (meta.hint || L.hud.hint), left, VIEW.height - 52, 8, game.possessed ? 'rgba(214, 198, 172, 0.75)' : INK_FAINT, 1.2);
+  label(ctx, timecode(game.clock), right, VIEW.height - 52, 8.5, INK_SOFT, 1.4, 'right');
+  if (game.auto) label(ctx, L.hud.auto, right, VIEW.height - 66, 7.5, RED_SOFT, 3, 'right');
+  else label(ctx, L.hud.manual, right, VIEW.height - 66, 7.5, AMBER, 3, 'right');
+
+  if (game.paused) {
+    ctx.fillStyle = 'rgba(4, 6, 10, 0.55)';
+    ctx.fillRect(0, 0, VIEW.width, VIEW.height);
+    ctx.strokeStyle = 'rgba(206, 200, 186, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(VIEW.width / 2 - 74.5, VIEW.height / 2 - 15.5, 149, 31);
+    label(ctx, L.hud.paused, VIEW.width / 2, VIEW.height / 2 + 4, 10, INK, 4, 'center');
+  }
 }

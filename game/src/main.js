@@ -1,89 +1,65 @@
-// Boot: one canvas, one game, one loop. The scene is a fixed 1280 x 800 world letterboxed
-// into whatever window it finds, simulated at a fixed 1/60 s step so a run is the same run on
-// a slow machine, and resized by CSS rather than by the rules. `?shot=` hands the first frame
-// to the staging module and then holds it for the camera.
+// 启动：一块画布、一局值班、一个固定 1/60 秒的循环。场景是 1280×800，按窗口等比缩放。
 
 import { VIEW } from './config.js';
 import { Sound } from './audio.js';
 import { Input } from './input.js';
 import { Game } from './game.js';
-import { prepareShot } from './shots.js';
-import { L } from './text.js';
+import { applySettings, loadSettings, maybeRedirectLanguage } from './settings.js';
 
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d', { alpha: false });
+// 存过语言但当前页不是那一版：先换页，再启动。只换一次。
+if (!maybeRedirectLanguage()) {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d', { alpha: false });
 
-const sound = new Sound();
-const input = new Input(canvas);
-input.onFirstGesture = () => {
-  sound.start();
-  sound.resume();
-};
-input.attach();
+  const sound = new Sound();
+  const input = new Input(canvas);
+  input.onFirstGesture = () => sound.start();
+  input.attach();
 
-const game = new Game(sound, input);
-// the two editions are separate pages; the little corner link loads the other one
-game.onNavigate = (href) => {
-  window.location.href = href;
-};
+  const game = new Game(sound, input);
+  game.onNavigate = (href) => {
+    window.location.href = href;
+  };
+  applySettings(game, loadSettings());
+  input.trapTab = true;
 
-const params = new URLSearchParams(window.location.search);
-const shotName = params.get('shot');
-const seed = Number(params.get('seed')) || 1;
-const shotMode = Boolean(shotName) && prepareShot(game, shotName, seed);
+  function fit() {
+    const scale = Math.min(window.innerWidth / VIEW.width, window.innerHeight / VIEW.height);
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.style.width = `${Math.floor(VIEW.width * scale)}px`;
+    canvas.style.height = `${Math.floor(VIEW.height * scale)}px`;
+    canvas.width = Math.round(VIEW.width * dpr);
+    canvas.height = Math.round(VIEW.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
 
-let drawn = 0;
-function fit() {
-  const scale = Math.min(window.innerWidth / VIEW.width, window.innerHeight / VIEW.height);
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  canvas.style.width = `${Math.floor(VIEW.width * scale)}px`;
-  canvas.style.height = `${Math.floor(VIEW.height * scale)}px`;
-  canvas.width = Math.round(VIEW.width * dpr);
-  canvas.height = Math.round(VIEW.height * dpr);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
+  window.addEventListener('resize', fit);
+  fit();
 
-window.addEventListener('resize', fit);
-fit();
+  let last = performance.now();
+  let accumulator = 0;
+  const STEP = 1 / 60;
 
-if (shotMode) {
-  document.title = `${L.title.name} — ${shotName}`;
-}
+  function frame(now) {
+    const elapsed = Math.min(0.1, (now - last) / 1000);
+    last = now;
 
-let last = performance.now();
-let accumulator = 0;
-const STEP = 1 / 60;
+    game.handleInput(input.takeClicks(), input.takeTyped());
 
-function frame(now) {
-  const elapsed = Math.min(0.1, (now - last) / 1000);
-  last = now;
-
-  const clicks = input.takeClicks();
-  const typed = input.takeTyped();
-  if (!shotMode) game.handleInput(clicks, typed);
-
-  if (!shotMode) {
     accumulator += elapsed;
+    const cap = 6 * game.speed;
     let steps = 0;
-    while (accumulator >= STEP && steps < 6) {
+    while (accumulator >= STEP && steps < cap) {
       game.update(STEP);
       accumulator -= STEP;
       steps += 1;
     }
-    if (steps === 6) accumulator = 0;
-  }
+    if (steps >= cap) accumulator = 0;
 
-  game.draw(ctx, now / 1000);
-  drawn += 1;
-
-  if (shotMode && drawn >= 1) {
-    window.__shotReady = true;
+    game.draw(ctx, now / 1000);
+    requestAnimationFrame(frame);
   }
 
   requestAnimationFrame(frame);
+  window.__nightwatch = { game, sound, input };
 }
-
-requestAnimationFrame(frame);
-
-// Exposed only so a test harness can read the run's state; the game never consults it.
-window.__emberwatch = { game, sound, input, locale: L.code };

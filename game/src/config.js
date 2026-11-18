@@ -1,103 +1,70 @@
-// The tuning table. Every number the game feels with lives here, so a run can be retuned
-// without touching a rule. This file draws nothing and updates nothing.
+// 夜巡科 · 数值与调色。楼层怎么长的不在这里，在 cases.js；这里只放「一个人多快、一只怪多疼」。
 
 export const VIEW = { width: 1280, height: 800 };
 
-export const LAMP = { x: 640, y: 570 };
+export const PALETTE = {
+  void: '#05070c',
+  floor: '#0c1018',
+  floorWarm: '#141018',
+  wall: '#1a1d26',
+  wallTop: '#2b2f3a',
+  gold: '#c9a25a',
+  red: '#7d1f26',
+  redLit: '#b33a3a',
+  lamp: '#ffd9a0',
+  lampHot: '#fff3d6',
+  cyan: '#8fd8e8',
+  pale: '#dfe6f0',
+  dim: '#6d7a8c',
+  blood: '#5a1a18',
+  screen: '#7fe3d0',
+};
 
 export const TUNING = {
   step: 1 / 60,
-  hearts: 3,
-  maxHearts: 5,
-  invulnerable: 0.45,
-  comboWindow: 1.8,
-  comboMax: 9,
-  overdriveMax: 100,
-  overdrivePerKill: 8,
-  overdriveLightTick: 0.6,
-  overdriveSeconds: 1.6,
-  overdriveCone: 2,
-  overdriveDamage: 2.2,
-  spawnRing: { inner: 390, outer: 450 },
-  spawnArc: { from: 1.16, to: 1.84 },
-  towerRadius: 86,
-  shakeDecay: 7,
-  beam: {
-    halfAngle: (14 * Math.PI) / 180,
-    reach: 260,
-    dps: 6.5,
-    falloffAt: 0.85,
-    falloffFloor: 0.45,
-    litSlow: 0.55,
-    aimLag: 0.45,
-  },
-  hpPerWave: 0.08,
-  speedPerWave: 0.02,
-  spawnEvery: 1.1,
-  spawnTighten: 0.05,
-  spawnFloor: 0.55,
-  armour: { bulwark: 0.9, leviathan: 1.2 },
-  nearTower: 170,
-  nearTowerSlow: 0.8,
-  flare: { charges: 2, max: 3, radius: 96, dps: 5, seconds: 2.6, fall: 0.3 },
-  weather: { fogReach: 0.75, rainSpawn: 0.9, surgeRing: 70, dimOff: 1.1, dimEvery: 6 },
+  cell: 40,
+  agentRadius: 11,
+  vision: 330,
+  charmSeconds: 3,
+  reviveSeconds: 4,
+  bulletSpeed: 1100,
+  bulletRadius: 4,
 };
 
-// Cold indigo sea, cold stone, warm fire. No shadow is a neon colour and no light is white
-// except at the heart of the lamp.
-export const PALETTE = {
-  skyTop: '#04060d',
-  skyMid: '#0a1220',
-  horizon: '#16243a',
-  seaNear: '#0a1626',
-  seaFar: '#132338',
-  foam: '#3d5a70',
-  cliff: '#0a0d13',
-  cliffRim: '#26313f',
-  stone: '#1b222c',
-  stoneLit: '#39424e',
-  glass: '#3a2b1e',
-  ink: '#04060b',
-  shadow: '#04060c',
-  shadowRim: '#22303f',
-  shadowLit: '#7a4526',
-  fire: '#ffb347',
-  fireHot: '#ffe6b3',
-  fireDeep: '#ff6a1e',
-  ember: '#ff9a3c',
-  text: '#dfe6f0',
-  textDim: '#7f8ea3',
-  textWarm: '#f0c98d',
-  good: '#8fd6b0',
-  bad: '#e0554a',
+export const AGENTS = {
+  veteran: { hp: 22, speed: 92, range: 300, damage: 6, fireRate: 0.42, spread: 0.05, colour: '#e0b276' },
+  rookie: { hp: 13, speed: 132, range: 300, damage: 4.5, fireRate: 0.34, spread: 0.09, colour: '#9fc6d8' },
+  lamp: { hp: 16, speed: 104, range: 360, damage: 5, fireRate: 0.46, spread: 0.04, colour: '#ffd9a0' },
 };
 
-// hp, speed px/s, radius px, score. Names and lore live in the page's word-book, not here.
-export const SHADOWS = {
-  crawler: { hp: 4, speed: 30, radius: 16, score: 10 },
-  skitter: { hp: 3, speed: 52, radius: 13, score: 15 },
-  bulwark: { hp: 12, speed: 22, radius: 23, score: 40 },
-  splitter: { hp: 6, speed: 38, radius: 20, score: 25 },
-  spawnling: { hp: 1.5, speed: 64, radius: 10, score: 5 },
-  moth: { hp: 5, speed: 46, radius: 15, score: 25 },
-  boss: { hp: 60, speed: 22, radius: 54, score: 500 },
+export const POSSESS_SECONDS = 8;
+
+export const SPIDER = { hp: 80, speed: 18, damage: 14, reach: 48, cooldown: 1.3, radius: 40 };
+export const SPIDERLING = { hp: 2, speed: 70, damage: 4, reach: 22, cooldown: 0.9, radius: 9 };
+
+export const THRALL = {
+  hp: 6,
+  speed: 40,
+  damage: 5,
+  reach: 26,
+  cooldown: 1.15,
+  special: { range: 116, damage: 4, stun: 1.1, cooldown: 3.6 },
 };
 
-// The eight tides. A wave is a bag of shadows plus one weather; the game deals the shadows out
-// in an interleaved order so a wave never arrives as one species at a time.
-export const WAVES = [
-  { spawn: { crawler: 10 }, weather: 'clear' },
-  { spawn: { crawler: 12, skitter: 6 }, weather: 'clear' },
-  { spawn: { crawler: 8, skitter: 8, bulwark: 3 }, weather: 'clear' },
-  { spawn: { skitter: 10, splitter: 5 }, weather: 'fog' },
-  { spawn: { bulwark: 5, moth: 8, crawler: 8 }, weather: 'rain' },
-  { spawn: { skitter: 12, splitter: 6, bulwark: 4 }, weather: 'dim' },
-  { spawn: { moth: 8, bulwark: 5, crawler: 10, skitter: 8 }, weather: 'surge' },
-  { spawn: { boss: 1, skitter: 8, crawler: 8 }, boss: true, weather: 'surge' },
-];
-
-export const KEYS = {
-  overdrive: ['Space'],
-  restart: ['KeyR', 'Enter'],
-  mute: 'KeyM',
+// 第二案：不可杀的八尺様。子弹只让她顿一下。
+export const HACHI = {
+  hp: 999,
+  speed: 38,
+  damage: 16,
+  reach: 46,
+  cooldown: 1.5,
+  radius: 26,
+  stunOnHit: 0.25,
+  feed: 1.5,
 };
+
+// 第四案：不可杀的くねくね。数值只有「看多久会疯」。
+export const KUNE = { radius: 20, rate: 1, bossRate: 1.6 };
+
+// 第五案：复制品。用的是同一套骨架，皮更厚：一个守一扇门。
+export const MIRROR = { hp: 32, speed: 96, damage: 4, range: 260, fireRate: 1.25, radius: 12, spread: 0.1, leash: 190, race: 3.2 };
