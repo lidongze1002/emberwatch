@@ -548,6 +548,18 @@
 **结论**：保留。证件照是光与轮廓的练习，不是写实绘画；七种轮廓在 40 px 上也能一眼分开。
 截图：`screenshots/gallery/50-portraits-sheet.jpg`、`51-roster-portraits.jpg`、`52-hire-portraits.jpg`、`53-brief-portraits.jpg`、`54-rollcall-portraits.jpg`
 
+## 轮 76 — 枪指一边，光从胸口照另一边
+**看**：把小人放到 3.2× 看斜持/扫射：光锥从**身体中心**沿 `a.aim` 射出去，而枪还被上半身扭转 `twist`、斜持 `carry`、后坐与下沉分别平移/旋转过。三者叠加后枪管和光轴差二十多度，看起来像手电长在胸口。
+**改**：新增 `game/src/pose.js`，把姿态数学收成一份：
+- `poseOf(a)` 返回 `twist / carry / gunY / stepRot / lateral / leanRot / sink`；
+- `muzzleOf(a)` 把局部枪口 `(3.2, −26)` 经过同一串变换投到世界，并给出枪管朝向 `facing + step + lean + twist + carry`。
+- `units.js` 的 `fire()` 改成从 `muzzleOf()` 的位置出膛、沿它的角度飞；`render.js` 的画枪与 `drawFlashlights()` 也用同一份。斜持时（约 24°）光锥跟着压低，射程压到 62%；枪口加一颗 2–3 px 的暖白亮斑。
+- `acquire` 状态机不变：`aim` 仍以 ≤7 rad/s 转，枪与光只是跟着这个角走。
+**测**：新增 `tools/nw-muzzle.mjs`——真实交火里取 80 个射击帧，**枪管末端与光锥起点最大距离 0.00 px、轴线最大夹角 0.00°**；斜持帧 `lightVsAim = 24.06°`、起点距离 0.00 px。`nw-aim` 三组仍 badShot 0、maxTwist 1.200；`nw-cases` 5/5 WON、3/3、meta 通过；`nw-perf` median 16.7 ms；无 pageerror。
+**结论**：保留。光第一次是从那根管子里出来的。
+截图：`screenshots/gallery/55-muzzle-light.jpg`
+
+
 
 
 

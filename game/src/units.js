@@ -3,6 +3,7 @@
 
 import { AGENTS, HACHI, KUNE, MIRROR, SPIDER, SPIDERLING, THRALL, TUNING } from './config.js';
 import { findPath, hardSolid, lineClear, solid, walkClear } from './level.js';
+import { muzzleOf } from './pose.js';
 
 const inZone = (zone, x, y) => !!zone && x > zone.x && x < zone.x + zone.w && y > zone.y && y < zone.y + zone.h;
 
@@ -544,10 +545,14 @@ function fire(game, a, target) {
   a.firePulse = 1;
   const stay = a.trait === 'steady' ? 0.72 : 1;
   const spread = (Math.random() - 0.5) * a.spread * 2 * stay;
-  const angle = a.aim + spread;
+  // 子弹从画出来的枪口出膛，方向就是枪管的方向（斜持也跟着枪走）
+  const m = muzzleOf(a);
+  const angle = m.angle + spread;
+  const bx = m.x + Math.cos(angle) * 2;
+  const by = m.y + Math.sin(angle) * 2;
   game.bullets.push({
-    x: a.x + Math.cos(angle) * 26,
-    y: a.y + Math.sin(angle) * 26,
+    x: bx,
+    y: by,
     vx: Math.cos(angle) * TUNING.bulletSpeed,
     vy: Math.sin(angle) * TUNING.bulletSpeed,
     life: 0.9,
@@ -555,8 +560,8 @@ function fire(game, a, target) {
     team: 'agent',
   });
   game.muzzle.push({
-    x: a.x + Math.cos(angle) * 28,
-    y: a.y + Math.sin(angle) * 28,
+    x: bx,
+    y: by,
     angle,
     sweep: a.aimSweep || 0,
     life: 0.06,

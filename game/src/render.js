@@ -3,6 +3,7 @@
 
 import { PALETTE, TUNING, VIEW } from './config.js';
 import { L } from './text.js';
+import { muzzleOf, poseOf } from './pose.js';
 
 // The lens: a long lens on the floor, not the whole house. 1.4× puts a body at ~40 px and the
 // camera rides the squad centroid, clamped so the matte never shows past the walls.
@@ -1963,21 +1964,41 @@ function drawWalls(ctx, game) {
 function drawFlashlights(ctx, game) {
   for (const a of game.agents) {
     if (a.down || a.taken || a.extracted || a.charmed) continue;
-    const reach = a.trait === 'nighteyes' ? 368 : a.lampUp ? 346 : 320;
+    const m = muzzleOf(a);
+    a.lightOrigin = { x: m.x, y: m.y };
+    a.lightAngle = m.angle;
+    {
+      const mt = ctx.getTransform();
+      a.lightScreen = {
+        x: mt.a * m.x + mt.c * m.y + mt.e,
+        y: mt.b * m.x + mt.d * m.y + mt.f,
+      };
+    }
+    // 斜持时光也跟着枪压低、变近；不是胸口射出一道正前方的光
+    const reach = (a.trait === 'nighteyes' ? 368 : a.lampUp ? 346 : 320) * (0.62 + 0.38 * m.pose.poseT);
     const half = 0.33;
     for (let i = 0; i < 8; i += 1) {
       const t = (i + 1) / 8;
       const h = half * (0.45 + t * 0.55);
-      const grad = ctx.createRadialGradient(a.x, a.y, 10, a.x, a.y, reach * (0.7 + t * 0.3));
+      const grad = ctx.createRadialGradient(m.x, m.y, 8, m.x, m.y, reach * (0.7 + t * 0.3));
       grad.addColorStop(0, `rgba(255, 230, 190, ${0.2 * (1 - t) + 0.035})`);
       grad.addColorStop(1, 'rgba(255, 200, 140, 0)');
       ctx.fillStyle = grad;
       ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.arc(a.x, a.y, reach * (0.7 + t * 0.3), a.aim - h, a.aim + h);
+      ctx.moveTo(m.x, m.y);
+      ctx.arc(m.x, m.y, reach * (0.7 + t * 0.3), m.angle - h, m.angle + h);
       ctx.closePath();
       ctx.fill();
     }
+    // 枪口本身的一小颗亮斑：光是从这根管子出来的
+    const core = ctx.createRadialGradient(m.x, m.y, 0.4, m.x, m.y, 4.6);
+    core.addColorStop(0, 'rgba(255, 248, 226, 0.95)');
+    core.addColorStop(0.45, 'rgba(255, 218, 158, 0.5)');
+    core.addColorStop(1, 'rgba(255, 190, 120, 0)');
+    ctx.fillStyle = core;
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, 4.6, 0, Math.PI * 2);
+    ctx.fill();
   }
   for (const a of game.agents) {
     if (a.role !== 'lamp' || a.down || a.taken || a.extracted) continue;
@@ -3122,15 +3143,15 @@ function drawAgents(ctx, game, time) {
       ctx.stroke();
     }
 
+    const P = poseOf(a);
     ctx.rotate(a.facing + Math.PI / 2);
-    ctx.rotate(Math.sin(a.step) * 0.05 * Math.min(1, Math.hypot(a.vx, a.vy) / 110));
-    ctx.translate(Math.sin(a.step * 0.5) * 0.5 * Math.min(1, Math.hypot(a.vx, a.vy) / 110), 0);
+    ctx.rotate(P.stepRot);
+    ctx.translate(P.lateral, 0);
     // 开火的一瞬间人往下坐一点，脚分开：站姿是「打」出来的，不是贴图换的
     const firePulse = a.firePulse || 0;
-    ctx.translate(0, 0.7 * firePulse);
+    ctx.translate(0, P.sink);
     // the body leans a touch into the turn instead of snapping to it
-    const lean = Math.atan2(Math.sin(a.aim - a.facing), Math.cos(a.aim - a.facing));
-    ctx.rotate(Math.max(-0.4, Math.min(0.4, lean)) * 0.07);
+    ctx.rotate(P.leanRot);
     const shortAngle = (v) => Math.atan2(Math.sin(v), Math.cos(v));
     const swing = Math.sin(a.step) * 4.4;
     let coat = a.role === 'veteran' ? '#2f3743' : a.role === 'rookie' ? '#263d47' : '#3a3226';
@@ -3389,14 +3410,12 @@ function drawAgents(ctx, game, time) {
     // weapon face the work. A waist twists 1.2 rad at most; past that the body turns instead,
     // which is why a side target no longer snaps the shoulders round for one frame.
     const wantTwist = shortAngle(a.aim - a.facing);
-    const twist = Math.max(-1.2, Math.min(1.2, wantTwist));
+    const twist = P.twist;
     ctx.save();
     ctx.rotate(twist);
-    const poseT = typeof a.poseT === 'number' ? a.poseT : a.pose === 'carry' ? 0 : 1;
-    const dip = (a.poseDip || 0) * 1.7;
-    const carry = -0.42 * (1 - poseT) + 0.05 * dip;
-    const recoil = poseT > 0.5 ? a.recoil * 2.4 : 0;
-    const gunY = 4 + recoil + dip;
+    const poseT = P.poseT;
+    const carry = P.carry;
+    const gunY = P.gunY;
     const ca = Math.cos(carry);
     const sa = Math.sin(carry);
     // a point on the weapon, mapped back into the body's frame so the hands sit on it
@@ -3545,6 +3564,17 @@ function drawAgents(ctx, game, time) {
     ctx.rotate(carry);
     ctx.translate(0, -4);
     const gunX = 3.2;
+    // ground truth for the acceptance script: where the drawn barrel actually ends, in screen space
+    {
+      const mt = ctx.getTransform();
+      const wx = mt.a * gunX + mt.c * -26 + mt.e;
+      const wy = mt.b * gunX + mt.d * -26 + mt.f;
+      const fx = mt.a * gunX + mt.c * -36 + mt.e;
+      const fy = mt.b * gunX + mt.d * -36 + mt.f;
+      a.muzzleScreen = { x: wx, y: wy };
+      a.barrelAngle = Math.atan2(fy - wy, fx - wx);
+      a.muzzleWorld = muzzleOf(a);
+    }
     // the weapon lies over a thin shadow of its own, so it is not pasted on the coat
     ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
     ctx.beginPath();
