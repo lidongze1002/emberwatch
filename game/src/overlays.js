@@ -121,10 +121,19 @@ export function tSettingsCloseAt(x, y) {
   return inRect(SETTINGS_CLOSE, x, y);
 }
 
-export function tCaseAt(x, y, count) {
+export function tCaseAt(x, y, count, offset = 0) {
   for (let i = 0; i < count; i += 1) {
     const top = SELECT_ROW.top + i * (SELECT_ROW.h + SELECT_ROW.gap);
-    if (x >= SELECT_ROW.x && x <= SELECT_ROW.x + SELECT_ROW.w && y >= top && y <= top + SELECT_ROW.h) return i;
+    if (x >= SELECT_ROW.x && x <= SELECT_ROW.x + SELECT_ROW.w && y >= top && y <= top + SELECT_ROW.h) return i + offset;
+  }
+  return -1;
+}
+
+export const SELECT_PAGES = { y: 140, x: 900, step: 26 };
+export function tSelectPageAt(x, y) {
+  for (let i = 0; i < 3; i += 1) {
+    if (x >= SELECT_PAGES.x + i * SELECT_PAGES.step - 10 && x <= SELECT_PAGES.x + i * SELECT_PAGES.step + 10
+      && y >= SELECT_PAGES.y - 12 && y <= SELECT_PAGES.y + 12) return i;
   }
   return -1;
 }
@@ -335,6 +344,39 @@ function scenePlate(ctx, x, y, w, h, id) {
     ctx.fill();
     ctx.fillStyle = 'rgba(240, 200, 140, 0.4)';
     ctx.fillRect(x + w * 0.47, y + h * 0.3, 3, 3);
+  } else if (['school', 'shopping', 'hospital', 'subway', 'apartment404', 'store', 'observatory', 'oldflat', 'locker', 'department'].includes(id)) {
+    // 第二批：一张冷灰的现场照，构图上各留一个识别点
+    ctx.fillStyle = 'rgba(150, 150, 130, 0.06)';
+    ctx.fillRect(x, y, w, h);
+    for (let i = 0; i < 7; i += 1) {
+      ctx.strokeStyle = 'rgba(210, 205, 185, 0.07)';
+      ctx.beginPath();
+      ctx.moveTo(x, y + h * (0.2 + i * 0.1));
+      ctx.lineTo(x + w, y + h * (0.2 + i * 0.1));
+      ctx.stroke();
+    }
+    if (id === 'subway' || id === 'department') {
+      for (let i = 0; i < 4; i += 1) {
+        ctx.strokeStyle = 'rgba(210, 200, 170, 0.16)';
+        ctx.beginPath();
+        ctx.moveTo(x, y + h * (0.35 + i * 0.12));
+        ctx.lineTo(x + w, y + h * (0.3 + i * 0.12));
+        ctx.stroke();
+      }
+    } else {
+      ctx.fillStyle = 'rgba(8, 8, 8, 0.75)';
+      ctx.fillRect(x + w * 0.42, y + h * 0.2, w * 0.16, h * 0.34);
+      ctx.fillStyle = 'rgba(236, 220, 190, 0.2)';
+      ctx.fillRect(x + w * 0.43, y + h * 0.21, w * 0.14, 2);
+    }
+    if (id === 'oldflat' || id === 'locker') {
+      for (let i = 0; i < 3; i += 1) {
+        ctx.fillStyle = 'rgba(220, 210, 190, 0.22)';
+        ctx.fillRect(x + w * (0.2 + i * 0.28), y + h * 0.24, w * 0.08, h * 0.16);
+      }
+    }
+    ctx.fillStyle = 'rgba(230, 214, 180, 0.35)';
+    ctx.fillRect(x + w * 0.7, y + h * 0.64, 3, h * 0.12);
   } else {
     // the thirteenth floor: identical doors, and a circle chalked on the carpet
     for (let i = 0; i < 5; i += 1) {
@@ -598,7 +640,7 @@ export function drawRoster(ctx, game, time) {
 
   // 五案全结：这一夜是有头的
   const cleared = Object.values(r.closed).filter((v) => v === 'won').length;
-  if (cleared >= 5) {
+  if (cleared >= CASES.length) {
     stamp(ctx, 660, 688, L.roster.allClosed, 15);
     label(ctx, L.roster.allClosedLine, 660, 726, 8, 'rgba(214, 198, 172, 0.7)', 1.2);
   }
@@ -660,11 +702,15 @@ export function drawSelect(ctx, game, time) {
   label(ctx, L.select.sub, SELECT_ROW.x + 260, 138, 9, INK_SOFT, 1.2);
 
   const hover = game.input && game.input.inside ? game.input.y : -1;
-  for (let i = 0; i < 5; i += 1) {
-    const entry = Object.entries(L.cases)[i];
-    if (!entry) continue;
-    const [rowId, row] = entry;
-    const top = SELECT_ROW.top + i * (SELECT_ROW.h + SELECT_ROW.gap);
+  const pg = game.selectPage || 0;
+  const base = pg * 5;
+  for (let k = 0; k < 5; k += 1) {
+    const g = base + k;
+    if (g >= CASES.length) break;
+    const rowId = CASES[g].id;
+    const row = L.cases[rowId];
+    if (!row) continue;
+    const top = SELECT_ROW.top + k * (SELECT_ROW.h + SELECT_ROW.gap);
     const isHover = hover >= top && hover <= top + SELECT_ROW.h;
     ctx.fillStyle = isHover ? 'rgba(201, 162, 90, 0.05)' : 'rgba(9, 11, 15, 0.5)';
     ctx.fillRect(SELECT_ROW.x, top, SELECT_ROW.w, SELECT_ROW.h);
@@ -677,7 +723,7 @@ export function drawSelect(ctx, game, time) {
     label(ctx, row.no, SELECT_ROW.x + 22, top + 26, 8, AMBER, 3);
     ctx.save();
     let nameSize = L.cjk ? 22 : 19;
-    const nameMax = 150;
+    const nameMax = 200;
     ctx.font = `${nameSize}px ${fonts.display}`;
     const nameW = ctx.measureText(row.name).width;
     if (nameW > nameMax) nameSize = Math.max(12, Math.floor(nameSize * (nameMax / nameW)));
@@ -698,14 +744,14 @@ export function drawSelect(ctx, game, time) {
     const state = game.roster && game.roster.closed[rowId];
     const statusText = state === 'won' ? L.select.status.won : state === 'lost' ? L.select.status.lost : L.select.status.open;
     label(ctx, statusText, SELECT_ROW.x + 348, top + 26, 7.5, state === 'won' ? AMBER : state === 'lost' ? RED : INK_FAINT, 2.6);
-    label(ctx, `${L.select.fee} ${money(CASES[i] ? CASES[i].fee : 0)}`, SELECT_ROW.x + 348, top + 44, 7.5, INK_FAINT, 1.4);
+    label(ctx, `${L.select.fee} ${money(CASES[g].fee)}`, SELECT_ROW.x + 348, top + 44, 7.5, INK_FAINT, 1.4);
 
     ctx.font = `10px ${fonts.ui}`;
     ctx.fillStyle = 'rgba(216, 212, 200, 0.6)';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
     const lines = wrap(ctx, row.blurb || row.rule, 318);
-    lines.slice(0, 3).forEach((line, k) => ctx.fillText(line, SELECT_ROW.x + 448, top + 33 + k * 16));
+    lines.slice(0, 3).forEach((line, i) => ctx.fillText(line, SELECT_ROW.x + 448, top + 33 + i * 16));
     label(ctx, L.select.rules, SELECT_ROW.x + 448, top + 16, 6.5, AMBER, 3);
 
     // the file's photograph, small: the same plate the briefing shows
@@ -717,6 +763,15 @@ export function drawSelect(ctx, game, time) {
     ctx.strokeStyle = 'rgba(120, 112, 98, 0.35)';
     ctx.lineWidth = 0.7;
     ctx.strokeRect(px - 2.5, py - 2.5, 135, 71);
+  }
+
+  // page numbers: five files a page
+  label(ctx, L.select.page(pg + 1, 3), SELECT_PAGES.x - 18, SELECT_PAGES.y + 4, 8, INK_FAINT, 1.6, 'right');
+  for (let i = 0; i < 3; i += 1) {
+    const on = i === pg;
+    label(ctx, `${i + 1}`, SELECT_PAGES.x + i * SELECT_PAGES.step, SELECT_PAGES.y + 4, on ? 11 : 8.5,
+      on ? AMBER : INK_SOFT, 1, 'center');
+    if (on) rule(ctx, SELECT_PAGES.x + i * SELECT_PAGES.step - 5, SELECT_PAGES.x + i * SELECT_PAGES.step + 5, SELECT_PAGES.y + 9, AMBER);
   }
 
   // the three on duty, as photographs with a pencil name under them
@@ -887,7 +942,7 @@ export function drawResult(ctx, game, time) {
     if (m) label(ctx, traitName(m.trait), x + 52, 664, 7, INK_FAINT, 0.8);
   });
 
-  if (won && game.caseIndex === 4) {
+  if (won && game.caseIndex === CASES.length - 1) {
     label(ctx, L.result.watchOver, cx, 702, 9, AMBER, 2.2, 'center');
   }
 

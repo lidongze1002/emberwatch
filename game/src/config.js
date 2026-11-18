@@ -93,4 +93,18 @@ export const HACHI = {
 export const KUNE = { radius: 20, rate: 1, bossRate: 1.6 };
 
 // 第五案：复制品。用的是同一套骨架，皮更厚：一个守一扇门。
-export const MIRROR = { hp: 32, speed: 96, damage: 4, range: 260, fireRate: 1.25, radius: 12, spread: 0.1, leash: 190, race: 3.2 };
+export const MIRROR = { hp: 28, speed: 96, damage: 3, range: 260, fireRate: 1.35, radius: 12, spread: 0.12, leash: 190, race: 3.2 };
+
+// 第二批十只：hp / speed / damage / reach / radius 都只在这里。
+export const MON2 = {
+  hanako: { hp: 18, speed: 40, damage: 7, reach: 30, radius: 13, color: '#8f2f35' },
+  slit: { hp: 26, speed: 34, damage: 6, reach: 34, radius: 15, color: '#3b3a3c' },
+  facedog: { hp: 20, speed: 58, damage: 9, reach: 28, radius: 14, color: '#6b5b4a' },
+  teketeke: { hp: 22, speed: 90, damage: 12, reach: 30, radius: 16, color: '#4b4a44' },
+  mary: { hp: 24, speed: 52, damage: 10, reach: 30, radius: 14, color: '#cfc8ba' },
+  doll: { hp: 16, speed: 42, damage: 6, reach: 26, radius: 12, color: '#b9a88f' },
+  slender: { hp: 30, speed: 26, damage: 9, reach: 40, radius: 15, color: '#121316' },
+  smile: { hp: 30, speed: 0, damage: 7, reach: 24, radius: 16, color: '#c9bda6' },
+  mimic: { hp: 24, speed: 82, damage: 6, reach: 28, radius: 12, color: '#8d7c84' },
+  mannequin: { hp: 26, speed: 30, damage: 8, reach: 30, radius: 13, color: '#cfc6b4' },
+};

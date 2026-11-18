@@ -8,7 +8,7 @@ import { createAgents, createThralls, updateUnits } from './units.js';
 import { overwatchTick } from './tactics.js';
 import { drawFrame, drawBars, drawBrightness, screenToWorld } from './render.js';
 import { drawHud } from './hud.js';
-import { drawBrief, drawCamp, drawBench, drawLocker, drawRadio, drawLedger, drawHire, drawResult, drawRoster, drawSelect, drawSettings, drawTitle, tCaseAt, tHireAt, tHireNoneAt, tRosterCardAt, tRosterCasesAt, tRosterFreshAt, tRosterHireAt, tRosterLampAt, tSelectRosterAt, tSettingsAt, tSettingsCloseAt, tSettingsFullAt, tSettingsLangAt, tSettingsResetAt, tSettingsRowAt, tSettingsButtonAt, tTitleLinkAt, tCampAt, tCampBackAt, tBenchAt, tLockerAt, tRadioAt, SETTINGS_TRACK } from './overlays.js';
+import { drawBrief, drawCamp, drawBench, drawLocker, drawRadio, drawLedger, drawHire, drawResult, drawRoster, drawSelect, drawSettings, drawTitle, tCaseAt, tHireAt, tHireNoneAt, tRosterCardAt, tRosterCasesAt, tRosterFreshAt, tRosterHireAt, tRosterLampAt, tSelectRosterAt, tSettingsAt, tSettingsCloseAt, tSettingsFullAt, tSettingsLangAt, tSettingsResetAt, tSettingsRowAt, tSettingsButtonAt, tTitleLinkAt, tCampAt, tCampBackAt, tBenchAt, tLockerAt, tRadioAt, tSelectPageAt, SETTINGS_TRACK } from './overlays.js';
 import { actionA, afterRules, directRules, initRules, updateRules, verdict } from './rules.js';
 import { createRoster, buyLamp, buyIntel, clearRoster, dismissCandidates, hire, loadRoster, payForRefresh, restOne, saveRoster, setDuty, setWeapon, squadForRun, settle } from './roster.js';
 import { buyUpgrade } from './arms.js';
@@ -32,6 +32,7 @@ export class Game {
     this.settingsOpen = false;
     this.settingsRow = 0;
     this.settingsDrag = null;
+    this.selectPage = 0;
     this.reset();
   }
 
@@ -367,6 +368,8 @@ export class Game {
           this.selectCase(this.caseIndex);
           this.state = 'brief';
         }
+        if (code === 'ArrowRight') this.selectPage = Math.min(2, (this.selectPage || 0) + 1);
+        if (code === 'ArrowLeft') this.selectPage = Math.max(0, (this.selectPage || 0) - 1);
         if (code === 'Escape') this.state = 'roster';
         continue;
       }
@@ -468,12 +471,17 @@ export class Game {
         continue;
       }
       if (this.state === 'select') {
+        const pageHit = tSelectPageAt(click.x, click.y);
+        if (pageHit >= 0) {
+          this.selectPage = pageHit;
+          continue;
+        }
         if (tSelectRosterAt(click.x, click.y)) {
           this.state = 'roster';
           continue;
         }
-        const hit = tCaseAt(click.x, click.y, CASES.length);
-        if (hit >= 0) {
+        const hit = tCaseAt(click.x, click.y, 5, (this.selectPage || 0) * 5);
+        if (hit >= 0 && hit < CASES.length) {
           this.selectCase(hit);
           this.state = 'brief';
         }

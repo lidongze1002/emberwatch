@@ -70,6 +70,229 @@ export function initRules(game) {
     r.race = null;
     game.copyThrough = () => copyThrough(game);
   }
+  if (c.rule.batch2) initRules2(game);
+}
+
+// ---- 第二批：六种原语 + 十宗自己的怪物 -----------------------------------
+function initRules2(game) {
+  const r = game.rule;
+  const c = game.case;
+  r.step = 0;
+  r.t = 0;
+  r.done = false;
+  r.fail = false;
+  r.missed = 0;
+  r.ring = 0;
+  r.nextRing = 6;
+  r.calls = 0;
+  r.side = 'left';
+  r.sideT = 0;
+  r.countT = -6;
+  r.windowT = 0;
+  r.open = false;
+  r.deadline = c.rule.deadline || 240;
+  r.total = (c.rule.points || [1, 2, 3]).length;
+  for (const a of game.agents) {
+    a.hasMask = false;
+    a.backT = 0;
+    a.hideBad = 0;
+  }
+  spawnBoss(game);
+}
+
+function damageAgent(game, a, dmg) {
+  if (a.down || a.taken || a.extracted) return;
+  a.hp -= dmg;
+  a.flash = 1;
+  a.hurtT = 2;
+  game.shake = 5;
+  game.sound.hurt();
+  if (a.hp <= 0) {
+    a.hp = 0;
+    a.down = true;
+    a.revive = 0;
+    game.log('down', a.role);
+  }
+}
+
+function near(a, p, d = 30) {
+  return Math.hypot(a.x - p.x, a.y - p.y) < d;
+}
+
+function updateRules2(game, dt) {
+  const r = game.rule;
+  const c = game.case;
+  if (r.fail || r.done) return;
+  const alive = game.agents.filter((a) => !a.down && !a.taken && !a.extracted);
+  const kind = r.kind;
+  if (kind === 'school') {
+    const inside = alive.filter((a) => inZone(c.zones.bath, a.x, a.y));
+    if (inside.length > 1) {
+      r.fail = true;
+      game.say(L.hud.twoIn);
+      return;
+    }
+    if (inside.length === 1 && near(inside[0], c.rule.stall, 34)) {
+      r.t += dt;
+      if (r.t >= 0.9) {
+        r.t = 0;
+        r.step += 1;
+        inside[0].order = { kind: 'goto', x: c.rule.queue.x, y: c.rule.queue.y };
+        game.log('stallDone', r.step);
+        if (r.step >= 3) r.done = true;
+      }
+    } else {
+      r.t = Math.max(0, r.t - dt);
+    }
+    return;
+  }
+  if (kind === 'mask') {
+    const slit = game.thralls.find((t) => t.kind === 'slit' && !t.dead);
+    if (r.step === 0) {
+      for (const a of alive) {
+        if (near(a, c.rule.mask, 28)) {
+          a.hasMask = true;
+          r.step = 1;
+          game.log('maskGot', a.role);
+          break;
+        }
+      }
+    } else if (r.step === 1 && slit) {
+      const carrier = alive.find((a) => a.hasMask);
+      if (carrier && near(carrier, c.rule.give, 34)) {
+        const toSlit = Math.atan2(slit.y - carrier.y, slit.x - carrier.x);
+        if (Math.abs(Math.atan2(Math.sin(carrier.aim - toSlit), Math.cos(carrier.aim - toSlit))) < 1.4) {
+          r.step = 2;
+          r.done = true;
+          slit.dead = true;
+          slit.death = null;
+          game.log('maskGiven');
+        }
+      }
+    }
+    if (slit && !slit.dead) {
+      for (const a of alive) {
+        if (r.step === 0) continue;
+        const toSlit = Math.atan2(slit.y - a.y, slit.x - a.x);
+        const diff = Math.abs(Math.atan2(Math.sin(a.aim - toSlit), Math.cos(a.aim - toSlit)));
+        if (diff > 1.45) {
+          a.backT = (a.backT || 0) + dt;
+          if (a.backT > c.rule.backLimit) {
+            a.backT = 0;
+            damageAgent(game, a, 9);
+            slit.x = a.x - Math.cos(a.aim) * 44;
+            slit.y = a.y - Math.sin(a.aim) * 44;
+            game.say(L.hud.slitBehind);
+          }
+        } else {
+          a.backT = 0;
+        }
+      }
+    }
+    return;
+  }
+  if (kind === 'dark') {
+    r.sideT += dt;
+    if (r.sideT >= c.rule.every) {
+      r.sideT = 0;
+      r.side = r.side === 'left' ? 'right' : 'left';
+      game.say(r.side === 'left' ? L.hud.darkLeft : L.hud.darkRight);
+    }
+    const p = c.rule.points[Math.min(r.step, c.rule.points.length - 1)];
+    if (alive.some((a) => near(a, p, 32))) {
+      r.step += 1;
+      r.t = 0;
+      if (r.step >= c.rule.points.length) r.done = true;
+    }
+    return;
+  }
+  if (kind === 'rail') {
+    const p = c.rule.points[Math.min(r.step, c.rule.points.length - 1)];
+    if (alive.some((a) => near(a, p, 36))) {
+      r.step += 1;
+      if (r.step >= c.rule.points.length) r.done = true;
+    }
+    return;
+  }
+  if (kind === 'phone') {
+    if (r.ring > 0) {
+      r.ring -= dt;
+      for (const a of alive) {
+        if (inZone(c.zones.phone, a.x, a.y)) {
+          r.calls += 1;
+          r.ring = 0;
+          r.nextRing = c.rule.every;
+          game.log('phoneAnswered', a.role);
+          if (r.calls >= c.rule.calls) r.done = true;
+          break;
+        }
+      }
+      if (r.ring <= 0 && r.calls < c.rule.calls) {
+        r.missed += 1;
+        const mary = game.thralls.find((t) => t.kind === 'mary' && !t.dead);
+        if (mary) {
+          const d = c.doors[Math.min(c.doors.length - 1, r.missed % c.doors.length)];
+          mary.x = d.x + (d.nx || 0) * 26;
+          mary.y = d.y + (d.ny || 0) * 26;
+          mary.awake = 1;
+        }
+        game.say(L.hud.phoneMissed);
+      }
+    } else {
+      r.nextRing -= dt;
+      if (r.nextRing <= 0) {
+        r.ring = c.rule.answerWindow;
+        r.nextRing = c.rule.every;
+        game.sound.knock();
+        game.say(L.hud.phoneRing);
+      }
+    }
+    return;
+  }
+  if (kind === 'hide') {
+    r.countT += dt;
+    if (r.countT >= 0) {
+      const need = Math.min(3, c.rule.hides.length);
+      const inside = alive.filter((a) => inZone(c.zones.lock1, a.x, a.y) || inZone(c.zones.lock2, a.x, a.y) || inZone(c.zones.lock3, a.x, a.y));
+      const moving = alive.some((a) => Math.hypot(a.vx, a.vy) > 25);
+      if (inside.length < alive.length || moving) {
+        for (const a of alive) a.hideBad = (a.hideBad || 0) + dt;
+        if (alive.some((a) => a.hideBad > 1.6) && r.countT > 5) {
+          r.fail = true;
+          game.say(L.hud.hideCaught);
+          return;
+        }
+      } else {
+        for (const a of alive) a.hideBad = 0;
+      }
+      if (r.countT >= c.rule.count) {
+        r.step = need;
+        r.done = true;
+      }
+    }
+    return;
+  }
+  if (kind === 'watch' || kind === 'photos' || kind === 'mirrors' || kind === 'escalator') {
+    if (kind === 'escalator') {
+      r.windowT += dt;
+      r.open = (r.windowT % c.rule.every) < c.rule.open;
+      if (!r.open) return;
+    }
+    const p = c.rule.points[Math.min(r.step, c.rule.points.length - 1)];
+    const here = alive.some((a) => near(a, p, 34));
+    if (here) {
+      r.t += dt;
+      const need = kind === 'escalator' ? 0.7 : (c.rule.stand || 1.2);
+      if (r.t >= need) {
+        r.t = 0;
+        r.step += 1;
+        if (r.step >= c.rule.points.length) r.done = true;
+      }
+    } else {
+      r.t = Math.max(0, r.t - dt);
+    }
+    return;
+  }
 }
 
 function shuttersOf(game) {
@@ -90,6 +313,10 @@ function shuttersOf(game) {
 export function updateRules(game, dt) {
   const r = game.rule;
   const c = game.case;
+  if (c.rule.batch2) {
+    updateRules2(game, dt);
+    return;
+  }
   if (c.rule.kind === 'power') {
     // 电闸：一个人在后台站 1.2 秒，礼堂就安静
     const sw = c.spawns.switchboard;
@@ -344,7 +571,112 @@ export function updateRules(game, dt) {
   }
 }
 
-// ---- 第二案：应门 ---------------------------------------------------------
+function sendOne(a, x, y) {
+  if (!a) return;
+  a.order = { kind: 'goto', x, y };
+  a.path = null;
+  a.goal = null;
+}
+
+function direct2(game) {
+  const r = game.rule;
+  const c = game.case;
+  if (r.done) {
+    sendAll(game, c.spawns.exit.x, c.spawns.exit.y);
+    return;
+  }
+  const alive = game.free();
+  if (!alive.length) return;
+  const kind = r.kind;
+  if (kind === 'school') {
+    const inside = alive.find((a) => inZone(c.zones.bath, a.x, a.y));
+    if (inside) {
+      if (!near(inside, c.rule.stall, 34)) sendOne(inside, c.rule.stall.x, c.rule.stall.y);
+      else inside.order = { kind: 'hold' };
+      for (const a of alive) if (a !== inside) {
+        if (!near(a, c.rule.queue, 40)) sendOne(a, c.rule.queue.x, c.rule.queue.y);
+        else a.order = { kind: 'hold' };
+      }
+      return;
+    }
+    // 门外等：三个人先到队列点，最靠前的一个单独进去
+    for (const a of alive) {
+      if (!near(a, c.rule.queue, 44)) sendOne(a, c.rule.queue.x, c.rule.queue.y);
+      else a.order = { kind: 'hold' };
+    }
+    const pick = alive.slice().sort((a, b) => Math.hypot(a.x - c.rule.stall.x, a.y - c.rule.stall.y) - Math.hypot(b.x - c.rule.stall.x, b.y - c.rule.stall.y))[0];
+    sendOne(pick, c.rule.stall.x, c.rule.stall.y);
+    return;
+  }
+  if (kind === 'mask') {
+    if (r.step === 0) {
+      sendAll(game, c.rule.mask.x, c.rule.mask.y);
+    } else if (r.step === 1) {
+      const carrier = alive.find((a) => a.hasMask);
+      if (carrier) {
+        const slit = game.thralls.find((t) => t.kind === 'slit');
+        if (slit) {
+          for (const a of alive) {
+            a.aim = Math.atan2(slit.y - a.y, slit.x - a.x);
+            a.settle = 1.1;
+          }
+        }
+        sendOne(carrier, c.rule.give.x, c.rule.give.y);
+        for (const a of alive) if (a !== carrier) sendOne(a, c.rule.stand.x, c.rule.stand.y);
+      }
+    }
+    return;
+  }
+  if (kind === 'dark') {
+    const p = c.rule.points[Math.min(r.step, c.rule.points.length - 1)];
+    sendAll(game, p.x, p.y);
+    return;
+  }
+  if (kind === 'rail') {
+    const p = c.rule.points[Math.min(r.step, c.rule.points.length - 1)];
+    sendAll(game, p.x, p.y);
+    return;
+  }
+  if (kind === 'phone') {
+    if (r.ring > 0) sendAll(game, c.rule.phone.x, c.rule.phone.y, true);
+    else sendAll(game, c.rule.phone.x, c.rule.phone.y);
+    return;
+  }
+  if (kind === 'hide') {
+    if (r.countT < 0) {
+      alive.forEach((a, i) => {
+        const h = c.rule.hides[i % c.rule.hides.length];
+        sendOne(a, h.x, h.y);
+      });
+      return;
+    }
+    if (!r.done) {
+      alive.forEach((a, i) => {
+        const h = c.rule.hides[i % c.rule.hides.length];
+        if (!near(a, h, 26)) sendOne(a, h.x, h.y);
+        else {
+          a.order = { kind: 'hold' };
+          a.vx = 0;
+          a.vy = 0;
+          a.path = null;
+        }
+      });
+    }
+    return;
+  }
+  if (kind === 'escalator') {
+    const p = c.rule.points[Math.min(r.step, c.rule.points.length - 1)];
+    if (r.open) sendAll(game, p.x, p.y, true);
+    else sendAll(game, p.x, 380);
+    return;
+  }
+  if (kind === 'watch' || kind === 'photos' || kind === 'mirrors') {
+    const p = c.rule.points[Math.min(r.step, c.rule.points.length - 1)];
+    sendAll(game, p.x, p.y);
+  }
+}
+
+
 
 // 她从不「跑」过来。她只在你没看的时候，从下一扇门里出来，站在你要走的那条路上。
 function maybeManifest(game) {
@@ -743,6 +1075,18 @@ function copyThrough(game) {
 export function afterRules(game, dt) {
   const r = game.rule;
   const c = game.case;
+  if (c.rule.batch2) {
+    if (!r.done) return;
+    for (const a of game.agents) {
+      if (a.extracted || a.down || a.taken) continue;
+      if (Math.hypot(a.x - c.spawns.exit.x, a.y - c.spawns.exit.y) < 40) {
+        a.extracted = true;
+        game.extracted += 1;
+        game.log('out', a.role);
+      }
+    }
+    return;
+  }
   if (c.rule.kind === 'power') return;
   if (c.rule.kind === 'knock') {
     // 楼梯间：天亮之后才开，而且不把倒下的人留在楼上
@@ -819,9 +1163,53 @@ export function afterRules(game, dt) {
   }
 }
 
+function verdict2(game) {
+  const r = game.rule;
+  if (r.fail) return 'lose';
+  const out = game.agents.filter((a) => !a.taken);
+  const allOut = out.length > 0 && out.every((a) => a.extracted);
+  if (r.done && allOut) return 'win';
+  const still = game.agents.some((a) => !a.down && !a.taken && !a.extracted);
+  if (!still) return 'lose';
+  if (game.clock > r.deadline) return 'lose';
+  return null;
+}
+
+function objectives2(game) {
+  const r = game.rule;
+  const c = game.case;
+  const T = L.cases[c.id].obj;
+  const total = r.total || 3;
+  let mid = '';
+  if (r.kind === 'phone') mid = L.hud.calls(r.calls, c.rule.calls);
+  else if (r.kind === 'hide') mid = L.hud.countdown(Math.max(0, Math.ceil(c.rule.count - r.countT)));
+  else if (r.kind === 'dark') mid = r.side === 'left' ? L.hud.darkLeft : L.hud.darkRight;
+  else if (r.kind === 'escalator') mid = r.open ? L.hud.windowOpen : L.hud.windowShut;
+  else mid = L.hud.progress(Math.min(r.step, total), total);
+  return [
+    { text: T[0], value: r.done ? L.hud.done : L.hud.progress(Math.min(r.step, total), total), done: r.done },
+    { text: T[1], value: mid, done: r.done },
+    { text: T[2], value: `${game.extracted} / ${game.agents.length}`, done: game.won },
+  ];
+}
+
+function readout2(game) {
+  const r = game.rule;
+  const c = game.case;
+  const total = r.total || 3;
+  let line = L.hud.progress(Math.min(r.step, total), total);
+  if (r.kind === 'phone') line = L.hud.calls(r.calls, c.rule.calls);
+  else if (r.kind === 'hide') line = L.hud.countdown(Math.max(0, Math.ceil(c.rule.count - r.countT)));
+  else if (r.kind === 'dark') line = r.side === 'left' ? L.hud.darkLeft : L.hud.darkRight;
+  else if (r.kind === 'escalator') line = r.open ? L.hud.windowOpen : L.hud.windowShut;
+  else if (r.kind === 'mask') line = r.step === 0 ? L.hud.maskNeed : L.hud.maskGive;
+  return { stamp: r.fail ? L.hud.stampFail : L.hud.stampLive, line, live: !r.fail };
+}
+
 export function verdict(game) {
   const r = game.rule;
   const c = game.case;
+  if (c.rule.batch2) return verdict2(game);
   const alive = game.agents.filter((a) => !a.down && !a.taken && !a.extracted);
   const remaining = game.agents.filter((a) => !a.taken && !a.extracted);
 
@@ -880,6 +1268,7 @@ export function verdict(game) {
 export function objectives(game) {
   const r = game.rule;
   const c = game.case;
+  if (c.rule.batch2) return objectives2(game);
   const T = L.cases[c.id].obj;
   if (c.rule.kind === 'power') {
     return [
@@ -923,6 +1312,7 @@ export function objectives(game) {
 export function readout(game) {
   const r = game.rule;
   const c = game.case;
+  if (c.rule.batch2) return readout2(game);
   if (c.rule.kind === 'power') {
     return { stamp: game.power ? L.hud.stampLive : L.hud.stampCut, line: game.power ? L.hud.music : L.hud.quiet, live: game.power };
   }
@@ -1020,6 +1410,10 @@ const SLOT = [[0, 0], [-24, 16], [24, 16], [-24, -16], [24, -16]];
 export function directRules(game) {
   const r = game.rule;
   const c = game.case;
+  if (c.rule.batch2) {
+    direct2(game);
+    return;
+  }
   if (c.rule.kind === 'power') {
     const sw = c.spawns.switchboard;
     const nearSwitch = game.agents.some((a) => !a.down && !a.taken && Math.hypot(a.x - sw.x, a.y - sw.y) < 56);

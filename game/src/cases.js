@@ -398,7 +398,190 @@ const BACKROOMS = {
   objectives: ['floor', 'exit'],
 };
 
-export const CASES = [OPERA, APARTMENT, STATION, RICEFIELD, BACKROOMS];
+// ---- 第二批：第 6–15 案 ---------------------------------------------------
+// 每宗都用现有相机/光照/走位/武器/经济；只有楼层、道具、规则和怪物是新的。
+
+const SPAWN3 = [
+  { role: 'veteran', x: 110, y: 640 },
+  { role: 'rookie', x: 152, y: 672 },
+  { role: 'lamp', x: 78, y: 678 },
+];
+
+const SCHOOL = {
+  id: 'school', no: 6, fee: 4200, decor: 'school', bounds: B,
+  cam: { scale: 1.4, x: 640, y: 420 }, key: { x: 900, y: 120 },
+  palette: { ink: '#0a0c10', wall: '#2b2f33', floor: ['#080a0d', '#0b0d10', '#050608'], accent: 'rgba(180, 200, 190, 0.5)' },
+  walls: [[620, 56, 18, 300], [620, 430, 18, 314], [900, 260, 300, 18]].concat(BORDER),
+  soft: [],
+  props: [[1080, 110, 92, 160], [700, 110, 80, 70], [700, 220, 80, 70]],
+  zones: {
+    bath: { x: 638, y: 74, w: 566, h: 226 },
+    hall: { x: 74, y: 74, w: 540, h: 652 },
+  },
+  spawns: { agents: SPAWN3, thralls: [], exit: { x: 110, y: 640 } },
+  rule: { batch2: true, kind: 'school', stall: { x: 1120, y: 290 }, queue: { x: 560, y: 380 }, deadline: 200 },
+  boss: { kind: 'hanako', x: 1120, y: 170 },
+  objectives: ['queue', 'stall', 'out'],
+};
+
+const SHOPPING = {
+  id: 'shopping', no: 7, fee: 4800, decor: 'shopping', bounds: B,
+  cam: { scale: 1.35, x: 640, y: 420 }, key: { x: 640, y: 110 },
+  palette: { ink: '#0b0c0d', wall: '#33302c', floor: ['#0a0908', '#0d0c0a', '#070606'], accent: 'rgba(210, 180, 120, 0.5)' },
+  walls: [[74, 74, 360, 120], [520, 74, 300, 120], [900, 74, 250, 120], [300, 420, 240, 18], [820, 420, 240, 18]].concat(BORDER),
+  soft: [],
+  props: [[180, 260, 120, 40], [980, 260, 120, 40]],
+  zones: { street: { x: 74, y: 200, w: 1132, h: 526 } },
+  spawns: { agents: SPAWN3, thralls: [], exit: { x: 1160, y: 680 } },
+  rule: {
+    batch2: true, kind: 'mask', mask: { x: 250, y: 620 }, give: { x: 960, y: 330 },
+    stand: { x: 860, y: 330 }, backLimit: 1.5, deadline: 220,
+  },
+  boss: { kind: 'slit', x: 1000, y: 300 },
+  objectives: ['mask', 'give', 'out'],
+};
+
+const HOSPITAL = {
+  id: 'hospital', no: 8, fee: 5400, decor: 'hospital', bounds: B,
+  cam: { scale: 1.35, x: 640, y: 420 }, key: { x: 640, y: 90 },
+  palette: { ink: '#0a0d0e', wall: '#2a3133', floor: ['#080b0c', '#0b0e0f', '#060809'], accent: 'rgba(160, 210, 205, 0.5)' },
+  walls: [[620, 56, 18, 240], [620, 360, 18, 240], [620, 650, 18, 94], [300, 300, 180, 18], [820, 300, 180, 18]].concat(BORDER),
+  soft: [],
+  props: [[220, 160, 90, 60], [220, 560, 90, 60], [940, 560, 90, 60]],
+  zones: { left: { x: 74, y: 74, w: 540, h: 652 }, right: { x: 638, y: 74, w: 566, h: 652 } },
+  spawns: { agents: SPAWN3, thralls: [], exit: { x: 1160, y: 680 } },
+  rule: {
+    batch2: true, kind: 'dark', points: [{ x: 280, y: 220 }, { x: 280, y: 600 }, { x: 1000, y: 600 }],
+    every: 20, deadline: 220,
+  },
+  boss: { kind: 'facedog', x: 300, y: 400 },
+  objectives: ['wards', 'dark', 'out'],
+};
+
+const SUBWAY = {
+  id: 'subway', no: 9, fee: 6000, decor: 'subway', bounds: B,
+  cam: { scale: 1.3, x: 640, y: 420 }, key: { x: 640, y: 110 },
+  palette: { ink: '#0a0b0d', wall: '#2a2b2e', floor: ['#08090b', '#0b0c0e', '#060708'], accent: 'rgba(190, 180, 150, 0.5)' },
+  walls: [[74, 74, 160, 120], [1000, 74, 190, 120]].concat(BORDER),
+  soft: [],
+  props: [[56, 260, 304, 8], [400, 260, 304, 8], [744, 260, 304, 8], [1088, 260, 136, 8],
+    [56, 380, 304, 8], [400, 380, 304, 8], [744, 380, 304, 8], [1088, 380, 136, 8],
+    [56, 500, 304, 8], [400, 500, 304, 8], [744, 500, 304, 8], [1088, 500, 136, 8],
+    [300, 580, 180, 26], [800, 580, 180, 26]],
+  zones: { track: { x: 74, y: 220, w: 1132, h: 340 } },
+  spawns: { agents: SPAWN3, thralls: [], exit: { x: 1168, y: 680 } },
+  rule: {
+    batch2: true, kind: 'rail', points: [{ x: 260, y: 200 }, { x: 640, y: 200 }, { x: 1000, y: 200 }],
+    rails: [260, 380, 500], deadline: 220,
+  },
+  boss: { kind: 'teketeke', x: 1000, y: 380, rail: 380 },
+  objectives: ['signals', 'rail', 'out'],
+};
+
+const APARTMENT404 = {
+  id: 'apartment404', no: 10, fee: 6600, decor: 'apartment404', bounds: B,
+  cam: { scale: 1.35, x: 640, y: 420 }, key: { x: 400, y: 120 },
+  palette: { ink: '#0b0a09', wall: '#332e28', floor: ['#0a0908', '#0d0b09', '#060505'], accent: 'rgba(210, 180, 130, 0.5)' },
+  walls: [[700, 56, 18, 300], [700, 460, 18, 284], [300, 430, 220, 18]].concat(BORDER),
+  soft: [],
+  props: [[240, 280, 80, 60], [980, 160, 90, 80]],
+  zones: { room: { x: 74, y: 74, w: 1132, h: 652 }, phone: { x: 250, y: 290, w: 120, h: 80 } },
+  doors: [{ x: 200, y: 96, face: 'n' }, { x: 900, y: 96, face: 'n' }, { x: 1186, y: 600, face: 'e' }],
+  spawns: { agents: SPAWN3, thralls: [], exit: { x: 1160, y: 680 } },
+  rule: {
+    batch2: true, kind: 'phone', phone: { x: 300, y: 320 }, every: 15, answerWindow: 8, calls: 3, deadline: 220,
+  },
+  boss: { kind: 'mary', x: 900, y: 120 },
+  objectives: ['phone', 'calls', 'out'],
+};
+
+const STORE = {
+  id: 'store', no: 11, fee: 7200, decor: 'store', bounds: B,
+  cam: { scale: 1.35, x: 640, y: 420 }, key: { x: 640, y: 110 },
+  palette: { ink: '#0b0a09', wall: '#3a332a', floor: ['#0a0907', '#0d0b08', '#070605'], accent: 'rgba(220, 190, 140, 0.5)' },
+  walls: [[74, 74, 1132, 18], [300, 300, 18, 180], [900, 300, 18, 180]].concat(BORDER),
+  soft: [],
+  props: [[180, 92, 120, 60], [360, 92, 120, 60], [540, 92, 120, 60]],
+  zones: {
+    lock1: { x: 180, y: 170, w: 120, h: 60 }, lock2: { x: 360, y: 170, w: 120, h: 60 }, lock3: { x: 540, y: 170, w: 120, h: 60 },
+  },
+  spawns: { agents: SPAWN3, thralls: [], exit: { x: 1160, y: 680 } },
+  rule: {
+    batch2: true, kind: 'hide', count: 12, hides: [{ x: 240, y: 190 }, { x: 420, y: 190 }, { x: 600, y: 190 }], deadline: 180,
+  },
+  boss: { kind: 'doll', x: 900, y: 420 },
+  objectives: ['count', 'hide', 'out'],
+};
+
+const OBSERVATORY = {
+  id: 'observatory', no: 12, fee: 7800, decor: 'observatory', bounds: B,
+  cam: { scale: 1.3, x: 640, y: 420 }, key: { x: 640, y: 90 },
+  palette: { ink: '#080b10', wall: '#26303a', floor: ['#06090d', '#090c11', '#040608'], accent: 'rgba(150, 190, 230, 0.5)' },
+  walls: [[300, 260, 18, 220], [960, 320, 18, 160], [500, 500, 280, 18]].concat(BORDER),
+  soft: [],
+  props: [[280, 180, 60, 60], [620, 180, 60, 60], [960, 180, 60, 60]],
+  zones: { dome: { x: 74, y: 74, w: 1132, h: 652 } },
+  spawns: { agents: SPAWN3, thralls: [], exit: { x: 1160, y: 680 } },
+  rule: {
+    batch2: true, kind: 'watch', points: [{ x: 310, y: 260 }, { x: 650, y: 260 }, { x: 990, y: 260 }], stand: 1.2, deadline: 220,
+  },
+  boss: { kind: 'slender', x: 640, y: 480 },
+  objectives: ['scope', 'watch', 'out'],
+};
+
+const OLDFLAT = {
+  id: 'oldflat', no: 13, fee: 8400, decor: 'oldflat', bounds: B,
+  cam: { scale: 1.35, x: 640, y: 420 }, key: { x: 640, y: 90 },
+  palette: { ink: '#0b0a08', wall: '#3a3226', floor: ['#0a0907', '#0d0b08', '#060505'], accent: 'rgba(210, 190, 140, 0.5)' },
+  walls: [[74, 300, 420, 18], [760, 300, 446, 18]].concat(BORDER),
+  soft: [],
+  props: [[180, 120, 40, 52], [620, 120, 40, 52], [1060, 120, 40, 52]],
+  zones: { flat: { x: 74, y: 74, w: 1132, h: 652 } },
+  spawns: { agents: SPAWN3, thralls: [], exit: { x: 1160, y: 680 } },
+  rule: {
+    batch2: true, kind: 'photos', points: [{ x: 200, y: 210 }, { x: 640, y: 210 }, { x: 1080, y: 210 }], stand: 1.2, deadline: 220,
+  },
+  boss: { kind: 'smile', x: 640, y: 430 },
+  objectives: ['photos', 'burn', 'out'],
+};
+
+const LOCKER = {
+  id: 'locker', no: 14, fee: 9000, decor: 'locker', bounds: B,
+  cam: { scale: 1.35, x: 640, y: 420 }, key: { x: 640, y: 90 },
+  palette: { ink: '#090a0b', wall: '#2c3033', floor: ['#08090a', '#0b0c0e', '#050607'], accent: 'rgba(180, 200, 210, 0.5)' },
+  walls: [[300, 260, 18, 240], [960, 260, 18, 240]].concat(BORDER),
+  soft: [],
+  props: [[280, 140, 30, 84], [620, 140, 30, 84], [960, 140, 30, 84]],
+  zones: { room: { x: 74, y: 74, w: 1132, h: 652 } },
+  spawns: { agents: SPAWN3, thralls: [], exit: { x: 1160, y: 680 } },
+  rule: {
+    batch2: true, kind: 'mirrors', points: [{ x: 295, y: 182 }, { x: 635, y: 182 }, { x: 975, y: 182 }], stand: 1.2, deadline: 220,
+  },
+  boss: { kind: 'mimic', x: 640, y: 440 },
+  objectives: ['mirrors', 'turn', 'out'],
+};
+
+const DEPARTMENT = {
+  id: 'department', no: 15, fee: 9600, decor: 'department', bounds: B,
+  cam: { scale: 1.3, x: 640, y: 420 }, key: { x: 640, y: 90 },
+  palette: { ink: '#0a0908', wall: '#3a332c', floor: ['#090807', '#0c0a08', '#060504'], accent: 'rgba(220, 190, 140, 0.55)' },
+  walls: [[74, 300, 400, 18], [740, 300, 250, 18], [1050, 300, 156, 18], [74, 560, 400, 18], [740, 560, 250, 18], [1050, 560, 156, 18]].concat(BORDER),
+  soft: [],
+  props: [[300, 600, 60, 30], [900, 600, 60, 30]],
+  zones: {
+    esc1: { x: 200, y: 150, w: 180, h: 70 }, esc2: { x: 550, y: 150, w: 180, h: 70 }, esc3: { x: 900, y: 150, w: 180, h: 70 },
+    ground: { x: 74, y: 580, w: 1132, h: 146 },
+  },
+  spawns: { agents: SPAWN3, thralls: [], exit: { x: 1160, y: 680 } },
+  rule: {
+    batch2: true, kind: 'escalator', points: [{ x: 290, y: 185 }, { x: 640, y: 185 }, { x: 990, y: 185 }],
+    every: 60, open: 8, deadline: 200,
+  },
+  boss: { kind: 'mannequin', x: 640, y: 440 },
+  objectives: ['escalator', 'window', 'out'],
+};
+
+export const CASES = [OPERA, APARTMENT, STATION, RICEFIELD, BACKROOMS, SCHOOL, SHOPPING, HOSPITAL, SUBWAY, APARTMENT404, STORE, OBSERVATORY, OLDFLAT, LOCKER, DEPARTMENT];
 
 export function caseById(id) {
   return CASES.find((c) => c.id === id) || CASES[0];
