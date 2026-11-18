@@ -1,7 +1,7 @@
 // 俯拍的五层楼，按电影的样子打光：一条主光从各案的主方向下来，两处补光，其余交给暗部。
 // 木头有漆面、水田有水光、后室的墙纸有接缝。人在光里只有轮廓和一点脸。
 
-import { PALETTE, TUNING, VIEW } from './config.js';
+import { MON2, PALETTE, TUNING, VIEW } from './config.js';
 import { L } from './text.js';
 import { muzzleOf, poseOf } from './pose.js';
 import { sightGeometry, wallClear } from './level.js';
@@ -551,6 +551,91 @@ function drawDrops(ctx, game, time) {
   }
 }
 
+function drawCaseSurface(ctx, c, time) {
+  const d = c.decor;
+  const tile = (size, line, alpha = 0.2) => {
+    ctx.strokeStyle = `rgba(0, 0, 0, ${alpha})`;
+    ctx.lineWidth = 1;
+    for (let x = 56; x < 1224; x += size) {
+      ctx.beginPath();
+      ctx.moveTo(x, 56);
+      ctx.lineTo(x, 744);
+      ctx.stroke();
+    }
+    for (let y = 56; y < 744; y += size) {
+      ctx.beginPath();
+      ctx.moveTo(56, y);
+      ctx.lineTo(1224, y);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = line;
+    ctx.beginPath();
+    ctx.moveTo(56, 56);
+    ctx.lineTo(1224, 56);
+    ctx.stroke();
+  };
+  if (d === 'school') {
+    tile(28, 'rgba(150, 190, 180, 0.06)', 0.16);
+    ctx.fillStyle = 'rgba(120, 160, 140, 0.03)';
+    ctx.fillRect(56, 300, 1168, 380);
+  } else if (d === 'shopping') {
+    tile(44, 'rgba(210, 190, 140, 0.06)', 0.12);
+    for (const lx of [300, 640, 980]) {
+      const g = ctx.createRadialGradient(lx, 240, 10, lx, 240, 180);
+      g.addColorStop(0, 'rgba(255, 220, 160, 0.06)');
+      g.addColorStop(1, 'rgba(255, 220, 160, 0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(lx - 180, 60, 360, 360);
+    }
+  } else if (d === 'hospital') {
+    tile(32, 'rgba(160, 210, 205, 0.07)', 0.2);
+    ctx.fillStyle = 'rgba(160, 210, 205, 0.03)';
+    ctx.fillRect(56, 56, 540, 688);
+  } else if (d === 'subway') {
+    tile(64, 'rgba(190, 180, 150, 0.05)', 0.18);
+    ctx.fillStyle = 'rgba(40, 38, 34, 0.4)';
+    ctx.fillRect(56, 240, 1168, 280);
+    for (let x = 56; x < 1224; x += 18) {
+      ctx.fillStyle = 'rgba(200, 190, 160, 0.05)';
+      ctx.fillRect(x, 240, 8, 280);
+    }
+  } else if (d === 'apartment404') {
+    for (let y = 56; y < 744; y += 20) {
+      ctx.fillStyle = y % 40 === 16 ? 'rgba(0, 0, 0, 0.18)' : 'rgba(190, 160, 120, 0.03)';
+      ctx.fillRect(56, y, 1168, 1);
+    }
+  } else if (d === 'store') {
+    for (let x = 56; x < 1224; x += 34) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
+      ctx.fillRect(x, 56, 1, 688);
+    }
+  } else if (d === 'observatory') {
+    for (let r = 80; r < 420; r += 54) {
+      ctx.strokeStyle = 'rgba(150, 190, 230, 0.05)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(640, 360, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  } else if (d === 'oldflat') {
+    for (let x = 56; x < 1224; x += 16) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+      ctx.fillRect(x, 56, 1, 688);
+    }
+  } else if (d === 'locker') {
+    tile(20, 'rgba(180, 200, 210, 0.06)', 0.18);
+  } else if (d === 'department') {
+    ctx.strokeStyle = 'rgba(220, 200, 160, 0.04)';
+    ctx.lineWidth = 1.4;
+    for (let i = 0; i < 9; i += 1) {
+      ctx.beginPath();
+      ctx.moveTo(60 + i * 30, 56);
+      ctx.bezierCurveTo(300 + i * 60, 300, 500 + i * 40, 500, 1224, 300 + i * 30);
+      ctx.stroke();
+    }
+  }
+}
+
 function drawFloor(ctx, game, time) {
   const c = game.case;
   const [top, mid, bottom] = c.palette.floor;
@@ -565,7 +650,9 @@ function drawFloor(ctx, game, time) {
   else if (c.decor === 'corridor') drawCorridorSurface(ctx, time);
   else if (c.decor === 'station') drawStationSurface(ctx, time);
   else if (c.decor === 'rice') drawRiceSurface(ctx, time);
-  else drawBackroomsSurface(ctx, time);
+  else if (['school', 'shopping', 'hospital', 'subway', 'apartment404', 'store', 'observatory', 'oldflat', 'locker', 'department'].includes(c.decor)) {
+    drawCaseSurface(ctx, c, time);
+  } else drawBackroomsSurface(ctx, time);
 
   // contact darkening along every wall foot
   for (const [x, y, w, h] of c.walls) {
@@ -597,6 +684,28 @@ function drawFloor(ctx, game, time) {
     ctx.beginPath();
     ctx.arc(exit.x, exit.y, 180, 0, Math.PI * 2);
     ctx.fill();
+  }
+  // 第二批的楼层没有吊灯：给队伍脚下一圈很淡的环境光，否则画面只剩手电
+  if (c.rule.batch2) {
+    let ax = 0;
+    let ay = 0;
+    let n = 0;
+    for (const a of game.agents) {
+      if (a.extracted || a.taken) continue;
+      ax += a.x;
+      ay += a.y;
+      n += 1;
+    }
+    if (n) {
+      ax /= n;
+      ay /= n;
+      const amb = ctx.createRadialGradient(ax, ay, 30, ax, ay, 460);
+      amb.addColorStop(0, 'rgba(228, 210, 180, 0.09)');
+      amb.addColorStop(0.5, 'rgba(220, 200, 170, 0.035)');
+      amb.addColorStop(1, 'rgba(220, 200, 170, 0)');
+      ctx.fillStyle = amb;
+      ctx.fillRect(ax - 460, ay - 460, 920, 920);
+    }
   }
   ctx.restore();
 
@@ -1527,7 +1636,7 @@ function drawDecor(ctx, game, time) {
     drawStation(ctx, game, time);
   } else if (c.decor === 'rice') {
     drawPaddies(ctx, game, time);
-  } else {
+  } else if (c.decor === 'backrooms') {
     drawBackroomsDecor(ctx, game, time);
   }
 }
@@ -1733,6 +1842,98 @@ function propBlock(ctx, x, y, w, h, top = 'rgba(34, 38, 44, 1)', base = 'rgba(16
   ctx.fillRect(x, y + h - 2, w, 2);
 }
 
+function drawCaseProp(ctx, c, x, y, w, h, time) {
+  const d = c.decor;
+  const mid = { x: x + w / 2, y: y + h / 2 };
+  if (d === 'subway' && w > 600) {
+    ctx.fillStyle = 'rgba(30, 30, 32, 0.9)';
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = 'rgba(170, 176, 180, 0.35)';
+    ctx.fillRect(x, y, w, 1.4);
+    ctx.fillRect(x, y + h - 1.4, w, 1.4);
+    return;
+  }
+  if (d === 'store' && h === 60 && w === 120) {
+    propBlock(ctx, x, y, w, h, '#4a3d2c', '#1d1712');
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
+    for (let i = 10; i < w; i += 14) {
+      ctx.beginPath();
+      ctx.moveTo(x + i, y + 2);
+      ctx.lineTo(x + i, y + h - 2);
+      ctx.stroke();
+    }
+    return;
+  }
+  if (d === 'observatory' && w === 60) {
+    ctx.fillStyle = '#1b232c';
+    ctx.beginPath();
+    ctx.arc(mid.x, mid.y, 22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(160, 200, 230, 0.45)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(mid.x - 16, mid.y + 8);
+    ctx.lineTo(mid.x + 16, mid.y - 12);
+    ctx.stroke();
+    return;
+  }
+  if (d === 'oldflat' && w === 40) {
+    ctx.fillStyle = 'rgba(220, 210, 190, 0.9)';
+    ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
+    ctx.fillStyle = 'rgba(40, 36, 30, 0.9)';
+    ctx.fillRect(x + 4, y + 4, w - 8, h - 8);
+    ctx.fillStyle = 'rgba(160, 80, 60, 0.3)';
+    ctx.fillRect(x + 8, y + 8, w - 16, h - 16);
+    return;
+  }
+  if (d === 'locker' && w === 30) {
+    ctx.fillStyle = 'rgba(150, 176, 190, 0.18)';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = 'rgba(200, 220, 230, 0.4)';
+    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+    ctx.fillStyle = 'rgba(220, 235, 240, 0.2)';
+    ctx.fillRect(x + 3, y + 4, w - 6, 1);
+    return;
+  }
+  if (d === 'department' && h === 30) {
+    ctx.fillStyle = 'rgba(60, 56, 48, 0.75)';
+    ctx.fillRect(x, y, w, h);
+    for (let i = 0; i < w; i += 8) {
+      ctx.fillStyle = 'rgba(200, 190, 160, 0.18)';
+      ctx.fillRect(x + i, y, 2, h);
+    }
+    return;
+  }
+  if (d === 'hospital' && w === 90) {
+    ctx.fillStyle = 'rgba(210, 220, 220, 0.55)';
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = 'rgba(230, 235, 230, 0.5)';
+    ctx.fillRect(x + 6, y + 6, w - 12, 14);
+    return;
+  }
+  if (d === 'shopping' && w === 120) {
+    propBlock(ctx, x, y, w, h, '#3a3630', '#161310');
+    ctx.fillStyle = 'rgba(180, 60, 50, 0.25)';
+    for (let i = 0; i < w; i += 16) ctx.fillRect(x + i, y, 8, 6);
+    return;
+  }
+  if (d === 'school' && w >= 80) {
+    propBlock(ctx, x, y, w, h, '#3a403e', '#171b1a');
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+    for (let i = 1; i < 3; i += 1) {
+      ctx.beginPath();
+      ctx.moveTo(x + (w / 3) * i, y + 2);
+      ctx.lineTo(x + (w / 3) * i, y + h - 2);
+      ctx.stroke();
+    }
+    return;
+  }
+  propBlock(ctx, x, y, w, h, '#22262e', '#0c0f14');
+  ctx.strokeStyle = 'rgba(190, 205, 225, 0.1)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 2.5, y + 2.5, w - 5, h - 5);
+}
+
 function drawProps(ctx, game, time) {
   const c = game.case;
   for (const [x, y, w, h] of c.props) {
@@ -1803,6 +2004,8 @@ function drawProps(ctx, game, time) {
       }
       ctx.fillStyle = 'rgba(220, 190, 140, 0.2)';
       ctx.fillRect(x, y, w, 1);
+    } else if (['school', 'shopping', 'hospital', 'subway', 'apartment404', 'store', 'observatory', 'oldflat', 'locker', 'department'].includes(c.decor)) {
+      drawCaseProp(ctx, c, x, y, w, h, time);
     } else {
       propBlock(ctx, x, y, w, h, '#22262e', '#0c0f14');
       ctx.strokeStyle = 'rgba(190, 205, 225, 0.1)';
@@ -2245,6 +2448,196 @@ function drawFlashlights(ctx, game) {
   }
 }
 
+function drawMon2(ctx, t, time) {
+  ctx.save();
+  ctx.translate(t.x, t.y);
+  // contact shadow
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
+  ctx.beginPath();
+  ctx.ellipse(2, 5, t.radius + 2, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  const burn = t.burn > 0 ? 0.2 : 0;
+  const k = t.kind;
+  ctx.rotate(t.aim + Math.PI / 2);
+  if (k === 'hanako') {
+    ctx.fillStyle = '#1a1418';
+    ctx.beginPath();
+    ctx.arc(0, -6, 4.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#8f2f35';
+    ctx.beginPath();
+    ctx.moveTo(-7, -2);
+    ctx.lineTo(7, -2);
+    ctx.lineTo(9, 8);
+    ctx.lineTo(-9, 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(226, 214, 196, 0.75)';
+    ctx.beginPath();
+    ctx.ellipse(0, -7.6, 2.6, 1.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (k === 'slit') {
+    ctx.fillStyle = '#26252a';
+    ctx.beginPath();
+    ctx.moveTo(-9, 9);
+    ctx.lineTo(-6, -8);
+    ctx.lineTo(6, -8);
+    ctx.lineTo(9, 9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#dbd3c2';
+    ctx.beginPath();
+    ctx.ellipse(0, -8, 4.2, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#c8c2b4';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(4, -10);
+    ctx.lineTo(13, -16);
+    ctx.moveTo(4, -7);
+    ctx.lineTo(13, -2);
+    ctx.stroke();
+  } else if (k === 'facedog') {
+    ctx.fillStyle = '#6b5b4a';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 9, 13, 0, 0, Math.PI * 2);
+    ctx.fill();
+    for (const s of [-1, 1]) {
+      ctx.strokeStyle = '#3a3028';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(s * 6, -4);
+      ctx.lineTo(s * 10, 10);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#d8c8ae';
+    ctx.beginPath();
+    ctx.arc(0, -6, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#171310';
+    ctx.beginPath();
+    ctx.arc(-1.8, -6.5, 0.8, 0, Math.PI * 2);
+    ctx.arc(1.8, -6.5, 0.8, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (k === 'teketeke') {
+    ctx.fillStyle = '#2a2926';
+    ctx.beginPath();
+    ctx.ellipse(0, -2, 6, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#2a2926';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(-4, -6);
+    ctx.lineTo(-10, 12);
+    ctx.moveTo(4, -6);
+    ctx.lineTo(10, 12);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(220, 210, 196, 0.5)';
+    ctx.beginPath();
+    ctx.arc(0, -8, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (k === 'mary') {
+    ctx.fillStyle = '#d5cec0';
+    ctx.beginPath();
+    ctx.ellipse(0, 2, 8, 13, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#151216';
+    ctx.beginPath();
+    ctx.ellipse(0, -4, 5, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#b9a88f';
+    ctx.beginPath();
+    ctx.arc(3, 3, 3.2, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (k === 'doll') {
+    ctx.fillStyle = '#b9a88f';
+    ctx.beginPath();
+    ctx.arc(0, 0, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#171312';
+    ctx.beginPath();
+    ctx.arc(-2.4, -1, 1.1, 0, Math.PI * 2);
+    ctx.arc(2.4, -1, 1.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#8f2f35';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(0, 2, 3.2, 0.2, Math.PI - 0.2);
+    ctx.stroke();
+  } else if (k === 'slender') {
+    ctx.fillStyle = '#101114';
+    ctx.beginPath();
+    ctx.ellipse(0, 4, 7, 16, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#d8d2c4';
+    ctx.beginPath();
+    ctx.ellipse(0, -12, 4.4, 5.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#101114';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-5, -6);
+    ctx.lineTo(-11, 14);
+    ctx.moveTo(5, -6);
+    ctx.lineTo(11, 14);
+    ctx.stroke();
+  } else if (k === 'smile') {
+    ctx.fillStyle = '#cdbfa6';
+    ctx.fillRect(-9, -12, 18, 24);
+    ctx.fillStyle = '#3b2c22';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 6, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#e8ddc8';
+    ctx.beginPath();
+    ctx.arc(-2, -2, 1, 0, Math.PI * 2);
+    ctx.arc(2, -2, 1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#8f2f35';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(0, 2, 4, 0.1, Math.PI - 0.1);
+    ctx.stroke();
+  } else if (k === 'mimic') {
+    ctx.fillStyle = '#3b3238';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 10, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#8d7c84';
+    ctx.beginPath();
+    ctx.arc(0, -9, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(210, 220, 224, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(0, 0, 11, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (k === 'mannequin') {
+    ctx.fillStyle = '#cfc6b4';
+    ctx.beginPath();
+    ctx.ellipse(0, -1, 6.5, 13, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#a89f8e';
+    ctx.beginPath();
+    ctx.arc(0, -10, 4.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(90, 80, 66, 0.5)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.arc(0, 0, 3, 0, Math.PI * 2);
+    ctx.moveTo(-6, 4);
+    ctx.lineTo(6, 4);
+    ctx.stroke();
+  }
+  if (burn > 0) {
+    ctx.fillStyle = 'rgba(255, 160, 80, 0.25)';
+    ctx.beginPath();
+    ctx.arc(0, 0, 16, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 function drawThralls(ctx, game, time) {
   const dim = game.shot ? 1 - 0.42 * (game.shot.w || 0) : 1;
   for (const t of game.thralls) {
@@ -2280,6 +2673,10 @@ function drawThralls(ctx, game, time) {
       continue;
     }
     if (t.kind === 'mirror') continue;
+    if (MON2[t.kind]) {
+      drawMon2(ctx, t, time);
+      continue;
+    }
     const fall = t.dead && t.death && !t.death.done ? 1 - t.death.t / t.death.dur : 0;
     ctx.save();
     ctx.translate(t.x, t.y);

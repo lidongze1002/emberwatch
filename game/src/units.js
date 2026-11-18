@@ -1,7 +1,7 @@
 // 场上的人：三个自己拿主意的队员，和这一案里的东西。玩家只下目标；每一步、每个目标、
 // 每次后退，都是队员自己判断的。案子不同，这里的「东西」不同，但骨架是同一套。
 
-import { AGENTS, DEFAULT_WEAPON, DROPS, HACHI, KUNE, MIRROR, SPIDER, SPIDERLING, THRALL, TUNING, WEAPONS } from './config.js';
+import { AGENTS, DEFAULT_WEAPON, DROPS, HACHI, KUNE, MIRROR, MON2, SPIDER, SPIDERLING, THRALL, TUNING, WEAPONS } from './config.js';
 import { findPath, hardSolid, lineClear, solid, walkClear } from './level.js';
 import { muzzleOf } from './pose.js';
 import { statsFor } from './arms.js';
@@ -78,6 +78,34 @@ export function spawnBoss(game) {
   if (boss.kind === 'kunekune') {
     const t = kune(boss.x, boss.y, boss.size || 1.9, 'big');
     if (boss.hunt) t.hunt = { ...boss.hunt, heat: 0 };
+    game.thralls.push(t);
+    return t;
+  }
+  const mon = MON2[boss.kind];
+  if (mon) {
+    const at = freeSpot(boss.x, boss.y, mon.radius);
+    const t = baseBody(at.x, at.y, {
+      id: boss.kind,
+      kind: boss.kind,
+      hp: boss.hp || mon.hp,
+      maxHp: boss.hp || mon.hp,
+      speed: boss.speed || mon.speed,
+      reach: boss.reach || mon.reach,
+      damage: boss.damage || mon.damage,
+      cooldownMax: 1.2,
+      radius: mon.radius,
+      home: { x: at.x, y: at.y },
+      rail: boss.rail,
+      side: boss.side,
+      noTarget: boss.kind === 'slit' || boss.kind === 'smile',
+      armor: boss.kind === 'smile' || boss.kind === 'slit',
+      awake: 0,
+      backT: 0,
+      seenT: 0,
+      clock: 0,
+      trail: [],
+      color: mon.color,
+    });
     game.thralls.push(t);
     return t;
   }
@@ -1157,6 +1185,161 @@ function shootMirror(game, t, target) {
   game.sound.shot('rookie', t.x, t.y);
 }
 
+// 第二批十只怪：每只只做一件「别人不做」的事。
+function updateMon2(game, t, dt) {
+  t.clock = (t.clock || 0) + dt;
+  t.cooldown = Math.max(0, (t.cooldown || 0) - dt);
+  const alive = game.agents.filter((a) => !a.down && !a.taken && !a.extracted);
+  if (!alive.length) return;
+  let target = null;
+  let best = Infinity;
+  for (const a of alive) {
+    const d = Math.hypot(a.x - t.x, a.y - t.y);
+    if (d < best) {
+      best = d;
+      target = a;
+    }
+  }
+  if (!target) return;
+  const toT = Math.atan2(t.y - target.y, t.x - target.x);
+  const seen = alive.some((a) => {
+    const d = Math.hypot(a.x - t.x, a.y - t.y);
+    if (d > 420) return false;
+    const diff = Math.abs(Math.atan2(Math.sin(a.aim - Math.atan2(t.y - a.y, t.x - a.x)), Math.cos(a.aim - Math.atan2(t.y - a.y, t.x - a.x))));
+    return diff < 0.45 && lineClear(a.x, a.y, t.x, t.y, 4);
+  });
+  const move = (x, y, speed) => {
+    const dx = x - t.x;
+    const dy = y - t.y;
+    const d = Math.hypot(dx, dy) || 1;
+    t.x += (dx / d) * speed * dt;
+    t.y += (dy / d) * speed * dt;
+    t.aim = Math.atan2(dy, dx);
+  };
+  const touch = () => {
+    if (best < t.reach && t.cooldown <= 0) {
+      hurtAgent(game, target, t.damage, t);
+      t.cooldown = t.cooldownMax || 1.2;
+      return true;
+    }
+    return false;
+  };
+
+  if (t.kind === 'hanako') {
+    // 与最近的队员隔着女厕中轴镜像移动
+    const mx = 900 + (900 - target.x);
+    move(mx, target.y, t.speed);
+    touch();
+    return;
+  }
+  if (t.kind === 'slit') {
+    if (game.rule.kind === 'mask' && game.rule.step === 0) return;
+    t.seenT = seen ? 0 : (t.seenT || 0) + dt;
+    if (t.seenT > 0.8 && t.cooldown <= 0) {
+      t.seenT = 0;
+      t.x = target.x - Math.cos(target.aim) * 42;
+      t.y = target.y - Math.sin(target.aim) * 42;
+      t.aim = target.aim;
+      t.cooldown = 1.8;
+      if (touch()) game.say(L.hud.slitBehind);
+      return;
+    }
+    move(target.x, target.y, t.speed * (seen ? 0.55 : 1));
+    touch();
+    return;
+  }
+  if (t.kind === 'facedog') {
+    // 只在一半的楼层里活动；亮的那一半它不咬人
+    const side = t.x < 640 ? 'left' : 'right';
+    if (game.rule.side === side) return;
+    move(target.x, target.y, t.speed);
+    touch();
+    return;
+  }
+  if (t.kind === 'teketeke') {
+    // 锁死在铁轨直线上：只沿 x 冲，到两端才掉头
+    const rail = t.rail || 380;
+    t.y = rail;
+    t.x += (t.dir || 1) * t.speed * 2.2 * dt;
+    if (t.x < 100 || t.x > 1180) t.dir = -(t.dir || 1);
+    t.aim = (t.dir || 1) > 0 ? 0 : Math.PI;
+    if (Math.abs(target.y - rail) < 26 && Math.abs(target.x - t.x) < 46) {
+      if (t.cooldown <= 0) {
+        hurtAgent(game, target, t.damage, t);
+        t.cooldown = 0.9;
+      }
+    }
+    return;
+  }
+  if (t.kind === 'mary') {
+    if (!t.awake) return;
+    move(target.x, target.y, t.speed * 1.2);
+    touch();
+    return;
+  }
+  if (t.kind === 'doll') {
+    if (game.rule.kind === 'hide' && game.rule.countT < game.case.rule.count) return;
+    move(target.x, target.y, t.speed);
+    touch();
+    return;
+  }
+  if (t.kind === 'slender') {
+    if (seen) {
+      move(t.x - (target.x - t.x), t.y - (target.y - t.y), t.speed * 1.6);
+    } else {
+      move(target.x, target.y, t.speed);
+      touch();
+    }
+    return;
+  }
+  if (t.kind === 'smile') {
+    // 照片里的狗：不动，只在被盯住时掉血；三张照片烧完才消失
+    if (seen && best < 120) {
+      target.hp -= dt * 2.4;
+      target.hurtT = 2;
+      target.flash = 0.4;
+      if (target.hp <= 0 && !target.down) {
+        target.hp = 0;
+        target.down = true;
+        game.log('down', target.role);
+      }
+    }
+    if (game.rule.kind === 'photos' && game.rule.done) {
+      t.dead = true;
+      t.death = null;
+    }
+    return;
+  }
+  if (t.kind === 'mimic') {
+    // 复制队员的轨迹：跟着他上一秒站过的地方
+    if (!t.trail) t.trail = [];
+    if (t.clock > 0.2) {
+      t.clock = 0;
+      t.trail.push({ x: target.x, y: target.y });
+      if (t.trail.length > 30) t.trail.shift();
+    }
+    const p = t.trail[0] || target;
+    move(p.x, p.y, t.speed);
+    touch();
+    return;
+  }
+  if (t.kind === 'mannequin') {
+    // 没人看时换一个位置；不穿墙
+    t.seenT = seen ? 0 : (t.seenT || 0) + dt;
+    if (t.seenT > 1.2) {
+      t.seenT = 0;
+      const a = Math.random() * Math.PI * 2;
+      const r = 60 + Math.random() * 60;
+      const p = freeSpot(t.x + Math.cos(a) * r, t.y + Math.sin(a) * r, t.radius || 12);
+      t.x = p.x;
+      t.y = p.y;
+    } else {
+      move(target.x, target.y, t.speed);
+    }
+    touch();
+  }
+}
+
 function updateThrall(game, t, dt) {
   if (t.dead) {
     // 倒下的那半秒还在演：跪落 / 栽倒，演完才散小蜘蛛、才留残渣。
@@ -1195,6 +1378,10 @@ function updateThrall(game, t, dt) {
   }
   if (t.kind === 'hachi') {
     updateHachi(game, t, dt);
+    return;
+  }
+  if (MON2[t.kind]) {
+    updateMon2(game, t, dt);
     return;
   }
   if (t.kind === 'kune') {

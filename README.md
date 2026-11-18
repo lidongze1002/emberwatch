@@ -8,15 +8,15 @@
 
 A municipal night shift that handles urban legends. You never move the three agents: you give them
 objectives, and they decide how to walk, who to shoot, when to back off and when to pick a mate up.
-Five case files, five rules, one screen — and between cases a duty room that remembers what the
-night cost.
+Fifteen case files, fifteen rules, one screen — and between cases a duty room that remembers what
+the night cost.
 
 一个处理都市怪谈的市政夜班科室。你不直接搬动三个人：你只下目标，他们自己决定怎么走、打谁、
-什么时候退、什么时候回头救人。五宗案子、五条规矩、一块屏幕；案子之间是一间记得这一夜代价的值班室。
+什么时候退、什么时候回头救人。十五宗案子、十五条规矩、一块屏幕；案子之间是一间记得这一夜代价的值班室。
 
 ![夜巡科](screenshots/01-cover.jpg)
 
-## 五宗案子 / The five files
+## 十五宗案子 / The fifteen files
 
 | 案 | 地点 | 规矩 | 对手 |
 | --- | --- | --- | --- |
@@ -25,6 +25,16 @@ night cost.
 | 第三案 | 不存在的车站 · 末班 | 一张票一个人。每十六秒换一扇活门，九十六秒后末班车开走。 | 时间、卷帘门，以及站台上不存在的人 |
 | 第四案 | 稻田 · 04:50 | 别盯得太久。枪口压在田里那条白影上，注视条会涨；`E` 移开目光，两盏石灯要点进农舍。 | くねくね |
 | 第五案 | 十三楼 · 05:30 | 楼层会重复。十三扇门、每层重编的门牌、只肯在近处读得清；下一层门口有你自己小队的复制品。 | 三个复制品 |
+| 第六案 | 校舍三楼 · 女厕 | 一次只许一个人进女厕，走到最后一格停 0.9 秒；两个人同时进去会被反锁。 | 花子さん（镜像移动） |
+| 第七案 | 商店街 · 打烊后 | 先找口罩，再递给她；全程面向她后退，背对 1.5 秒她会到身后。 | 裂口女 |
+| 第八案 | 废弃医院 · 二层 | 应急灯每 20 秒换边，暗的一半有人面犬；走完三张病床再撤。 | 人面犬（只在暗处咬人） |
+| 第九案 | 地铁隧道 | テケテケ锁在铁轨直线上冲锋；跨过铁轨才算安全，走到三个信号点。 | テケテケ |
+| 第十案 | 公寓 404 | 电话每 15 秒响，8 秒内要接；没人接玛丽就从门口出现，接满三次。 | 玛丽小姐 |
+| 第十一案 | 旧货店 · 后间 | 玩偶数 12 秒；数完前三个人都要在柜子里且不动，数完再离开。 | 玩偶 |
+| 第十二案 | 天文台 | 三台望远镜各停 1.2 秒；没人看瘦长男人他就前进，手电照住他他后退。 | 瘦长男人 |
+| 第十三案 | 旧公寓 · 走廊 | 三张照片各停 1.2 秒烧掉；盯着照片会掉血，烧完狗才消失。 | 微笑狗 |
+| 第十四案 | 更衣室 | 三面镜子各停 1.2 秒转向墙；镜中人沿你走过的路追过来。 | 镜中人 |
+| 第十五案 | 百货公司 · 打烊后 | 三座扶梯每 60 秒只开 8 秒，窗口里站 0.7 秒；午夜前下到一楼。 | 模特（没人看时换位置） |
 
 ## 玩法与键位 / How to play
 
@@ -64,6 +74,18 @@ WebAudio, every picture is canvas.
 | ![closed](screenshots/gallery/14-case-closed.jpg) | 结案：点名册与这一案的报酬。 / Case closed: the roll call and what the night paid. |
 | ![hud 1:1](screenshots/gallery/15-ui-1x.jpg) | 1:1：打钩目标、案件号、三个人的文件名。 / At 1:1: the checklist, the case number, three names. |
 | ![hud quarter](screenshots/gallery/16-ui-quarter.jpg) | 1/4 缩略图：最先消失的是细线，不是布局。 / At 1/4: the hairlines go first, the layout holds. |
+| ![school](screenshots/gallery/17-school.jpg) | 第六案：花子在校舍女厕最后一格，一次只进一个。 / Case six: Hanako in the last stall, one at a time. |
+| ![shopping](screenshots/gallery/18-shopping.jpg) | 第七案：裂口女在商店街中间，口罩还没递过去。 / Case seven: the slit-mouth waits for the mask. |
+| ![hospital](screenshots/gallery/19-hospital.jpg) | 第八案：医院二层只有一半亮着，狗在暗处。 / Case eight: half the floor lit, the dog in the dark. |
+| ![subway](screenshots/gallery/20-subway.jpg) | 第九案：铁轨是直的，她只沿直线冲。 / Case nine: the rail is straight, and so is her charge. |
+| ![404](screenshots/gallery/21-apartment404.jpg) | 第十案：404 的电话又响了。 / Case ten: the phone in 404 is ringing again. |
+| ![store](screenshots/gallery/22-store.jpg) | 第十一案：玩偶在数数，三个人躲进柜子。 / Case eleven: the doll counts, three agents hide. |
+| ![observatory](screenshots/gallery/23-observatory.jpg) | 第十二案：手电照住他，他才后退。 / Case twelve: keep the torch on him and he backs away. |
+| ![oldflat](screenshots/gallery/24-oldflat.jpg) | 第十三案：墙上的照片在笑。 / Case thirteen: the photographs on the wall are smiling. |
+| ![locker](screenshots/gallery/25-locker.jpg) | 第十四案：镜子里的队员沿着你的脚印走。 / Case fourteen: the mirror copies follow your footprints. |
+| ![department](screenshots/gallery/26-department.jpg) | 第十五案：扶梯窗口开了，模特在看。 / Case fifteen: the escalator window opens; the mannequin watches. |
+| ![index 2](screenshots/gallery/27-case-index-2.jpg) | 卷宗目录第 2 页：第六至十案。 / Case index, page two: files six to ten. |
+| ![index 3](screenshots/gallery/28-case-index-3.jpg) | 卷宗目录第 3 页：第十一至十五案。 / Case index, page three: files eleven to fifteen. |
 | ![dark hall](screenshots/gallery/56-dark-hall.jpg) | 拉下电闸：礼堂只剩三支手电，别处是暗的。 / Power cut: three flashlights, everything else dark. |
 | ![wall shadow](screenshots/gallery/57-wall-shadow.jpg) | 光停在墙面上，墙后的房间不跟着亮。 / The beam stops at the wall; the room behind it stays dark. |
 
@@ -84,7 +106,7 @@ panel switches language and keeps the roster, cash and closed files.
 ## 怎么造 / How it is built
 
 `game/` is plain ES modules loaded by `game/index.html` with no build step and no third-party code.
-`cases.js` is the five case files (walls, furniture, spawns, zones, rule parameters, boss, fee);
+`cases.js` is the fifteen case files (walls, furniture, spawns, zones, rule parameters, boss, fee);
 `rules.js` is one rule per case plus the autopilot that plays them; `level.js` the grid, the sight
 lines and the dynamic walls the station shutters swap in; `lighting.js` the visibility fan (a torch's
 polygon, cut by walls); `units.js` the three agents, the clerks, the tsuchigumo, Hachi-sama, the
