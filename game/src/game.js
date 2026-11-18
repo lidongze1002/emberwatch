@@ -8,9 +8,10 @@ import { createAgents, createThralls, updateUnits } from './units.js';
 import { overwatchTick } from './tactics.js';
 import { drawFrame, drawBars, drawBrightness, screenToWorld } from './render.js';
 import { drawHud } from './hud.js';
-import { drawBrief, drawHire, drawResult, drawRoster, drawSelect, drawSettings, drawTitle, tCaseAt, tHireAt, tHireNoneAt, tRosterCardAt, tRosterCasesAt, tRosterFreshAt, tRosterHireAt, tRosterLampAt, tSelectRosterAt, tSettingsAt, tSettingsCloseAt, tSettingsFullAt, tSettingsLangAt, tSettingsResetAt, tSettingsRowAt, tSettingsButtonAt, tTitleLinkAt, SETTINGS_TRACK } from './overlays.js';
+import { drawBrief, drawCamp, drawBench, drawLocker, drawRadio, drawLedger, drawHire, drawResult, drawRoster, drawSelect, drawSettings, drawTitle, tCaseAt, tHireAt, tHireNoneAt, tRosterCardAt, tRosterCasesAt, tRosterFreshAt, tRosterHireAt, tRosterLampAt, tSelectRosterAt, tSettingsAt, tSettingsCloseAt, tSettingsFullAt, tSettingsLangAt, tSettingsResetAt, tSettingsRowAt, tSettingsButtonAt, tTitleLinkAt, tCampAt, tCampBackAt, tBenchAt, tLockerAt, tRadioAt, SETTINGS_TRACK } from './overlays.js';
 import { actionA, afterRules, directRules, initRules, updateRules, verdict } from './rules.js';
-import { createRoster, buyLamp, clearRoster, dismissCandidates, hire, loadRoster, saveRoster, setDuty, squadForRun, settle } from './roster.js';
+import { createRoster, buyLamp, buyIntel, clearRoster, dismissCandidates, hire, loadRoster, payForRefresh, restOne, saveRoster, setDuty, setWeapon, squadForRun, settle } from './roster.js';
+import { buyUpgrade } from './arms.js';
 import { L } from './text.js';
 import { LIMITS, loadSettings, nudge, resetSettings, saveSettings, setLanguage } from './settings.js';
 
@@ -75,6 +76,9 @@ export class Game {
     this.trailClock = 0;
     this.settled = false;
     this.settlement = null;
+    this.drops = [];
+    this.picked = { oil: 0, ammo: 0, ember: 0, item: 0, part: 0, scrap: 0 };
+    this.matches = 0;
     this.tactics = { heading: -Math.PI / 2, holder: null, lastLog: -99, door: null };
     initRules(this);
   }
@@ -164,6 +168,7 @@ export class Game {
     updateRules(this, dt);
     overwatchTick(this);
     updateUnits(this, dt);
+    this.breathe(dt);
     afterRules(this, dt);
 
     // 门在身后合上时，人可能被夹在门框里。夹住超过半秒就往最近的空处挪一步。
@@ -367,7 +372,15 @@ export class Game {
       }
       if (this.state === 'roster') {
         if (code === 'Enter' || code === 'Space') this.state = 'select';
+        if (code === 'Escape') this.state = 'camp';
+        continue;
+      }
+      if (this.state === 'camp') {
         if (code === 'Escape') this.state = 'select';
+        continue;
+      }
+      if (this.state === 'bench' || this.state === 'locker' || this.state === 'radio' || this.state === 'ledger') {
+        if (code === 'Escape') this.state = 'camp';
         continue;
       }
       if (this.state === 'hire') {
@@ -382,7 +395,7 @@ export class Game {
         continue;
       }
       if (this.state === 'result' && (code === 'Enter' || code === 'Space')) {
-        this.state = 'roster';
+        this.state = 'camp';
         continue;
       }
       if (this.state !== 'play') continue;
@@ -412,6 +425,46 @@ export class Game {
           continue;
         }
         this.state = 'select';
+        continue;
+      }
+      if (this.state === 'camp') {
+        const hit = tCampAt(click.x, click.y);
+        if (hit === 'board') this.state = 'select';
+        else if (hit === 'roster' || hit === 'desk') this.state = 'roster';
+        else if (hit === 'bench') this.state = 'bench';
+        else if (hit === 'locker') this.state = 'locker';
+        else if (hit === 'radio') this.state = 'radio';
+        else if (hit === 'ledger') this.state = 'ledger';
+        else if (hit === 'cot') this.campRest();
+        continue;
+      }
+      if (this.state === 'bench') {
+        if (tCampBackAt(click.x, click.y)) this.state = 'camp';
+        else {
+          const u = tBenchAt(click.x, click.y);
+          if (u) this.campUpgrade(u.weapon, u.slot);
+        }
+        continue;
+      }
+      if (this.state === 'locker') {
+        if (tCampBackAt(click.x, click.y)) this.state = 'camp';
+        else {
+          const u = tLockerAt(click.x, click.y);
+          if (u) this.campSwap(u.row, u.weapon);
+        }
+        continue;
+      }
+      if (this.state === 'radio') {
+        if (tCampBackAt(click.x, click.y)) this.state = 'camp';
+        else {
+          const u = tRadioAt(click.x, click.y);
+          if (u === 'refresh') this.campRadio('refresh');
+          if (u === 'intel') this.campRadio('intel');
+        }
+        continue;
+      }
+      if (this.state === 'ledger') {
+        this.state = 'camp';
         continue;
       }
       if (this.state === 'select') {
@@ -473,7 +526,7 @@ export class Game {
         continue;
       }
       if (this.state === 'result') {
-        this.state = 'roster';
+        this.state = 'camp';
         continue;
       }
       if (this.state !== 'play' || this.paused) continue;
@@ -484,8 +537,86 @@ export class Game {
     }
   }
 
-  // ---- 设置面板 ------------------------------------------------------------
-  // 只改「看见的样子」与「听见的音量」；不改案子，也不改名册。
+  // 呼吸随「最近的敌人 / 血量 / 注视 / 脚步」变重；声像跟着提灯人。
+  breathe(dt) {
+    this.breathClock = (this.breathClock || 0) + dt;
+    if (this.breathClock < 0.18) return;
+    this.breathClock = 0;
+    const live = this.agents.filter((a) => !a.down && !a.taken && !a.extracted);
+    if (!live.length) return;
+    let nearest = 9999;
+    for (const t of this.thralls) {
+      if (t.dead || t.noTarget) continue;
+      for (const a of live) nearest = Math.min(nearest, Math.hypot(a.x - t.x, a.y - t.y));
+    }
+    const hp = Math.min(...live.map((a) => a.hp / a.maxHp));
+    let gaze = 0;
+    if (this.case.rule.kind === 'gaze') {
+      for (const a of live) gaze = Math.max(gaze, (a.gaze || 0) / this.case.rule.limit);
+    }
+    const speed = Math.max(...live.map((a) => Math.hypot(a.vx, a.vy)));
+    let level = (1 - Math.min(1, nearest / 460)) * 0.55
+      + (1 - hp) * 0.4
+      + gaze * 0.35
+      + Math.min(1, speed / 140) * 0.15;
+    level = Math.max(0, Math.min(1, level));
+    const lamp = live.find((a) => a.role === 'lamp') || live[0];
+    this.sound.breath?.(level, (lamp.x - 640) / 640);
+    if (hp < 0.45 && this.clock - (this.lastHeart || 0) > 0.8 + hp) {
+      this.lastHeart = this.clock;
+      this.sound.heart?.();
+    }
+  }
+
+  // ---- 营地 -----------------------------------------------------------------
+  campUpgrade(weapon, slot) {
+    const r = buyUpgrade(this.roster, weapon, slot);
+    if (r.ok) {
+      saveRoster(this.roster);
+      this.say(L.camp.bought);
+    } else {
+      this.say(r.why === 'parts' ? L.camp.noParts : r.why === 'max' ? L.camp.maxed : L.hire.noCash);
+    }
+  }
+
+  campSwap(row, weapon) {
+    const m = squadOf(this.roster)[row];
+    if (!m) return;
+    if (setWeapon(this.roster, m.id, weapon)) {
+      saveRoster(this.roster);
+      this.say(L.camp.swapped);
+    } else {
+      this.say(this.roster.cash < 300 ? L.hire.noCash : L.camp.swapped);
+    }
+  }
+
+  campRest() {
+    const m = restOne(this.roster);
+    if (m) {
+      saveRoster(this.roster);
+      this.say(L.camp.rested);
+    }
+  }
+
+  campRadio(kind) {
+    if (kind === 'refresh') {
+      if (payForRefresh(this.roster)) {
+        saveRoster(this.roster);
+        this.say(L.camp.radioDone);
+      } else {
+        this.say(L.hire.noCash);
+      }
+    } else if (kind === 'intel') {
+      if (buyIntel(this.roster, this.case.id)) {
+        saveRoster(this.roster);
+        this.say(L.camp.radioDone);
+      } else {
+        this.say(L.hire.noCash);
+      }
+    }
+  }
+
+  // ---- 设置面板 ------------------------------------------------------------  // 只改「看见的样子」与「听见的音量」；不改案子，也不改名册。
 
   openSettings() {
     this.settingsOpen = true;
@@ -680,6 +811,11 @@ export class Game {
   draw(ctx, time) {
     drawFrame(ctx, this, time);
     if (this.state === 'title') drawTitle(ctx, this, time);
+    else if (this.state === 'camp') drawCamp(ctx, this, time);
+    else if (this.state === 'bench') drawBench(ctx, this, time);
+    else if (this.state === 'locker') drawLocker(ctx, this, time);
+    else if (this.state === 'radio') drawRadio(ctx, this, time);
+    else if (this.state === 'ledger') drawLedger(ctx, this, time);
     else if (this.state === 'roster') drawRoster(ctx, this, time);
     else if (this.state === 'hire') drawHire(ctx, this, time);
     else if (this.state === 'select') drawSelect(ctx, this, time);

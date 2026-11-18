@@ -20,9 +20,56 @@ export class Sound {
       this.master.connect(this.ctx.destination);
       this.noise = this.makeNoise();
       this.buildAria();
+      this.buildBreath();
     } catch {
       this.ctx = null;
     }
+  }
+
+  // 呼吸：一条滤波噪声，音量/频率跟着「最近的敌人 / 血量 / 注视」走；声像挂在提灯人身上。
+  buildBreath() {
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.loop = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 520;
+    filter.Q.value = 0.7;
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    const pan = typeof ctx.createStereoPanner === 'function' ? ctx.createStereoPanner() : null;
+    src.connect(filter);
+    filter.connect(gain);
+    if (pan) {
+      gain.connect(pan);
+      pan.connect(this.master);
+      this.breathPan = pan;
+    } else {
+      gain.connect(this.master);
+    }
+    src.start();
+    this.breathGain = gain;
+    this.breathFilter = filter;
+  }
+
+  breath(level, pan = 0) {
+    if (!this.breathGain) return;
+    const now = this.ctx.currentTime;
+    const v = Math.max(0, Math.min(1, level));
+    this.breathGain.gain.setTargetAtTime(0.004 + v * 0.05, now, 0.25);
+    this.breathFilter.frequency.setTargetAtTime(380 + v * 620, now, 0.3);
+    if (this.breathPan) this.breathPan.pan.setTargetAtTime(Math.max(-0.9, Math.min(0.9, pan)), now, 0.4);
+  }
+
+  heart() {
+    this.tone(58, 0.16, 'sine', 0.09, 40);
+    this.tone(48, 0.2, 'sine', 0.05, 30, 0.12);
+  }
+
+  step(role) {
+    const level = role === 'rookie' ? 0.02 : role === 'veteran' ? 0.016 : 0.013;
+    this.burst(0.05, 190, level, 'lowpass', 0);
   }
 
   // 设置里的主音量：0–100 直接写 master.gain；静音时只记住数值，不自己解除静音。

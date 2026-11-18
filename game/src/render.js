@@ -227,6 +227,20 @@ function castShadow(ctx, x, y, rx, ry, alpha = 0.5) {
   ctx.fill();
 }
 
+// 谁看得见这里：取所有活着的队员视距的最大值；敌人与物件在视距外不画。
+// 视距由 pose/装备决定，提灯人的灯油会让它变短。
+function sightAt(game, x, y) {
+  let best = 0;
+  for (const a of game.agents) {
+    if (a.down || a.taken || a.extracted) continue;
+    const s = a.sight || (a.role === 'lamp' ? 380 : a.role === 'veteran' ? 330 : 270);
+    const d = Math.hypot(a.x - x, a.y - y);
+    if (d <= s - 20) return 1;
+    if (d < s) best = Math.max(best, (s - d) / 20);
+  }
+  return best;
+}
+
 export function drawWorld(ctx, game, time) {
   ctx.clearRect(0, 0, VIEW.width, VIEW.height);
   followSquad(game, time);
@@ -245,6 +259,7 @@ export function drawWorld(ctx, game, time) {
   drawWalls(ctx, game);
   drawCobwebs(ctx, game);
   drawDoors(ctx, game, time);
+  drawDrops(ctx, game, time);
 
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
@@ -320,6 +335,76 @@ function drawCobwebs(ctx, game) {
         else ctx.lineTo(px, py);
       }
       ctx.stroke();
+    }
+  }
+}
+
+function drawDrops(ctx, game, time) {
+  if (!game.drops) return;
+  for (const d of game.drops) {
+    if (sightAt(game, d.x, d.y) <= 0.01) continue;
+    const bob = Math.sin(time * 2 + (d.at || 0)) * 0.6;
+    const x = d.x;
+    const y = d.y + bob;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.beginPath();
+    ctx.ellipse(x + 1, y + 3, 5, 2.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (d.kind === 'oil') {
+      ctx.fillStyle = '#c9a25a';
+      ctx.fillRect(x - 3, y - 3, 6, 5.6);
+      ctx.fillStyle = 'rgba(255, 236, 196, 0.5)';
+      ctx.fillRect(x - 2.6, y - 2.6, 5.2, 0.8);
+      ctx.fillStyle = '#3a3226';
+      ctx.fillRect(x - 1, y - 5, 2, 2);
+    } else if (d.kind === 'ammo') {
+      ctx.fillStyle = '#8a7648';
+      ctx.fillRect(x - 3.4, y - 2.6, 6.8, 5);
+      ctx.fillStyle = 'rgba(255, 238, 200, 0.4)';
+      ctx.fillRect(x - 3, y - 2.2, 6, 0.8);
+      ctx.fillStyle = '#d8c48a';
+      for (const dx of [-1.6, 0.4]) ctx.fillRect(x + dx, y - 1, 1.2, 3);
+    } else if (d.kind === 'ember') {
+      const g = ctx.createRadialGradient(x, y, 0.5, x, y, 7);
+      g.addColorStop(0, 'rgba(255, 230, 170, 0.9)');
+      g.addColorStop(0.4, 'rgba(230, 120, 50, 0.5)');
+      g.addColorStop(1, 'rgba(200, 80, 30, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, 7, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (d.kind === 'ticket') {
+      ctx.fillStyle = '#cfc5ae';
+      ctx.fillRect(x - 3.6, y - 2, 7.2, 4);
+      ctx.fillStyle = 'rgba(60, 48, 34, 0.65)';
+      ctx.fillRect(x - 2.6, y - 0.8, 4.6, 0.6);
+      ctx.fillRect(x - 2.6, y + 0.6, 3.2, 0.6);
+    } else if (d.kind === 'part') {
+      ctx.fillStyle = '#8a949c';
+      ctx.fillRect(x - 3, y - 3, 6, 6);
+      ctx.fillStyle = '#3a4148';
+      ctx.fillRect(x - 1.2, y - 1.2, 2.4, 2.4);
+      ctx.fillStyle = 'rgba(236, 246, 255, 0.4)';
+      ctx.fillRect(x - 2.6, y - 2.6, 5.2, 0.6);
+    } else if (d.kind === 'scrap') {
+      ctx.fillStyle = '#6e6458';
+      ctx.beginPath();
+      ctx.moveTo(x - 3.4, y + 2);
+      ctx.lineTo(x - 1.2, y - 3);
+      ctx.lineTo(x + 1.2, y + 0.6);
+      ctx.lineTo(x + 3.4, y - 2);
+      ctx.lineTo(x + 2.6, y + 2.6);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      ctx.fillStyle = '#c9bfa8';
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(-0.5);
+      ctx.fillRect(-1, -3.4, 2, 7);
+      ctx.fillStyle = '#9e3e36';
+      ctx.fillRect(-1, -3.4, 2, 2.2);
+      ctx.restore();
     }
   }
 }
@@ -988,6 +1073,7 @@ function drawDoors(ctx, game, time) {
   if (c.decor === 'corridor') {
     for (let i = 0; i < c.doors.length; i += 1) {
       const d = c.doors[i];
+      if (sightAt(game, d.x, d.y) <= 0.01) continue;
       const knock = r.knock && r.knock.door === i;
       const w = d.face === 'n' || d.face === 's' ? 54 : 24;
       const h = d.face === 'n' || d.face === 's' ? 24 : 54;
@@ -1139,6 +1225,7 @@ function drawDoors(ctx, game, time) {
     // 十三扇门：一块深色的门板，门口一块搪瓷门牌。远处看不清，走近才读得出。
     for (let i = 0; i < c.doors.length; i += 1) {
       const d = c.doors[i];
+      if (sightAt(game, d.x, d.y) <= 0.01) continue;
       const depth = 26;
       const w = d.nx === 0 ? 58 : depth;
       const h = d.nx === 0 ? depth : 58;
@@ -1291,7 +1378,7 @@ function drawDecor(ctx, game, time) {
   if (c.decor === 'opera') {
     drawCarpet(ctx);
     drawStage(ctx, game, time);
-    drawSeats(ctx, c.seats || []);
+    drawSeats(ctx, c.seats || [], game);
   } else if (c.decor === 'corridor') {
     drawApartment(ctx, game, time);
   } else if (c.decor === 'station') {
@@ -1425,8 +1512,9 @@ function drawStage(ctx, game, time) {
   }
 }
 
-function drawSeats(ctx, seats) {
+function drawSeats(ctx, seats, game) {
   for (const s of seats) {
+    if (game && sightAt(game, s.x + s.w / 2, s.y + s.h / 2) <= 0.01) continue;
     // deterministic wear: each seat ages differently, but the same way every frame
     let h = (Math.round(s.x) * 7349 + Math.round(s.y) * 1931 + s.w * 31) >>> 0;
     const rnd = () => {
@@ -1506,6 +1594,8 @@ function propBlock(ctx, x, y, w, h, top = 'rgba(34, 38, 44, 1)', base = 'rgba(16
 function drawProps(ctx, game, time) {
   const c = game.case;
   for (const [x, y, w, h] of c.props) {
+    // 视距外的家具不画；玩家走到跟前才看见它
+    if (game && sightAt(game, x + w / 2, y + h / 2) <= 0.01) continue;
     // 歌剧院的座椅与售票亭由 drawSeats / drawOperaProps 自己画，不能再压一层深色方块
     if (c.decor === 'opera') continue;
     if (c.decor === 'rice') {
@@ -2016,6 +2106,20 @@ function drawThralls(ctx, game, time) {
   const dim = game.shot ? 1 - 0.42 * (game.shot.w || 0) : 1;
   for (const t of game.thralls) {
     if (t.dead && !(t.death && !t.death.done)) continue;
+    // 视距外的东西不画：玩家看不见的，就不该在画面上先出现
+    const seen = game.shot ? 1 : sightAt(game, t.x, t.y);
+    t.seen = seen > 0.01;
+    if (!t.seen) continue;
+    if (t.burn > 0) {
+      const fire = ctx.createRadialGradient(t.x, t.y, 2, t.x, t.y, 30);
+      fire.addColorStop(0, 'rgba(255, 180, 90, 0.45)');
+      fire.addColorStop(0.45, 'rgba(220, 90, 40, 0.18)');
+      fire.addColorStop(1, 'rgba(220, 90, 40, 0)');
+      ctx.fillStyle = fire;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, 30, 0, Math.PI * 2);
+      ctx.fill();
+    }
     if (t.kind === 'spider') {
       drawSpider(ctx, t, time, dim);
       continue;
@@ -3811,6 +3915,20 @@ function drawAgents(ctx, game, time) {
     ctx.restore();
     ctx.restore();
 
+    if (a.reloadT > 0) {
+      const dur = a.weapon === 'flare' ? 1.1 : 0.9;
+      const p = Math.max(0, Math.min(1, 1 - a.reloadT / dur));
+      ctx.strokeStyle = 'rgba(201, 162, 90, 0.22)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(a.x, a.y - 27, 4.6, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(226, 190, 128, 0.85)';
+      ctx.beginPath();
+      ctx.arc(a.x, a.y - 27, 4.6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * p);
+      ctx.stroke();
+    }
+
     if (a.charmed) {
       const pulse = 0.5 + Math.sin(time * 5) * 0.3;
       ctx.strokeStyle = `rgba(220, 90, 90, ${pulse})`;
@@ -3820,14 +3938,15 @@ function drawAgents(ctx, game, time) {
       ctx.stroke();
     }
 
-    if (a.hp < a.maxHp) {
-      // a hairline, only when there is something to say
-      const w = 22;
-      const ratio = Math.max(0, a.hp) / a.maxHp;
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-      ctx.fillRect(a.x - w / 2, a.y + 21, w, 1.6);
-      ctx.fillStyle = ratio <= 0.35 ? 'rgba(196, 92, 78, 0.9)' : 'rgba(226, 220, 206, 0.6)';
-      ctx.fillRect(a.x - w / 2, a.y + 21, w * ratio, 1.6);
+    if (a.hp < a.maxHp && a.hurtT > 0) {
+      // 受伤后两秒内，只在身边写一个小数字；不是一条长血条
+      ctx.save();
+      ctx.font = `8px ${L.fonts.mono}`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = a.hp / a.maxHp <= 0.35 ? 'rgba(206, 108, 96, 0.9)' : 'rgba(226, 220, 206, 0.8)';
+      ctx.fillText(`${Math.max(0, Math.ceil(a.hp))}`, a.x + 9, a.y - 14);
+      ctx.restore();
     }
 
     if (a.flash > 0) {

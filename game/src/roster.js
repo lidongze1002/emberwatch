@@ -3,6 +3,8 @@
 
 import { CASES } from './cases.js';
 import { L } from './text.js';
+import { DEFAULT_WEAPON } from './config.js';
+import { emptyArms } from './arms.js';
 
 export const POSTS = ['veteran', 'rookie', 'lamp'];
 
@@ -28,6 +30,7 @@ function member(post, nameIdx, trait, look) {
     nameIdx,
     trait,
     look: look || post,
+    weapon: DEFAULT_WEAPON[post] || 'rifle',
     wounds: 0,
     cases: 0,
     dead: false,
@@ -39,6 +42,10 @@ export function createRoster() {
   seq = 0;
   return {
     cash: 0,
+    parts: 0,
+    scrap: 0,
+    intel: {},
+    arms: emptyArms(),
     closed: {},
     members: [
       member('veteran', 0, 'steady', 'veteran'),
@@ -91,6 +98,7 @@ export function squadForRun(roster) {
       nameIdx: -1,
       trait: 'green',
       look: POSTS[i],
+      weapon: DEFAULT_WEAPON[POSTS[i]] || 'rifle',
       wounds: 0,
       cases: 0,
       dead: false,
@@ -155,6 +163,9 @@ export function settle(roster, game) {
 
   const id = meta.id;
   roster.closed[id] = game.won ? 'won' : 'lost';
+  // 案内捡到的零件与废料带回营地（跨刷新保存）
+  roster.parts = (roster.parts || 0) + (game.parts || 0);
+  roster.scrap = (roster.scrap || 0) + (game.scrap || 0);
   // 阵亡的人从名册上撤下来，只在案卷末尾留一行黑框
   roster.members = roster.members.filter((m) => !m.dead);
   roster.settledCase = { id, won: game.won, pay, dead, hurt, fee };
@@ -220,6 +231,53 @@ export function buyLamp(roster) {
   return true;
 }
 
+// 值班室换枪：¥300，下一案立刻生效。
+export const WEAPON_PRICE = 300;
+
+export function setWeapon(roster, id, weapon) {
+  const m = roster.members.find((x) => x.id === id && !x.dead);
+  if (!m || m.weapon === weapon) return false;
+  if (roster.cash < WEAPON_PRICE) return false;
+  roster.cash -= WEAPON_PRICE;
+  m.weapon = weapon;
+  payLine(roster, L.ledger.weapon(L.hud.weapon[weapon] || weapon), -WEAPON_PRICE);
+  return true;
+}
+
+// 行军床：让一个伤员跳过一夜（清掉一次伤势）。
+export function restOne(roster) {
+  const hurt = roster.members.find((m) => !m.dead && m.wounds > 0);
+  if (!hurt) return null;
+  hurt.wounds -= 1;
+  payLine(roster, L.ledger.rest(personNameOf(hurt)), 0);
+  return hurt;
+}
+
+function personNameOf(m) {
+  if (!m || m.nameIdx < 0) return L.roster.substitute;
+  return L.names[m.nameIdx % L.names.length];
+}
+
+// 电台：花钱刷新招聘池，或者买下一案的 Boss 情报。
+export const RADIO = { refresh: 300, intel: 200 };
+
+export function buyIntel(roster, caseId) {
+  if (roster.intel && roster.intel[caseId]) return true;
+  if (roster.cash < RADIO.intel) return false;
+  roster.cash -= RADIO.intel;
+  roster.intel = { ...(roster.intel || {}), [caseId]: true };
+  payLine(roster, L.ledger.intel, -RADIO.intel);
+  return true;
+}
+
+export function payForRefresh(roster) {
+  if (roster.cash < RADIO.refresh) return false;
+  roster.cash -= RADIO.refresh;
+  payLine(roster, L.ledger.refresh, -RADIO.refresh);
+  refreshCandidates(roster);
+  return true;
+}
+
 // 存一下：值班室不该因为刷新就忘掉这一夜。读回来的东西形状不对就当没有。
 const SAVE_KEY = 'nw.roster.v1';
 
@@ -242,6 +300,13 @@ export function loadRoster() {
     if (!Array.isArray(r.candidates)) r.candidates = [];
     if (!r.closed || typeof r.closed !== 'object') r.closed = {};
     if (!r.upgrades || typeof r.upgrades !== 'object') r.upgrades = { lamp: false };
+    if (typeof r.parts !== 'number') r.parts = 0;
+    if (typeof r.scrap !== 'number') r.scrap = 0;
+    if (!r.intel || typeof r.intel !== 'object') r.intel = {};
+    if (!r.arms || typeof r.arms !== 'object') r.arms = emptyArms();
+    for (const m of r.members) {
+      if (!m.weapon) m.weapon = DEFAULT_WEAPON[m.post] || 'rifle';
+    }
     const maxId = r.members.reduce((mx, m) => Math.max(mx, Number(String(m.id).replace(/\D/g, '')) || 0), 0);
     seq = Math.max(seq, maxId + 1);
     return r;
