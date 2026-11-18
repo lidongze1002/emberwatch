@@ -477,6 +477,13 @@
 **结论**：保留两张作为过程记录。
 截图：`screenshots/gallery/42-no-one-came-back.jpg`、`43-paused.jpg`
 
+## 轮 70 — 歌剧院的地毯是一块红漆
+**看**：第一案的过道地毯（`drawCarpet`）是三层半透明红色渐变 + 一圈金线 + 一排横线，在复查截图里像一块刷在地板上的红漆；走廊那四条地毯已经在轮 32 换过材质，歌剧院的没有。
+**改**：复用 `carpetTile()` 的 16 px 织纹（0.9 透明度）、中间一道「被踩亮」的横向渐变、1.4 px 金线包边；整块 `clip` 在自己的矩形里。三条地毯（池座横过道、两条侧过道）共用同一段代码。
+**测**：`nw-cases` 5/5、3/3、meta 回归通过、无 console error；`nw-perf` 17.7 ms（空转基线 17.8，见轮 68）。
+**结论**：保留。现在全院只有一种地毯材质。
+截图：`screenshots/gallery/44-opera-carpet.jpg`
+
 ## 备注
 - `render.js` 里有一行 `window.__nwCam?.(CAM)` 的调试钩子，只给 tools 下的截图脚本用，未设置回调时无副作用。
 - 帧时：16.7 ms 是这台机器 60 Hz 时的垂直同步值。电源/负载变化时显示会掉到约 55 Hz，`requestAnimationFrame` 的空转基线也跟着变成 17.8–18.0 ms（`tools/nw-idle.mjs` 可复现），此时 `nw-perf` 的 median 会跟着 +1.1 ms —— 游戏本身的 draw+update 实测只有 2.0–2.9 ms/帧（`tools/nw-draw-cost.mjs`），没有回归。评审时以「median 是否贴近当时的空转基线」为准。

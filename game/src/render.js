@@ -1177,23 +1177,30 @@ function drawDecor(ctx, game, time) {
 }
 
 function drawCarpet(ctx) {
+  if (!carpetPattern) carpetPattern = ctx.createPattern(carpetTile(), 'repeat');
   const mat = (x, y, w, h) => {
-    const g = ctx.createLinearGradient(x, y, x + w, y + h);
-    g.addColorStop(0, 'rgba(96, 26, 30, 0.5)');
-    g.addColorStop(0.5, 'rgba(72, 20, 24, 0.4)');
-    g.addColorStop(1, 'rgba(58, 16, 20, 0.32)');
-    ctx.fillStyle = g;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = carpetPattern;
     ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = 'rgba(201, 162, 90, 0.2)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x + 3, y + 3, w - 6, h - 6);
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.14)';
-    for (let i = 0; i < h; i += 8) {
-      ctx.beginPath();
-      ctx.moveTo(x + 4, y + i);
-      ctx.lineTo(x + w - 4, y + i);
-      ctx.stroke();
-    }
+    ctx.globalAlpha = 1;
+    // the middle of a theatre carpet is worn pale by a hundred seasons of feet
+    const horiz = w > h;
+    const wear = horiz
+      ? ctx.createLinearGradient(0, y, 0, y + h)
+      : ctx.createLinearGradient(x, 0, x + w, 0);
+    wear.addColorStop(0, 'rgba(0, 0, 0, 0.3)');
+    wear.addColorStop(0.5, 'rgba(168, 120, 92, 0.14)');
+    wear.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
+    ctx.fillStyle = wear;
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = 'rgba(201, 162, 90, 0.26)';
+    ctx.lineWidth = 1.4;
+    ctx.strokeRect(x + 3.2, y + 3.2, w - 6.4, h - 6.4);
+    ctx.restore();
   };
   mat(448, 578, 70, 60);
   mat(704, 306, 38, 330);
