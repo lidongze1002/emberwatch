@@ -676,15 +676,20 @@ export function drawSelect(ctx, game, time) {
 
     label(ctx, row.no, SELECT_ROW.x + 22, top + 26, 8, AMBER, 3);
     ctx.save();
-    let nameSize = L.cjk ? 24 : 21;
+    let nameSize = L.cjk ? 22 : 19;
+    const nameMax = 150;
     ctx.font = `${nameSize}px ${fonts.display}`;
     const nameW = ctx.measureText(row.name).width;
-    if (nameW > 198) nameSize = Math.max(12, Math.floor(nameSize * (198 / nameW)));
+    if (nameW > nameMax) nameSize = Math.max(12, Math.floor(nameSize * (nameMax / nameW)));
     ctx.font = `${nameSize}px ${fonts.display}`;
+    let nameText = row.name;
+    while (ctx.measureText(nameText).width > nameMax && nameText.length > 2) {
+      nameText = `${nameText.slice(0, -2)}…`;
+    }
     ctx.fillStyle = isHover ? '#f4e8cf' : INK;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText(row.name, SELECT_ROW.x + 120, top + 36);
+    ctx.fillText(nameText, SELECT_ROW.x + 120, top + 36);
     ctx.restore();
     label(ctx, row.place, SELECT_ROW.x + 22, top + 50, 8, INK_FAINT, 1.6);
     label(ctx, row.legend, SELECT_ROW.x + 22, top + 68, 7.5, INK_SOFT, 2.4);
@@ -697,9 +702,11 @@ export function drawSelect(ctx, game, time) {
 
     ctx.font = `10px ${fonts.ui}`;
     ctx.fillStyle = 'rgba(216, 212, 200, 0.6)';
-    const lines = wrap(ctx, row.blurb || row.rule, 330);
-    lines.slice(0, 3).forEach((line, k) => ctx.fillText(line, SELECT_ROW.x + 440, top + 27 + k * 16));
-    label(ctx, L.select.rules, SELECT_ROW.x + 440, top + 14, 6.5, AMBER, 3);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    const lines = wrap(ctx, row.blurb || row.rule, 318);
+    lines.slice(0, 3).forEach((line, k) => ctx.fillText(line, SELECT_ROW.x + 448, top + 33 + k * 16));
+    label(ctx, L.select.rules, SELECT_ROW.x + 448, top + 16, 6.5, AMBER, 3);
 
     // the file's photograph, small: the same plate the briefing shows
     const px = SELECT_ROW.x + SELECT_ROW.w - 142;
