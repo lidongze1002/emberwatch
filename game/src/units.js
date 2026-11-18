@@ -763,6 +763,11 @@ function updateAgentInner(game, a, dt) {
 
   a.state = 'idle';
   a.path = null;
+  // 驻守不是「三个人朝同一个方向发呆」：按角色各看一个扇区（正面 / 右侧 / 左侧）。
+  if (a.order.kind === 'hold' && a.guard !== undefined && a.aversion <= 0) {
+    a.aim = turnToward(a.aim, a.guard, dt * 3);
+    if (Math.hypot(a.vx, a.vy) < 12) a.facing = turnToward(a.facing, a.guard, dt * 3.4);
+  }
 }
 // 移开目光：不是「不吃伤害」，是不再让枪口对着那个方向
 function updateAgent(game, a, dt) {

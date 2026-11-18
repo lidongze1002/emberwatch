@@ -2679,6 +2679,27 @@ function drawAgents(ctx, game, time) {
     ctx.ellipse(1.5, 3.5, 11, 8, 0, 0, Math.PI * 2);
     ctx.fill();
 
+    // 警戒的那个人脚下有一小片很淡的扇区：他在看哪一边，画面上读得出来
+    if (a.overwatch) {
+      const cone = ctx.createRadialGradient(a.x, a.y, 10, a.x, a.y, 46);
+      cone.addColorStop(0, 'rgba(201, 162, 90, 0.1)');
+      cone.addColorStop(1, 'rgba(201, 162, 90, 0)');
+      ctx.fillStyle = cone;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.arc(a.x, a.y, 46, a.aim - 0.32, a.aim + 0.32);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(201, 162, 90, 0.12)';
+      ctx.lineWidth = 0.7;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(a.x + Math.cos(a.aim - 0.32) * 46, a.y + Math.sin(a.aim - 0.32) * 46);
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(a.x + Math.cos(a.aim + 0.32) * 46, a.y + Math.sin(a.aim + 0.32) * 46);
+      ctx.stroke();
+    }
+
     ctx.rotate(a.facing + Math.PI / 2);
     ctx.rotate(Math.sin(a.step) * 0.05 * Math.min(1, Math.hypot(a.vx, a.vy) / 110));
     ctx.translate(Math.sin(a.step * 0.5) * 0.5 * Math.min(1, Math.hypot(a.vx, a.vy) / 110), 0);
@@ -2908,6 +2929,31 @@ function drawAgents(ctx, game, time) {
       ctx.fillStyle = 'rgba(255, 228, 192, 0.24)';
       ctx.beginPath();
       ctx.arc(h.x + 0.5, h.y - 0.7, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 门口堆叠：站在后面的人一只手搭在前面那人的肩上，枪口下压
+    if (a.stack !== null && a.stack !== undefined && a.stack > 0) {
+      ctx.strokeStyle = coat;
+      ctx.lineWidth = 2.8;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-8.4, -1.4);
+      ctx.quadraticCurveTo(-6.4, -5.2, -2.2, -7.2);
+      ctx.stroke();
+      ctx.strokeStyle = coatLight;
+      ctx.lineWidth = 0.9;
+      ctx.beginPath();
+      ctx.moveTo(-8.1, -1.8);
+      ctx.quadraticCurveTo(-6.2, -5.4, -2.4, -7.4);
+      ctx.stroke();
+      ctx.fillStyle = '#5f4c3e';
+      ctx.beginPath();
+      ctx.arc(-1.9, -7.4, 2.1, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255, 228, 192, 0.22)';
+      ctx.beginPath();
+      ctx.arc(-1.4, -7.9, 1.1, 0, Math.PI * 2);
       ctx.fill();
     }
 

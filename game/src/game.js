@@ -5,6 +5,7 @@ import { POSSESS_SECONDS, TUNING } from './config.js';
 import { CASES } from './cases.js';
 import { buildLevel, setWorld, solid } from './level.js';
 import { createAgents, createThralls, updateUnits } from './units.js';
+import { overwatchTick } from './tactics.js';
 import { drawFrame, drawBars, screenToWorld } from './render.js';
 import { drawHud } from './hud.js';
 import { drawBrief, drawHire, drawResult, drawRoster, drawSelect, drawTitle, tCaseAt, tHireAt, tHireNoneAt, tRosterCardAt, tRosterCasesAt, tRosterFreshAt, tRosterHireAt, tRosterLampAt, tSelectRosterAt, tTitleLinkAt } from './overlays.js';
@@ -69,6 +70,7 @@ export class Game {
     this.trailClock = 0;
     this.settled = false;
     this.settlement = null;
+    this.tactics = { heading: -Math.PI / 2, holder: null, lastLog: -99, door: null };
     initRules(this);
   }
 
@@ -155,6 +157,7 @@ export class Game {
     }
 
     updateRules(this, dt);
+    overwatchTick(this);
     updateUnits(this, dt);
     afterRules(this, dt);
 

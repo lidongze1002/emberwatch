@@ -278,6 +278,7 @@ export const zh = {
     revived: (r) => `${zh.agent[r].name}站起来了。`,
     down: (r) => `${zh.agent[r].name}倒下了。`,
     out: (r) => `${zh.agent[r].name}出去了。`,
+    bound: (r) => `${zh.agent[r].name}留下警戒，其余人交替前进。`,
   },
   result: {
     winTitle: '案件结束',

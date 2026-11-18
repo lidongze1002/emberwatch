@@ -284,6 +284,7 @@ export const en = {
     revived: (r) => `${r} is back on their feet.`,
     down: (r) => `${r} is down.`,
     out: (r) => `${r} is out.`,
+    bound: (r) => `${r} holds overwatch while the others bound.`,
   },
   result: {
     winTitle: 'CASE CLOSED',
