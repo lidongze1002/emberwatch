@@ -263,6 +263,10 @@ export function createAgents(game) {
       vx: 0,
       vy: 0,
       recoil: 0,
+      firePulse: 0,
+      acquire: 0,
+      settle: 0,
+      aimSweep: 0,
       pose: 'carry',
       poseT: 0,
       poseDip: 0,
@@ -333,8 +337,10 @@ function nearestKune(game, a) {
 }
 
 function nearestDowned(game, a) {
+  // 救人只有一个去，另一个留在原地警戒；距离不设死，否则倒下的人躺在走廊另一头就没人回头。
+  if (game.agents.some((x) => x !== a && x.order && x.order.kind === 'revive')) return null;
   let best = null;
-  let bestDist = 300;
+  let bestDist = 1200;
   for (const other of game.agents) {
     if (other === a || !other.down || other.taken) continue;
     const d = Math.hypot(other.x - a.x, other.y - a.y);
@@ -351,6 +357,51 @@ function turnToward(from, to, maxStep) {
   while (delta > Math.PI) delta -= Math.PI * 2;
   while (delta < -Math.PI) delta += Math.PI * 2;
   return from + Math.max(-maxStep, Math.min(maxStep, delta));
+}
+
+// 瞄准是一套状态机，不是「把 aim 赋成目标角度」：
+// 发现 → 停步 → 受限角速度转枪 → 对准（≤8°）才开火 → 目标消失后还瞄 0.25 秒。
+// 侧后方目标超过 ±1.2 rad 时，转的是身体，不是腰。
+const AIM_TURN = 7;             // rad/s，上身/枪口的上限
+const BODY_TURN = 5;            // rad/s，转身
+const AIM_WINDOW = 0.14;        // ±8°
+const ACQUIRE_TIME = 0.22;      // 先停、再瞄
+const AIM_HOLD = 0.25;          // 收枪前还瞄一会儿
+const TWIST_MAX = 1.2;          // 腰能拧多少
+
+function shortAngle(v) {
+  let d = v;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return d;
+}
+
+// 把枪口转向目标，速度受限；腰拧到头就交给身体。
+// 返回这一帧还剩多少角度误差（小于 AIM_WINDOW 才算对准）。
+function slewAim(a, want, dt, turnBody) {
+  const before = a.aim;
+  a.aim = turnToward(a.aim, want, dt * AIM_TURN);
+  a.aimSweep = Math.abs(shortAngle(a.aim - before));
+  const twist = shortAngle(a.aim - a.facing);
+  if (Math.abs(twist) > TWIST_MAX) {
+    a.aim = a.facing + Math.sign(twist) * TWIST_MAX;
+    if (turnBody) a.facing = turnToward(a.facing, want, dt * BODY_TURN);
+  }
+  return Math.abs(shortAngle(want - a.aim));
+}
+
+function brake(a, dt) {
+  const k = Math.max(0, 1 - dt * 16);
+  a.vx *= k;
+  a.vy *= k;
+  a.path = null;
+}
+
+// 目标在这一帧被看见：定时器往前推，枪口按受限角速度跟过去。
+function trackTarget(a, target, dt, turnBody) {
+  a.settle = AIM_HOLD;
+  a.acquire = (a.acquire || 0) + dt;
+  return slewAim(a, Math.atan2(target.y - a.y, target.x - a.x), dt, turnBody);
 }
 
 function walkTo(game, a, x, y, dt) {
@@ -482,11 +533,15 @@ function walkTo(game, a, x, y, dt) {
 
 function fire(game, a, target) {
   if (a.cooldown > 0 || a.aversion > 0) return;
+  // 没停稳、没对准，就不开火：甩头打一枪再甩回来不是射击，是抽搐
+  if ((a.acquire || 0) < ACQUIRE_TIME) return;
+  const want = Math.atan2(target.y - a.y, target.x - a.x);
+  if (Math.abs(shortAngle(want - a.aim)) > AIM_WINDOW) return;
   const dist = Math.hypot(target.x - a.x, target.y - a.y);
   if (dist > a.range || !lineClear(a.x, a.y, target.x, target.y, 4)) return;
   a.cooldown = a.fireRate;
   a.recoil = 1;
-  a.aim = Math.atan2(target.y - a.y, target.x - a.x);
+  a.firePulse = 1;
   const stay = a.trait === 'steady' ? 0.72 : 1;
   const spread = (Math.random() - 0.5) * a.spread * 2 * stay;
   const angle = a.aim + spread;
@@ -499,7 +554,13 @@ function fire(game, a, target) {
     damage: a.damage,
     team: 'agent',
   });
-  game.muzzle.push({ x: a.x + Math.cos(angle) * 28, y: a.y + Math.sin(angle) * 28, life: 0.06 });
+  game.muzzle.push({
+    x: a.x + Math.cos(angle) * 28,
+    y: a.y + Math.sin(angle) * 28,
+    angle,
+    sweep: a.aimSweep || 0,
+    life: 0.06,
+  });
   game.sound.shot(a.role, a.x, a.y);
 }
 
@@ -508,6 +569,10 @@ function updateAgentInner(game, a, dt) {
   a.cooldown = Math.max(0, a.cooldown - dt);
   a.flash = Math.max(0, a.flash - dt * 4);
   a.recoil = Math.max(0, a.recoil - dt * 6);
+  a.firePulse = Math.max(0, (a.firePulse || 0) - dt * 7);
+  // 目标离开视野后还瞄 0.25 秒；超过就把「发现」这件事忘掉，下一次重新停步
+  a.settle = Math.max(0, (a.settle || 0) - dt);
+  if (a.settle <= 0) a.acquire = 0;
   // the body always faces where it is going; the weapon faces what it is on
   if (Math.hypot(a.vx, a.vy) < 12) {
     a.facing = turnToward(a.facing, a.aim, dt * 3.4);
@@ -523,7 +588,7 @@ function updateAgentInner(game, a, dt) {
   a.pose = a.poseT > 0.5 ? 'ready' : 'carry';
   // with nothing to shoot, the weapon — and the torch on it — follows the walk, not the last target
   const engaged = a.state === 'fighting' || a.order.kind === 'focus';
-  if (!engaged && a.aversion <= 0) a.aim = turnToward(a.aim, a.facing, dt * 7);
+  if (!engaged && a.aversion <= 0 && a.settle <= 0) a.aim = turnToward(a.aim, a.facing, dt * 7);
 
   // you are in this one: hands on, no orders
   if (game.possessed === a) {
@@ -547,6 +612,9 @@ function updateAgentInner(game, a, dt) {
       a.path = null;
     }
     a.aim = Math.atan2(game.input.y - a.y, game.input.x - a.x);
+    // 亲手带的人不受「发现→停步」的自动流程限制，但枪口仍然要对着光标
+    a.acquire = ACQUIRE_TIME;
+    a.settle = AIM_HOLD;
     if (game.input.down && !(game.suppressFire > 0)) fire(game, a, { x: game.input.x, y: game.input.y });
     return;
   }
@@ -579,7 +647,19 @@ function updateAgentInner(game, a, dt) {
   if (a.order.kind === 'goto') {
     a.state = 'moving';
     const target = nearestThrall(game, a, 190);
-    if (target) fire(game, a, target);
+    if (target) {
+      trackTarget(a, target, dt, false);
+      const twist = Math.abs(shortAngle(a.aim - a.facing));
+      if (twist >= TWIST_MAX - 0.01 && (a.acquire || 0) >= ACQUIRE_TIME) {
+        // 侧后方有人：不边走边拧腰，站住把身体转过去
+        a.state = 'fighting';
+        a.facing = turnToward(a.facing, a.aim, dt * BODY_TURN);
+        brake(a, dt);
+        fire(game, a, target);
+        return;
+      }
+      fire(game, a, target);
+    }
     const reached = walkTo(game, a, a.order.x, a.order.y, dt);
     if (reached) a.order = { kind: 'hold' };
     return;
@@ -634,7 +714,17 @@ function updateAgentInner(game, a, dt) {
 
   if (target) {
     a.state = 'fighting';
-    a.aim = Math.atan2(target.y - a.y, target.x - a.x);
+    trackTarget(a, target, dt, true);
+    // 先停、再瞄：刚发现人时不走位，枪口按角速度转过去
+    if ((a.acquire || 0) < ACQUIRE_TIME) {
+      brake(a, dt);
+      return;
+    }
+    // 腰拧到头：脚停下，人转身，枪才继续往目标上压
+    if (Math.abs(shortAngle(a.aim - a.facing)) >= TWIST_MAX - 0.01) {
+      brake(a, dt);
+      return;
+    }
     const dist = Math.hypot(target.x - a.x, target.y - a.y);
     const want = Math.min(a.range * 0.72, 200);
     const visible = lineClear(a.x, a.y, target.x, target.y, 4);
@@ -679,6 +769,12 @@ function updateAgent(game, a, dt) {
   if (a.down || a.extracted || a.taken) return;
   a.aversion = Math.max(0, a.aversion - dt);
   updateAgentInner(game, a, dt);
+  // 最后一锤：不管这一帧里身体怎么走，腰拧出去的角度都不超过 1.2。
+  // 亲手带的人例外——光标指哪打哪；被要求「移开目光」时也例外，那是真的把头转开。
+  if (game.possessed !== a && a.aversion <= 0) {
+    const tw = shortAngle(a.aim - a.facing);
+    if (Math.abs(tw) > TWIST_MAX) a.aim = a.facing + Math.sign(tw) * TWIST_MAX;
+  }
   if (a.aversion > 0 && !a.down) {
     a.aim = turnToward(a.aim, a.avertAngle, dt * 10);
     if (!a.order || a.order.kind !== 'focus') a.pose = 'carry';

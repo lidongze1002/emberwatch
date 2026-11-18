@@ -2682,6 +2682,9 @@ function drawAgents(ctx, game, time) {
     ctx.rotate(a.facing + Math.PI / 2);
     ctx.rotate(Math.sin(a.step) * 0.05 * Math.min(1, Math.hypot(a.vx, a.vy) / 110));
     ctx.translate(Math.sin(a.step * 0.5) * 0.5 * Math.min(1, Math.hypot(a.vx, a.vy) / 110), 0);
+    // 开火的一瞬间人往下坐一点，脚分开：站姿是「打」出来的，不是贴图换的
+    const firePulse = a.firePulse || 0;
+    ctx.translate(0, 0.7 * firePulse);
     // the body leans a touch into the turn instead of snapping to it
     const lean = Math.atan2(Math.sin(a.aim - a.facing), Math.cos(a.aim - a.facing));
     ctx.rotate(Math.max(-0.4, Math.min(0.4, lean)) * 0.07);
@@ -2712,8 +2715,8 @@ function drawAgents(ctx, game, time) {
     const gait = moving ? Math.sin(a.step) : Math.sin(a.step) * 0.12;
     const stride = 7.4 * Math.min(1, speed / 120);
     const boot = [
-      { x: -4.6, y: 8.8 - gait * stride, a: -0.06 },
-      { x: 4.6, y: 8.8 + gait * stride, a: 0.06 },
+      { x: -4.6 - 0.8 * firePulse, y: 8.8 - gait * stride, a: -0.06 },
+      { x: 4.6 + 0.8 * firePulse, y: 8.8 + gait * stride, a: 0.06 },
     ];
     for (const b of boot) {
       ctx.strokeStyle = '#171c23';
@@ -2838,9 +2841,10 @@ function drawAgents(ctx, game, time) {
     ctx.stroke(bodyPath);
 
     // the upper body turns toward the target, but only so far: hips face the walk, chest and
-    // weapon face the work. The arms are two joints, not one noodle.
-    const wantTwist = shortAngle(a.aim - a.facing) * 0.8;
-    const twist = Math.max(-0.6, Math.min(0.6, wantTwist));
+    // weapon face the work. A waist twists 1.2 rad at most; past that the body turns instead,
+    // which is why a side target no longer snaps the shoulders round for one frame.
+    const wantTwist = shortAngle(a.aim - a.facing);
+    const twist = Math.max(-1.2, Math.min(1.2, wantTwist));
     ctx.save();
     ctx.rotate(twist);
     const poseT = typeof a.poseT === 'number' ? a.poseT : a.pose === 'carry' ? 0 : 1;
@@ -3110,6 +3114,17 @@ function drawBullets(ctx, game) {
     ctx.stroke();
   }
   for (const m of game.muzzle) {
+    if (m.angle !== undefined && m.sweep > 0.015) {
+      // 扫射：枪口沿扫过的方向拖出一两帧的横向残影
+      const side = m.angle + Math.PI / 2;
+      const len = Math.min(8, m.sweep * 30);
+      ctx.strokeStyle = 'rgba(255, 226, 176, 0.34)';
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(m.x - Math.cos(side) * len, m.y - Math.sin(side) * len);
+      ctx.lineTo(m.x + Math.cos(side) * len, m.y + Math.sin(side) * len);
+      ctx.stroke();
+    }
     const g = ctx.createRadialGradient(m.x, m.y, 1, m.x, m.y, 26);
     g.addColorStop(0, 'rgba(255, 248, 226, 0.95)');
     g.addColorStop(0.3, 'rgba(255, 208, 140, 0.5)');
