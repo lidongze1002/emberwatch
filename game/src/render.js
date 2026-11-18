@@ -3938,14 +3938,15 @@ function drawAgents(ctx, game, time) {
       ctx.stroke();
     }
 
-    if (a.hp < a.maxHp) {
-      // a hairline, only when there is something to say
-      const w = 22;
-      const ratio = Math.max(0, a.hp) / a.maxHp;
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-      ctx.fillRect(a.x - w / 2, a.y + 21, w, 1.6);
-      ctx.fillStyle = ratio <= 0.35 ? 'rgba(196, 92, 78, 0.9)' : 'rgba(226, 220, 206, 0.6)';
-      ctx.fillRect(a.x - w / 2, a.y + 21, w * ratio, 1.6);
+    if (a.hp < a.maxHp && a.hurtT > 0) {
+      // 受伤后两秒内，只在身边写一个小数字；不是一条长血条
+      ctx.save();
+      ctx.font = `8px ${L.fonts.mono}`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = a.hp / a.maxHp <= 0.35 ? 'rgba(206, 108, 96, 0.9)' : 'rgba(226, 220, 206, 0.8)';
+      ctx.fillText(`${Math.max(0, Math.ceil(a.hp))}`, a.x + 9, a.y - 14);
+      ctx.restore();
     }
 
     if (a.flash > 0) {

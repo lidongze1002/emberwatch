@@ -62,6 +62,8 @@ WebAudio, every picture is canvas.
 | ![recruit](screenshots/gallery/12-recruit.jpg) | 招聘：三张要价不同的脸。 / Recruiting: three faces, three prices. |
 | ![settings](screenshots/gallery/13-settings.jpg) | 设置：亮度、音量、颗粒、语言、全屏。 / Settings: brightness, master, grain, language, fullscreen. |
 | ![closed](screenshots/gallery/14-case-closed.jpg) | 结案：点名册与这一案的报酬。 / Case closed: the roll call and what the night paid. |
+| ![hud 1:1](screenshots/gallery/15-ui-1x.jpg) | 1:1：打钩目标、案件号、三个人的文件名。 / At 1:1: the checklist, the case number, three names. |
+| ![hud quarter](screenshots/gallery/16-ui-quarter.jpg) | 1/4 缩略图：最先消失的是细线，不是布局。 / At 1/4: the hairlines go first, the layout holds. |
 
 ## 四张参赛图 / The four entry pictures
 

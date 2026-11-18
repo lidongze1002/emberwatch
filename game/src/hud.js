@@ -122,11 +122,17 @@ function fileRow(ctx, agent, x, y, w, gaze, member, charm) {
 function stamp(ctx, x, y, text, live) {
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate(-0.045);
+  ctx.rotate(-0.075);
   const w = Math.max(70, text.length * 8.4 + 18);
   ctx.strokeStyle = live ? RED_SOFT : RED;
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 1.4;
   ctx.strokeRect(0.5, 0.5, w, 19);
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.fillStyle = 'rgba(0,0,0,1)';
+  ctx.fillRect(w * 0.24, -1, 6, 2.4);
+  ctx.fillRect(w * 0.7, 18.4, 8, 2.4);
+  ctx.restore();
   label(ctx, text, 9.5, 13.5, 8.5, live ? RED_SOFT : RED, 3.4, 'left');
   ctx.restore();
 }
@@ -170,28 +176,48 @@ function offFrame(s) {
 }
 
 export function drawHud(ctx, game, time) {
-  const left = 34;
-  const right = VIEW.width - left;
+  const left = 40;
+  const right = VIEW.width - 24;
   const meta = L.cases[game.case.id];
 
   // ---- the file header -------------------------------------------------
-  label(ctx, L.title.eyebrow, left, 72, 8, INK_FAINT, 3.2);
-  label(ctx, meta.no, left, 92, 15, INK, 1.6, 'left', fonts.display);
-  label(ctx, meta.name, left + 104, 92, 9, INK_SOFT, 1.6);
-  label(ctx, `${timecode(game.clock)}   ·   ${L.hud.team} ${game.agents.filter((a) => !a.taken && !a.extracted).length}/3`, left, 108, 8, INK_FAINT, 1.8);
+  label(ctx, L.title.eyebrow, left, 64, 8, INK_FAINT, 2.4);
+  label(ctx, meta.no, left, 92, 20, INK, 1.2, 'left', fonts.display);
+  label(ctx, meta.name, left + 112, 90, 8, INK_SOFT, 1.8);
+  label(ctx, `${timecode(game.clock)}   ·   ${L.hud.team} ${game.agents.filter((a) => !a.taken && !a.extracted).length}/3`, left, 108, 8, INK_FAINT, 1.4);
   rule(ctx, left, 116, left + 320, 116, AMBER_FAINT);
 
-  // the objective: typed lines, number, task, readout
-  label(ctx, L.hud.objective, left, 134, 7.5, AMBER, 3.4);
+  // the objective: a checklist, a box, a hand-drawn tick, a pencil line through it
+  label(ctx, L.hud.objective, left, 136, 8, AMBER, 2.4);
   const steps = objectives(game);
   const gazeCase = game.case.rule.kind === 'gaze';
   const powerCase = game.case.rule.kind === 'power';
   steps.forEach((step, i) => {
-    const y = 152 + i * 17;
-    label(ctx, `0${i + 1}`, left, y, 8, step.done ? AMBER : INK_FAINT, 1);
-    label(ctx, step.text, left + 22, y, 9, step.done ? INK_SOFT : INK, 1.2);
-    label(ctx, step.value, left + 320, y, 8.5, step.done ? AMBER : INK_SOFT, 1, 'right');
-    if (step.done) rule(ctx, left + 22, y - 3, left + 22 + ctx.measureText(step.text).width, y - 3, 'rgba(186, 180, 168, 0.3)');
+    const y = 158 + i * 20;
+    const bx = left;
+    const by = y - 8;
+    ctx.strokeStyle = step.done ? 'rgba(201, 162, 90, 0.8)' : 'rgba(186, 180, 168, 0.34)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(bx + 0.5, by + 0.5, 8, 8);
+    if (step.done) {
+      ctx.strokeStyle = 'rgba(226, 196, 132, 0.85)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(bx + 1.6, by + 4.4);
+      ctx.lineTo(bx + 3.6, by + 6.8);
+      ctx.lineTo(bx + 7.2, by + 1.8);
+      ctx.stroke();
+    }
+    label(ctx, step.text, left + 18, y, 11, step.done ? INK_SOFT : INK, 0.6);
+    label(ctx, step.value, left + 320, y, 8, step.done ? AMBER : INK_SOFT, 1, 'right');
+    if (step.done) {
+      ctx.strokeStyle = 'rgba(201, 162, 90, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(left + 20, y - 5);
+      ctx.lineTo(left + 24 + ctx.measureText(step.text).width * 0.96, y + 2);
+      ctx.stroke();
+    }
   });
 
   // ---- the stamp, and the rule's own readout, on the right -------------

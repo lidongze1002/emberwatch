@@ -607,6 +607,7 @@ function updateAgentInner(game, a, dt) {
   if (a.down || a.extracted || a.taken) return;
   a.cooldown = Math.max(0, a.cooldown - dt);
   a.flash = Math.max(0, a.flash - dt * 4);
+  a.hurtT = Math.max(0, (a.hurtT || 0) - dt);
   a.recoil = Math.max(0, a.recoil - dt * 6);
   a.firePulse = Math.max(0, (a.firePulse || 0) - dt * 7);
   a.ember = Math.max(0, (a.ember || 0) - dt);
@@ -888,6 +889,7 @@ function stepPath(game, t, x, y, dt, speed) {
 function hurtAgent(game, target, damage, t) {
   target.hp -= damage;
   target.flash = 1;
+  target.hurtT = 2;
   game.shake = 6;
   game.sound.hurt();
   if (target.hp <= 0) {

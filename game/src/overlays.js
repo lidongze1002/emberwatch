@@ -164,11 +164,18 @@ function rule(ctx, x1, x2, y, colour) {
 function stamp(ctx, x, y, text, size = 17, colour = RED) {
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate(-0.06);
+  ctx.rotate(-0.075);
   const w = text.length * (size * 0.82) + 20;
   ctx.strokeStyle = colour;
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 1.4;
   ctx.strokeRect(0.5, 0.5, w, size + 8);
+  // 缺墨：两段没吃到印泥
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+  ctx.fillRect(w * 0.22, -1, 7, 2.6);
+  ctx.fillRect(w * 0.68, size + 7.2, 9, 2.6);
+  ctx.restore();
   label(ctx, text, 10, size + 1.5, size * 0.62, colour, 3.4);
   ctx.restore();
 }
@@ -181,8 +188,40 @@ function caret(ctx, x, y, time, h = 12) {
   }
 }
 
+let paperFibre = null;
+function fibreTile() {
+  if (paperFibre) return paperFibre;
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 128;
+  const g = c.getContext('2d');
+  const img = g.createImageData(128, 128);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const v = Math.random() > 0.5 ? 255 : 0;
+    img.data[i] = v;
+    img.data[i + 1] = v;
+    img.data[i + 2] = v;
+    img.data[i + 3] = 4 + Math.random() * 7;
+  }
+  g.putImageData(img, 0, 0);
+  paperFibre = c;
+  return c;
+}
+
 function page(ctx) {
   ctx.fillStyle = 'rgba(3, 5, 9, 0.86)';
+  ctx.fillRect(0, 0, VIEW.width, VIEW.height);
+  // 纸纤维：极低对比的噪声，只在纸上，不在世界里
+  ctx.save();
+  ctx.globalAlpha = 0.5;
+  ctx.fillStyle = ctx.createPattern(fibreTile(), 'repeat');
+  ctx.fillRect(0, 0, VIEW.width, VIEW.height);
+  ctx.restore();
+  // 灯从左上打过来：四边压暗一圈，像纸被台灯照住
+  const edge = ctx.createRadialGradient(420, 260, 260, 640, 400, 760);
+  edge.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  edge.addColorStop(1, 'rgba(0, 0, 0, 0.55)');
+  ctx.fillStyle = edge;
   ctx.fillRect(0, 0, VIEW.width, VIEW.height);
   ctx.strokeStyle = 'rgba(201, 162, 90, 0.14)';
   ctx.lineWidth = 1;
@@ -345,7 +384,20 @@ function photoFrame(ctx, x, y, w, h, caption, number, person) {
     ctx.font = `6px ${fonts.mono}`;
     ctx.textAlign = 'left';
     ctx.fillText(number, x + 4, y + h - 3);
+    ctx.fillStyle = 'rgba(60, 48, 34, 0.5)';
+    ctx.font = `5px ${fonts.mono}`;
+    ctx.textAlign = 'right';
+    ctx.fillText('11/18', x + w - 4, y + h - 3);
   }
+  // 一枚订书钉，压在左上角
+  ctx.strokeStyle = 'rgba(196, 202, 206, 0.55)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(x + 6, y + 5);
+  ctx.lineTo(x + 12, y + 9);
+  ctx.moveTo(x + 12, y + 5);
+  ctx.lineTo(x + 6, y + 9);
+  ctx.stroke();
   ctx.strokeStyle = 'rgba(120, 112, 98, 0.32)';
   ctx.lineWidth = 0.7;
   ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
